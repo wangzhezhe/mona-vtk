@@ -4,9 +4,11 @@
 #include <vtkParallelMPIModule.h> // For export macro
 #include <vtkCommunicator.h>
 
+
 class MonaController;
 class vtkProcessGroup;
 
+class MPICommunicatorOpaqueComm;
 class MonaCommunicatorOpaqueComm;
 class MonaCommunicatorOpaqueRequest;
 class MonaCommunicatorReceiveDataInfo;
@@ -228,9 +230,14 @@ public:
 
   friend class MonaController;
 
-  MonaCommunicatorOpaqueComm *GetMPIComm()
+  MPICommunicatorOpaqueComm *GetMPIComm()
   {
     return this->MPIComm;
+  }
+
+  MonaCommunicatorOpaqueComm *GetMonaComm()
+  {
+    return this->MonaComm;
   }
 
   int InitializeExternal(MonaCommunicatorOpaqueComm *comm);
@@ -304,7 +311,8 @@ protected:
     char *data, int length, int sizeoftype, int remoteProcessId, int tag,
     MonaCommunicatorReceiveDataInfo *info, int useCopy, int &senderId);
 
-  MonaCommunicatorOpaqueComm* MPIComm;
+    MPICommunicatorOpaqueComm* MPIComm;
+    MonaCommunicatorOpaqueComm* MonaComm;
 
   int Initialized;
   int KeepHandle;

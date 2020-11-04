@@ -11,12 +11,15 @@
  #include "mpi.h"
 #endif
 
+#include <mona.h>
+#include <mona-coll.h>
+
 #include "vtkSystemIncludes.h"
 
-class /* VTKPARALLELMPI_EXPORT */ MonaCommunicatorOpaqueComm
+class /* VTKPARALLELMPI_EXPORT */ MPICommunicatorOpaqueComm
 {
 public:
-  MonaCommunicatorOpaqueComm(MPI_Comm* handle = 0);
+  MPICommunicatorOpaqueComm(MPI_Comm* handle = 0);
 
   MPI_Comm* GetHandle();
 
@@ -25,6 +28,21 @@ public:
 
 protected:
   MPI_Comm* Handle;
+};
+
+
+class /* VTKPARALLELMPI_EXPORT */ MonaCommunicatorOpaqueComm
+{
+public:
+  MonaCommunicatorOpaqueComm(mona_comm_t handle = 0);
+
+  mona_comm_t GetHandle();
+
+  friend class MonaCommunicator;
+  friend class MonaController;
+
+protected:
+  mona_comm_t Handle;
 };
 
 class /*VTKPARALLELMPI_EXPORT */ MonaCommunicatorReceiveDataInfo
