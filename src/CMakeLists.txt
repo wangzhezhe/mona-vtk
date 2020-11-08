@@ -3,7 +3,7 @@ set(mona-vtk-src MonaCommunicator.cpp
                   MonaController.cpp
                   MonaUtilities.cpp)
 
-#set(mona-icet-src icet/colza.cpp)
+set(mona-icet-src icet/mona.cpp)
 
 # load package helper for generating cmake CONFIG packages
 include (CMakePackageConfigHelpers)
@@ -34,8 +34,9 @@ set_target_properties (mona-vtk
     PROPERTIES VERSION ${MOCHIVTK_VERSION}
     SOVERSION ${MOCHIVTK_VERSION_MAJOR})
 
-#add_library(mona-vtk-icet ${mona-icet-src})
-#target_link_libraries (mona-vtk-icet colza ParaView::icet)
+add_library(mona-vtk-icet ${mona-icet-src})
+# use the icet that is build by the paraview
+target_link_libraries (mona-vtk-icet mona ParaView::icet)
 
 # for shared libs, establish the lib version
 #set_target_properties (mona-vtk-icet

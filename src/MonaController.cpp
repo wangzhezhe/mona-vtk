@@ -68,7 +68,7 @@ void MonaController::CreateOutputWindow()
 vtkStandardNewMacro(MonaController);
 
 //----------------------------------------------------------------------------
-
+/*
 MonaController::MonaController()
 {
   std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
@@ -85,7 +85,8 @@ MonaController::MonaController()
 
   this->OutputWindow = 0;
 }
-/*
+*/
+
 MonaController::MonaController()
 {
   std::cout << "replaced, mochiContorller call function: " << __FUNCTION__ << std::endl;
@@ -95,15 +96,16 @@ MonaController::MonaController()
     this->InitializeCommunicator(MonaCommunicator::GetWorldCommunicator());
     // Copy MonaController::WorldRMICommunicataor which is created when
     // MPI is initialized
-    MonaCommunicator* comm = MonaCommunicator::New();
+    // MonaCommunicator* comm = MonaCommunicator::New();
     // copy the shared pointer point to the same ColzaComm
-    comm->CopyFrom(MonaController::WorldRMICommunicator);
-    this->RMICommunicator = comm;
+    // comm->CopyFrom(MonaController::WorldRMICommunicator);
+    // TODO, consider the RMICommunicator when it is needed
+    this->RMICommunicator = NULL;
   }
 
   this->OutputWindow = 0;
 }
-*/
+
 //----------------------------------------------------------------------------
 MonaController::~MonaController()
 {
@@ -148,12 +150,12 @@ void MonaController::TriggerRMIInternal(
 //----------------------------------------------------------------------------
 void MonaController::Initialize()
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
   this->Initialize(0, 0, 1);
 }
 
 //----------------------------------------------------------------------------
-
+/*
 void MonaController::Initialize(int* argc, char*** argv, int initializedExternally)
 {
   std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
@@ -187,8 +189,8 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
 
   this->Modified();
 }
+*/
 
-/*
 void MonaController::Initialize(int* argc, char*** argv, int initializedExternally)
 {
   std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
@@ -202,9 +204,11 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
   MonaController::Initialized = 1;
   if (initializedExternally == 0)
   {
-    // try to remove this when MPI is not used when init the colza
+    // the mpi is needed to bootstrap the mona
     MPI_Init(argc, argv);
   }
+  //the actual operations to create the mona comm
+  //and register it into the controller
   this->InitializeCommunicator(MonaCommunicator::GetWorldCommunicator());
 
   // try to remove this when MPI is not used when init the colza
@@ -216,19 +220,23 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
   // because for this to work, all processes have to call
   // MPI_Comm_dup and this is the only method which is
   // guaranteed to be called by all processes.
-
-  MonaController::WorldRMICommunicator = MonaCommunicator::New();
+  
+  // TODO? set it as GetWorldCommunicator or null currently
+  // consider this thing when the RMICommunicator will be used actually
+  // create the WorldRMICommunicator
+  MonaController::WorldRMICommunicator = NULL;
 
   // set the necessary info into the new communicator
-  ((MonaCommunicator*)(this->Communicator))->Duplicate(MonaController::WorldRMICommunicator);
+  // ((MonaCommunicator*)(this->Communicator))->Duplicate(MonaController::WorldRMICommunicator);
 
-  this->RMICommunicator = MonaController::WorldRMICommunicator;
+  this->RMICommunicator = NULL;
   // Since we use Delete to get rid of the reference, we should use nullptr to
   // register.
-  this->RMICommunicator->Register(nullptr);
+  // TODO, consider RMICommunicator in future
+  // this->RMICommunicator->Register(nullptr);
   this->Modified();
 }
-*/
+
 
 const char* MonaController::GetProcessorName()
 {
@@ -268,7 +276,7 @@ void MonaController::Finalize(int finalizedExternally)
 // during construction).
 void MonaController::InitializeCommunicator(MonaCommunicator* comm)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
   if (this->Communicator != comm)
   {
     if (this->Communicator != 0)
@@ -320,12 +328,21 @@ void MonaController::InitializeRMICommunicator()
   }
 }
 */
-
+/*
 void MonaController::SetCommunicator(MonaCommunicator* comm)
 {
   std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
   this->InitializeCommunicator(comm);
   this->InitializeRMICommunicator();
+}
+*/
+
+void MonaController::SetCommunicator(MonaCommunicator* comm)
+{
+  std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
+  this->InitializeCommunicator(comm);
+  //TODO consider RMI communication in future
+  //this->InitializeRMICommunicator();
 }
 
 //----------------------------------------------------------------------------

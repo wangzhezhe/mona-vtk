@@ -17,6 +17,7 @@ other depedencies:
 ```
 spack install mochi-mona@master
 ```
+
 # Build
 
 this is an example about the configuration on cori

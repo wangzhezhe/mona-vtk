@@ -43,7 +43,6 @@ vtkStandardNewMacro(MonaCommunicator);
 
 MonaCommunicator* MonaCommunicator::WorldCommunicator = 0;
 
-
 MPICommunicatorOpaqueComm::MPICommunicatorOpaqueComm(MPI_Comm* handle)
 {
   std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
@@ -283,7 +282,7 @@ inline int MonaCommunicatorCheckSize(vtkIdType length)
 }
 
 //----------------------------------------------------------------------------
-
+/*
 template <class T>
 int MonaCommunicatorSendData(const T* data, int length, int sizeoftype, int remoteProcessId,
   int tag, MPI_Datatype datatype, MPI_Comm* Handle, int useCopy, int useSsend)
@@ -318,11 +317,11 @@ int MonaCommunicatorSendData(const T* data, int length, int sizeoftype, int remo
     }
   }
 }
+*/
 
-/*
 template <class T>
 int MonaCommunicatorSendData(const T* data, int length, int sizeoftype, int remoteProcessId,
-  int tag, std::shared_ptr<colza::communicator> ColzaComm, int useCopy, int useSsend)
+  int tag, mona_comm_t monacomm, int useCopy, int useSsend)
 {
   std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
   int retStatus;
@@ -330,20 +329,21 @@ int MonaCommunicatorSendData(const T* data, int length, int sizeoftype, int remo
   {
     char* tmpData = MonaCommunicator::Allocate(length * sizeoftype);
     memcpy(tmpData, data, length * sizeoftype);
-
-    retStatus = ColzaComm->send(tmpData, length * sizeoftype, remoteProcessId, tag);
+    // execute mona comm send
+    mona_comm_send(monacomm, tmpData, length * sizeoftype, remoteProcessId, tag);
     MonaCommunicator::Free(tmpData);
     return retStatus;
   }
   else
   {
-    retStatus = ColzaComm->send(const_cast<T*>(data), length * sizeoftype, remoteProcessId, tag);
+    retStatus =
+      mona_comm_send(monacomm, const_cast<T*>(data), length * sizeoftype, remoteProcessId, tag);
     return retStatus;
   }
 }
-*/
-//----------------------------------------------------------------------------
 
+//----------------------------------------------------------------------------
+/*
 int MonaCommunicator::ReceiveDataInternal(char* data, int length, int sizeoftype,
   int remoteProcessId, int tag, MonaCommunicatorReceiveDataInfo* info, int useCopy, int& senderId)
 {
@@ -375,11 +375,10 @@ int MonaCommunicator::ReceiveDataInternal(char* data, int length, int sizeoftype
   }
   return retVal;
 }
+*/
 
-/*
 int MonaCommunicator::ReceiveDataInternal(char* data, int length, int sizeoftype,
-  int remoteProcessId, int tag, std::shared_ptr<colza::communicator> ColzaComm, int useCopy,
-  int& senderId)
+  int remoteProcessId, int tag, mona_comm_t monacomm, int useCopy, int& senderId)
 {
   std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
 
@@ -394,16 +393,17 @@ int MonaCommunicator::ReceiveDataInternal(char* data, int length, int sizeoftype
   if (useCopy)
   {
     char* tmpData = MonaCommunicator::Allocate(length * sizeoftype);
-
-    //void *data, size_t size, int src, int tag
-
-    retVal = ColzaComm->recv(tmpData, length * sizeoftype, remoteProcessId, tag);
+    na_size_t recv_size;
+    retVal = mona_comm_recv(
+      monacomm, tmpData, length * sizeoftype, remoteProcessId, tag, &recv_size, NULL, NULL);
     memcpy(data, tmpData, length * sizeoftype);
     MonaCommunicator::Free(tmpData);
   }
   else
   {
-    retVal = ColzaComm->recv(data, length * sizeoftype, remoteProcessId, tag);
+    na_size_t recv_size;
+    retVal = mona_comm_recv(
+      monacomm, data, length * sizeoftype, remoteProcessId, tag, &recv_size, NULL, NULL);
   }
 
   if (retVal == 0)
@@ -412,7 +412,7 @@ int MonaCommunicator::ReceiveDataInternal(char* data, int length, int sizeoftype
   }
   return retVal;
 }
-*/
+
 //----------------------------------------------------------------------------
 template <class T>
 int MonaCommunicatorNoBlockSendData(const T* data, int length, int remoteProcessId, int tag,
@@ -562,12 +562,50 @@ MonaCommunicator* MonaCommunicator::GetWorldCommunicator()
     // init mona comm
     ABT_init(0, NULL);
     mona_instance_t mona = mona_init("ofi+tcp", NA_TRUE, NULL);
-    
-    // caculate num_procs and other_addr
 
+    // caculate num_procs and other addr
+    // mona need init all the communicators based on MPI
+    int ret;
+    na_addr_t self_addr;
+    ret = mona_addr_self(mona, &self_addr);
+    if (ret != 0)
+    {
+      throw std::runtime_error("failed to get mona self addr");
+      return NULL;
+    }
+    char self_addr_str[128];
+    na_size_t self_addr_size = 128;
+    ret = mona_addr_to_string(mona, self_addr_str, &self_addr_size, self_addr);
+    if (ret != 0)
+    {
+      throw std::runtime_error("failed to execute mona_addr_to_string");
+      return NULL;
+    }
 
+    int num_procs;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
+    char* other_addr_str = (char*)malloc(128 * num_procs);
+
+    MPI_Allgather(self_addr_str, 128, MPI_BYTE, other_addr_str, 128, MPI_BYTE, MPI_COMM_WORLD);
+
+    na_addr_t* other_addr = (na_addr_t*)malloc(num_procs * sizeof(*other_addr));
+
+    int i;
+    for (i = 0; i < num_procs; i++)
+    {
+      ret = mona_addr_lookup(mona, other_addr_str + 128 * i, other_addr + i);
+      if (ret != 0)
+      {
+        throw std::runtime_error("failed to execute mona_addr_lookup");
+        return NULL;
+      }
+    }
+    free(other_addr_str);
+
+    // create the mona_comm based on the other_addr
     mona_comm_t mona_comm;
-    int ret = mona_comm_create(mona, num_procs, other_addr, &mona_comm);
+    ret = mona_comm_create(mona, num_procs, other_addr, &mona_comm);
     if (ret != 0)
     {
       throw std::runtime_error("failed to init mona");
@@ -925,7 +963,7 @@ int MonaCommunicator::InitializeNumberOfProcesses()
   int ret;
   this->Modified();
   mona_comm_t mona_comm = this->MonaComm->Handle;
-  //get size and rank
+  // get size and rank
   int size, rank;
   ret = mona_comm_size(mona_comm, &size);
   if (ret != 0)
@@ -1044,7 +1082,7 @@ int MonaCommunicator::CheckForMPIError(int err)
 }
 
 //-----------------------------------------------------------------------------
-
+/*
 int MonaCommunicator::SendVoidArray(
   const void* data, vtkIdType length, int type, int remoteProcessId, int tag)
 {
@@ -1076,7 +1114,8 @@ int MonaCommunicator::SendVoidArray(
   return CheckForMPIError(MonaCommunicatorSendData(byteData, length, sizeOfType, remoteProcessId,
     tag, mpiType, this->MPIComm->Handle, vtkCommunicator::UseCopy, this->UseSsend));
 }
-/*
+*/
+
 int MonaCommunicator::SendVoidArray(
   const void* data, vtkIdType length, int type, int remoteProcessId, int tag)
 {
@@ -1098,7 +1137,7 @@ int MonaCommunicator::SendVoidArray(
   while (length >= maxSend)
   {
     status = MonaCommunicatorSendData(byteData, maxSend, sizeOfType, remoteProcessId, tag,
-      this->ColzaComm, vtkCommunicator::UseCopy, this->UseSsend);
+      this->MonaComm->Handle, vtkCommunicator::UseCopy, this->UseSsend);
     if (status != 0)
     {
       // Failed to send.
@@ -1109,15 +1148,17 @@ int MonaCommunicator::SendVoidArray(
     length -= maxSend;
   }
   status = MonaCommunicatorSendData(byteData, length, sizeOfType, remoteProcessId, tag,
-    this->ColzaComm, vtkCommunicator::UseCopy, this->UseSsend);
-  if(status==0){
+    this->MonaComm->Handle, vtkCommunicator::UseCopy, this->UseSsend);
+  if (status == 0)
+  {
     return true;
-  }else{
+  }
+  else
+  {
     return false;
   }
-
 }
-*/
+
 //-----------------------------------------------------------------------------
 inline vtkIdType MonaCommunicatorMin(vtkIdType a, vtkIdType b)
 {
@@ -1125,7 +1166,7 @@ inline vtkIdType MonaCommunicatorMin(vtkIdType a, vtkIdType b)
 }
 
 //-----------------------------------------------------------------------------
-
+/*
 int MonaCommunicator::ReceiveVoidArray(
   void* data, vtkIdType maxlength, int type, int remoteProcessId, int tag)
 {
@@ -1178,8 +1219,8 @@ int MonaCommunicator::ReceiveVoidArray(
   }
   return 0;
 }
+*/
 
-/*
 int MonaCommunicator::ReceiveVoidArray(
   void* data, vtkIdType maxlength, int type, int remoteProcessId, int tag)
 {
@@ -1203,11 +1244,14 @@ int MonaCommunicator::ReceiveVoidArray(
   // that when the sending exactly maxReceive length message, it is split into 2
   // packets of sizes maxReceive and 0 respectively).
   int maxReceive = VTK_INT_MAX;
-  MonaCommunicatorReceiveDataInfo info;
+  
+  //TODO, use the communicator info when it is necessary
+  //there are not enough type and status information in mona currently
+  //MonaCommunicatorReceiveDataInfo info;
 
   while (
     this->ReceiveDataInternal(byteData, MonaCommunicatorMin(maxlength, maxReceive), sizeOfType,
-      remoteProcessId, tag, this->ColzaComm, vtkCommunicator::UseCopy, this->LastSenderId) == 0)
+      remoteProcessId, tag, this->MonaComm->Handle, vtkCommunicator::UseCopy, this->LastSenderId) == 0)
   {
     remoteProcessId = this->LastSenderId;
     // TODO, add check, assume all words are recieved
@@ -1232,7 +1276,7 @@ int MonaCommunicator::ReceiveVoidArray(
   }
   return 0;
 }
-*/
+
 //----------------------------------------------------------------------------
 int MonaCommunicator::NoBlockSend(
   const int* data, int length, int remoteProcessId, int tag, Request& req)

@@ -3,7 +3,7 @@
 
 #include <vtkParallelMPIModule.h> // For export macro
 #include <vtkCommunicator.h>
-
+#include "Mona.hpp"
 
 class MonaController;
 class vtkProcessGroup;
@@ -307,9 +307,15 @@ protected:
   /**
    * Implementation for receive data.
    */
+  //virtual int ReceiveDataInternal(
+  //  char *data, int length, int sizeoftype, int remoteProcessId, int tag,
+  //  MonaCommunicatorReceiveDataInfo *info, int useCopy, int &senderId);
+  // TODO, use the MonaCommunicatorReceiveDataInfo to wrap the mona comm 
+  // when there is complete support about the mona type and status
   virtual int ReceiveDataInternal(
     char *data, int length, int sizeoftype, int remoteProcessId, int tag,
-    MonaCommunicatorReceiveDataInfo *info, int useCopy, int &senderId);
+    mona_comm_t monacomm, int useCopy, int &senderId);
+
 
     MPICommunicatorOpaqueComm* MPIComm;
     MonaCommunicatorOpaqueComm* MonaComm;

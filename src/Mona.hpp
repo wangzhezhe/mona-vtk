@@ -45,10 +45,10 @@ protected:
   mona_comm_t Handle;
 };
 
-class /*VTKPARALLELMPI_EXPORT */ MonaCommunicatorReceiveDataInfo
+class /*VTKPARALLELMPI_EXPORT */ MPICommunicatorReceiveDataInfo
 {
 public:
-  MonaCommunicatorReceiveDataInfo()
+  MPICommunicatorReceiveDataInfo()
   {
     this->Handle=0;
   }
@@ -63,6 +63,7 @@ public:
   MonaOpaqueFileHandle() : Handle(MPI_FILE_NULL) { }
   MPI_File Handle;
 };
+
 
 //-----------------------------------------------------------------------------
 class MonaCommunicatorOpaqueRequest
