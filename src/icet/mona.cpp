@@ -1,5 +1,6 @@
 #include <IceT.h>
 #include <IceTDevDiagnostics.h>
+#include <iostream>
 #include <mona-coll.h>
 #include <mona.h>
 #include <stdexcept>
@@ -7,11 +8,11 @@
 #include <string.h>
 #include <vector>
 
-#define ICET_MONA_BARRIER_TAG 11
-#define ICET_MONA_GATHER_TAG 22
-#define ICET_MONA_GATHERV_TAG 33
-#define ICET_MONA_ALLGATHER_TAG 44
-#define ICET_MONA_ALLTOALL_TAG 55
+#define ICET_MONA_BARRIER_TAG 11111
+#define ICET_MONA_GATHER_TAG 22222
+#define ICET_MONA_GATHERV_TAG 33333
+#define ICET_MONA_ALLGATHER_TAG 44444
+#define ICET_MONA_ALLTOALL_TAG 55555
 
 #define ICET_MONA_REQUEST_MAGIC_NUMBER ((IceTEnum)0x636f6c7a)
 
@@ -56,14 +57,12 @@ static mona_request_t getMonaRequest(IceTCommRequest icet_request)
 {
   if (icet_request == ICET_COMM_REQUEST_NULL)
   {
-    mona_request_t req;
-    return req;
+    return MONA_REQUEST_NULL;
   }
   if (icet_request->magic_number != ICET_MONA_REQUEST_MAGIC_NUMBER)
   {
     icetRaiseError(ICET_INVALID_VALUE, "Request object is not from the MPI communicator.");
-    mona_request_t req;
-    return req;
+    return MONA_REQUEST_NULL;
   }
 
   return (((IceTMonaCommRequestInternals)icet_request->internals)->request);
@@ -101,7 +100,7 @@ static IceTCommRequest create_request(void)
   {
     free(request);
     icetRaiseError(ICET_OUT_OF_MEMORY, "Could not allocate memory for IceTCommRequest");
-    return NULL;
+    return nullptr;
   }
   return request;
 }
@@ -159,7 +158,7 @@ IceTCommunicator icetCreateMonaCommunicator(const mona_comm_t mona_comm)
 
 void icetDestroyMonaCommunicator(IceTCommunicator comm)
 {
-  if (!comm)
+  if (comm)
   {
     comm->Destroy(comm);
   }
@@ -185,15 +184,18 @@ static IceTCommunicator MonaDuplicate(IceTCommunicator self)
 
 static IceTCommunicator MonaSubset(IceTCommunicator self, int count, const IceTInt32* ranks)
 {
+
   IceTCommunicator result;
   auto comm = MONA_COMM;
   decltype(comm) subset_comm;
   mona_comm_subset(comm, ranks, count, &subset_comm);
+
   return icetCreateMonaCommunicator(subset_comm);
 }
 
 static void MonaDestroy(IceTCommunicator self)
 {
+
   auto comm = MONA_COMM;
   mona_comm_free(comm);
   free(self);
@@ -201,6 +203,7 @@ static void MonaDestroy(IceTCommunicator self)
 
 static void MonaBarrier(IceTCommunicator self)
 {
+
   auto comm = MONA_COMM;
   mona_comm_barrier(comm, ICET_MONA_BARRIER_TAG);
 }
@@ -236,6 +239,7 @@ static void MonaBarrier(IceTCommunicator self)
 static void MonaSend(
   IceTCommunicator self, const void* buf, int count, IceTEnum datatype, int dest, int tag)
 {
+
   auto comm = MONA_COMM;
   size_t typesize;
   GET_DATATYPE_SIZE(datatype, typesize);
@@ -245,12 +249,17 @@ static void MonaSend(
     throw std::runtime_error("send should not be null");
     return;
   }
-  mona_comm_send(comm, (void*)buf, count * typesize, dest, tag);
+  na_return_t ret = mona_comm_send(comm, (void*)buf, count * typesize, dest, tag);
+  if (ret != NA_SUCCESS)
+  {
+    throw std::runtime_error("failed for MonaSend");
+  }
 }
 
 static void MonaRecv(
   IceTCommunicator self, void* buf, int count, IceTEnum datatype, int src, int tag)
 {
+
   auto comm = MONA_COMM;
   size_t typesize;
   GET_DATATYPE_SIZE(datatype, typesize);
@@ -260,13 +269,18 @@ static void MonaRecv(
     throw std::runtime_error("recv should not be null");
     return;
   }
-  mona_comm_recv(comm, (void*)buf, count * typesize, src, tag, NULL, NULL, NULL);
+  na_return_t ret = mona_comm_recv(comm, (void*)buf, count * typesize, src, tag, NULL, NULL, NULL);
+  if (ret != NA_SUCCESS)
+  {
+    throw std::runtime_error("failed for MonaSend");
+  }
 }
 
 static void MonaSendrecv(IceTCommunicator self, const void* sendbuf, int sendcount,
   IceTEnum sendtype, int dest, int sendtag, void* recvbuf, int recvcount, IceTEnum recvtype,
   int src, int recvtag)
 {
+
   auto comm = MONA_COMM;
 
   size_t sendtypesize;
@@ -286,6 +300,7 @@ static void MonaSendrecv(IceTCommunicator self, const void* sendbuf, int sendcou
 static void MonaGather(IceTCommunicator self, const void* sendbuf, int sendcount, IceTEnum datatype,
   void* recvbuf, int root)
 {
+
   auto comm = MONA_COMM;
   size_t typesize;
   GET_DATATYPE_SIZE(datatype, typesize);
@@ -297,10 +312,25 @@ static void MonaGather(IceTCommunicator self, const void* sendbuf, int sendcount
   mona_comm_gather(comm, sendbuf, sendcount * typesize, recvbuf, root, ICET_MONA_GATHER_TAG);
 }
 
+/*
+special icet_t test case
+rank 0 call gatherv ICET_IN_PLACE_COLLECT root 0
+rank 0 0 recvsize_sizet 3145728 recvoffsets 0
+rank 0 1 recvsize_sizet 0 recvoffsets 0
+rank 0 2 recvsize_sizet 0 recvoffsets 0
+rank 0 3 recvsize_sizet 0 recvoffsets 0
+rank 0 sendsize 3145728
+*/
 static void MonaGatherv(IceTCommunicator self, const void* sendbuf, int sendcount,
   IceTEnum datatype, void* recvbuf, const int* recvcounts, const int* recvoffsets, int root)
 {
+
   auto comm = MONA_COMM;
+  int size, rank;
+
+  mona_comm_size(comm, &size);
+  mona_comm_rank(comm, &rank);
+
   size_t typesize;
   GET_DATATYPE_SIZE(datatype, typesize);
 
@@ -309,31 +339,26 @@ static void MonaGatherv(IceTCommunicator self, const void* sendbuf, int sendcoun
     sendbuf = MONA_IN_PLACE;
   }
 
-  int size, rank;
-
-  mona_comm_size(comm, &size);
-  mona_comm_rank(comm, &rank);
-
-  std::vector<size_t> recvcounts_sizet(rank == root ? size : 0);
+  std::vector<size_t> recvsize_sizet(rank == root ? size : 0);
   std::vector<size_t> recvoffsets_sizet(rank == root ? size : 0);
 
   if (rank == root)
   {
     for (unsigned i = 0; i < size; i++)
     {
-      recvcounts_sizet[i] = recvcounts[i];
+      recvsize_sizet[i] = recvcounts[i]*typesize;
       recvoffsets_sizet[i] = recvoffsets[i];
     }
   }
-  bool ifinplace = (sendbuf == MONA_IN_PLACE);
 
-  mona_comm_gatherv(comm, sendbuf, sendcount * typesize, recvbuf, recvcounts_sizet.data(),
+  mona_comm_gatherv(comm, sendbuf, sendcount * typesize, recvbuf, recvsize_sizet.data(),
     recvoffsets_sizet.data(), root, ICET_MONA_GATHERV_TAG);
 }
 
 static void MonaAllgather(
   IceTCommunicator self, const void* sendbuf, int sendcount, IceTEnum datatype, void* recvbuf)
 {
+
   auto comm = MONA_COMM;
   size_t typesize;
   GET_DATATYPE_SIZE(datatype, typesize);
@@ -342,12 +367,19 @@ static void MonaAllgather(
   {
     sendbuf = MONA_IN_PLACE;
   }
-  mona_comm_allgather(comm, sendbuf, sendcount * typesize, recvbuf, ICET_MONA_ALLGATHER_TAG);
+  na_return_t ret =
+    mona_comm_allgather(comm, sendbuf, sendcount * typesize, recvbuf, ICET_MONA_ALLGATHER_TAG);
+  if (ret != NA_SUCCESS)
+  {
+    throw std::runtime_error("failed for mona_comm_allgather");
+    return;
+  }
 }
 
 static void MonaAlltoall(
   IceTCommunicator self, const void* sendbuf, int sendcount, IceTEnum datatype, void* recvbuf)
 {
+
   auto comm = MONA_COMM;
   size_t typesize;
   GET_DATATYPE_SIZE(datatype, typesize);
@@ -356,12 +388,19 @@ static void MonaAlltoall(
     throw std::runtime_error("alltoall should not be null");
     return;
   }
-  mona_comm_alltoall(comm, sendbuf, sendcount * typesize, recvbuf, ICET_MONA_ALLTOALL_TAG);
+  na_return_t ret =
+    mona_comm_alltoall(comm, sendbuf, sendcount * typesize, recvbuf, ICET_MONA_ALLTOALL_TAG);
+  if (ret != NA_SUCCESS)
+  {
+    throw std::runtime_error("failed for mona_comm_alltoall");
+    return;
+  }
 }
 
 static IceTCommRequest MonaIsend(
   IceTCommunicator self, const void* buf, int count, IceTEnum datatype, int dest, int tag)
 {
+
   auto comm = MONA_COMM;
   IceTCommRequest icet_request;
   mona_request_t req;
@@ -372,7 +411,12 @@ static IceTCommRequest MonaIsend(
     throw std::runtime_error("isend should not be null");
     return icet_request;
   }
-  mona_comm_isend(comm, buf, count * typesize, dest, tag, &req);
+  na_return_t ret = mona_comm_isend(comm, buf, count * typesize, dest, tag, &req);
+  if (ret != NA_SUCCESS)
+  {
+    throw std::runtime_error("failed for mona_comm_isend");
+    return icet_request;
+  }
   icet_request = create_request();
   setMonaRequest(icet_request, req);
 
@@ -382,12 +426,18 @@ static IceTCommRequest MonaIsend(
 static IceTCommRequest MonaIrecv(
   IceTCommunicator self, void* buf, int count, IceTEnum datatype, int src, int tag)
 {
+
   auto comm = MONA_COMM;
   IceTCommRequest icet_request;
   mona_request_t req;
   size_t typesize;
   GET_DATATYPE_SIZE(datatype, typesize);
-  mona_comm_irecv(comm, buf, count * typesize, src, tag, NULL, NULL, NULL, &req);
+  na_return_t ret = mona_comm_irecv(comm, buf, count * typesize, src, tag, NULL, NULL, NULL, &req);
+  if (ret != NA_SUCCESS)
+  {
+    throw std::runtime_error("failed for mona_comm_irecv");
+    return icet_request;
+  }
   icet_request = create_request();
   if (buf == nullptr)
   {
@@ -401,6 +451,7 @@ static IceTCommRequest MonaIrecv(
 
 static void MonaWaitone(IceTCommunicator self, IceTCommRequest* icet_request)
 {
+
   mona_request_t req;
   auto comm = MONA_COMM;
 
@@ -408,6 +459,7 @@ static void MonaWaitone(IceTCommunicator self, IceTCommRequest* icet_request)
     return;
 
   req = getMonaRequest(*icet_request);
+
   mona_wait(req);
 
   destroy_request(*icet_request);
@@ -426,7 +478,12 @@ static int MonaWaitany(IceTCommunicator self, int count, IceTCommRequest* array_
   }
 
   size_t index;
-  mona_wait_any(count,reqs.data(),&index);
+  na_return_t ret = mona_wait_any(count, reqs.data(), &index);
+
+  if (ret != NA_SUCCESS)
+  {
+    throw std::runtime_error("not success for wait any");
+  }
 
   destroy_request(array_of_requests[index]);
   array_of_requests[index] = ICET_COMM_REQUEST_NULL;
@@ -436,16 +493,21 @@ static int MonaWaitany(IceTCommunicator self, int count, IceTCommRequest* array_
 
 static int MonaComm_size(IceTCommunicator self)
 {
+
   auto comm = MONA_COMM;
   int size;
   mona_comm_size(comm, &size);
+
   return size;
 }
 
 static int MonaComm_rank(IceTCommunicator self)
 {
+
   auto comm = MONA_COMM;
   int rank;
   mona_comm_rank(comm, &rank);
+
   return rank;
 }
+
