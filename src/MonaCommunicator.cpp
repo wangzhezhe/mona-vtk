@@ -43,6 +43,12 @@ vtkStandardNewMacro(MonaCommunicator);
 
 MonaCommunicator* MonaCommunicator::WorldCommunicator = 0;
 
+#define MONA_COMM_BARRIER_TAG 1000
+#define MONA_COMM_BCAST_TAG 1001
+#define MONA_COMM_GATHER_TAG 1002
+#define MONA_COMM_REDUCE_TAG 1003
+#define MONA_COMM_ALLREDUCE_TAG 1004
+
 MPICommunicatorOpaqueComm::MPICommunicatorOpaqueComm(MPI_Comm* handle)
 {
   std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
@@ -1244,14 +1250,14 @@ int MonaCommunicator::ReceiveVoidArray(
   // that when the sending exactly maxReceive length message, it is split into 2
   // packets of sizes maxReceive and 0 respectively).
   int maxReceive = VTK_INT_MAX;
-  
-  //TODO, use the communicator info when it is necessary
-  //there are not enough type and status information in mona currently
-  //MonaCommunicatorReceiveDataInfo info;
 
-  while (
-    this->ReceiveDataInternal(byteData, MonaCommunicatorMin(maxlength, maxReceive), sizeOfType,
-      remoteProcessId, tag, this->MonaComm->Handle, vtkCommunicator::UseCopy, this->LastSenderId) == 0)
+  // TODO, use the communicator info when it is necessary
+  // there are not enough type and status information in mona currently
+  // MonaCommunicatorReceiveDataInfo info;
+
+  while (this->ReceiveDataInternal(byteData, MonaCommunicatorMin(maxlength, maxReceive), sizeOfType,
+           remoteProcessId, tag, this->MonaComm->Handle, vtkCommunicator::UseCopy,
+           this->LastSenderId) == 0)
   {
     remoteProcessId = this->LastSenderId;
     // TODO, add check, assume all words are recieved
@@ -1500,7 +1506,7 @@ void MonaCommunicator::Barrier()
 }
 
 //----------------------------------------------------------------------------
-
+/*
 int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type, int root)
 {
   std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
@@ -1510,8 +1516,8 @@ int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type,
   return CheckForMPIError(
     MPI_Bcast(data, length, MonaCommunicatorGetMPIType(type), root, *this->MPIComm->Handle));
 }
+*/
 
-/*
 int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type, int root)
 {
   std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
@@ -1529,24 +1535,28 @@ int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type,
       break;
   }
   // barrier
-  int status;
-  status = this->ColzaComm->barrier();
-  if (status != 0)
+  auto mona_comm = this->MonaComm->GetHandle();
+  na_return_t status = mona_comm_barrier(mona_comm, MONA_COMM_BARRIER_TAG);
+  if (status != NA_SUCCESS)
   {
     std::cerr << "failed for barrier in " << __FUNCTION__ << std::endl;
     return -1;
   }
   size_t dataSize = sizeOfType * length;
-  status = this->ColzaComm->bcast(data, dataSize, root);
-    if(status==0){
+
+  status = mona_comm_bcast(mona_comm, data, dataSize, root, MONA_COMM_BCAST_TAG);
+  if (status == NA_SUCCESS)
+  {
     return true;
-  }else{
+  }
+  else
+  {
     return false;
   }
 }
-*/
-//-----------------------------------------------------------------------------
 
+//-----------------------------------------------------------------------------
+/*
 int MonaCommunicator::GatherVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int destProcessId)
 {
@@ -1560,8 +1570,8 @@ int MonaCommunicator::GatherVoidArray(
   return CheckForMPIError(MPI_Gather(const_cast<void*>(sendBuffer), length, mpiType, recvBuffer,
     length, mpiType, destProcessId, *this->MPIComm->Handle));
 }
+*/
 
-/*
 int MonaCommunicator::GatherVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int destProcessId)
 {
@@ -1579,14 +1589,19 @@ int MonaCommunicator::GatherVoidArray(
   }
 
   size_t dataSize = sizeOfType * length;
-  int status = this->ColzaComm->gather(sendBuffer, dataSize, recvBuffer, destProcessId);
-  if(status==0){
+  auto mona_comm = this->MonaComm->GetHandle();
+  na_return_t status = mona_comm_gather(
+    mona_comm, sendBuffer, dataSize, recvBuffer, destProcessId, MONA_COMM_GATHER_TAG);
+  if (status == NA_SUCCESS)
+  {
     return true;
-  }else{
+  }
+  else
+  {
     return false;
   }
 }
-*/
+
 //-----------------------------------------------------------------------------
 int MonaCommunicator::GatherVVoidArray(const void* sendBuffer, void* recvBuffer,
   vtkIdType sendLength, vtkIdType* recvLengths, vtkIdType* offsets, int type, int destProcessId)
@@ -1785,7 +1800,7 @@ int MonaCommunicator::AllGatherVVoidArray(const void* sendBuffer, void* recvBuff
 }
 
 //-----------------------------------------------------------------------------
-
+/*
 int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, vtkIdType length,
   int type, int operation, int destProcessId)
 {
@@ -1831,67 +1846,111 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
   return CheckForMPIError(MonaCommunicatorReduceData(
     sendBuffer, recvBuffer, length, type, mpiOp, destProcessId, this->MPIComm->Handle));
 }
+*/
 
-/*
 int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, vtkIdType length,
   int type, int operation, int destProcessId)
 {
   std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
   std::cout << "reduce length " << length << " datatype " << type << " operation type " << operation
-<< std::endl;
+            << std::endl;
+  auto mona_comm = this->MonaComm->GetHandle();
+  na_return_t status = mona_comm_barrier(mona_comm, MONA_COMM_BARRIER_TAG);
+  if (status != NA_SUCCESS)
+  {
+    std::cerr << "failed for barrier in " << __FUNCTION__ << std::endl;
+    return -1;
+  }
 
-  this->ColzaComm->barrier();
-  // get colza operation
-  colza::COLZA_Reduction_Op colzaOp;
+  // get mona operation
+  /*
+  vtk type: 6 operation: 0
+  vtk type: 3 operation: 0
+  vtk type: 11 operation: 0
+  vtk type: 17 vtk operation: 2
+  vtk type: 11 vtk operation: 1
+  vtk type: 11 vtk operation: 0
+
+  #define VTK_INT 6
+  #define VTK_UNSIGNED_CHAR 3
+  #define VTK_DOUBLE 11
+  #define VTK_UNSIGNED_LONG_LONG 17
+
+  operation
+  0 MAX_OP
+  1 MIN_OP
+  2 SUM_OP
+  */
+  // TODO use more flexible type transfer instead of hardcode it in future
+  size_t typesize;
+  mona_op_t monaop;
   switch (operation)
   {
     case MAX_OP:
-      colzaOp = colza::COLZA_Reduction_Op::MAX;
+      if (type == VTK_INT)
+      {
+        monaop = mona_op_max_i64;
+        typesize = sizeof(int64_t);
+      }
+      else if (type == VTK_UNSIGNED_CHAR)
+      {
+        monaop = mona_op_max_u8;
+        typesize = sizeof(unsigned char);
+      }
+      else if (type == VTK_DOUBLE)
+      {
+        monaop = mona_op_max_f64;
+        typesize = sizeof(double);
+      }
+      else
+      {
+        vtkWarningMacro(<< "operation number " << operation << " and type number " << type
+                        << " not supported.");
+      }
       break;
     case MIN_OP:
-      colzaOp = colza::COLZA_Reduction_Op::MIN;
+      if (type == VTK_DOUBLE)
+      {
+        monaop = mona_op_min_f64;
+        typesize = sizeof(double);
+      }
+      else
+      {
+        vtkWarningMacro(<< "operation number " << operation << " and type number " << type
+                        << " not supported.");
+      }
       break;
     case SUM_OP:
-      colzaOp = colza::COLZA_Reduction_Op::SUM;
+      if (type == VTK_UNSIGNED_LONG_LONG)
+      {
+        monaop = mona_op_sum_u64;
+        typesize = sizeof(uint64_t);
+      }
+      else
+      {
+        vtkWarningMacro(<< "operation number " << operation << " and type number " << type
+                        << " not supported.");
+      }
       break;
     default:
-      vtkWarningMacro(<< "Operation number " << colzaOp << " not supported.");
+      vtkWarningMacro(<< "Operation number " << operation << " not supported.");
       return 0;
   }
 
-  // get colza type and type size
-  uint32_t colzaType = MonaCommunicatorGetColzaType(type);
-  int sizeOfType;
-  switch (type)
-  {
-    vtkTemplateMacro(sizeOfType = sizeof(VTK_TT));
-    default:
-      vtkWarningMacro(<< "Invalid data type " << type);
-      sizeOfType = 1;
-      break;
-  }
+  status = mona_comm_reduce(mona_comm, sendBuffer, recvBuffer, typesize, length, monaop, NULL,
+    destProcessId, MONA_COMM_REDUCE_TAG);
 
-  // get the funcptr
-  colza::COLZA_Operation_Func funcptr = colza::get_ops_func(colzaOp, colzaType);
-  if (funcptr == nullptr)
+  if (status == NA_SUCCESS)
   {
-    std::cerr << "failed to get the operation by colza op: " << colzaOp
-              << " colza type: " << colzaType << std::endl;
-    return -1;
+    return true;
   }
-  int status =
-    this->ColzaComm->reduce(sendBuffer, recvBuffer, length, sizeOfType, funcptr, destProcessId);
-  if (status != 0)
+  else
   {
     std::cerr << "failed for reduce " << std::endl;
-  }
-  if(status==0){
-    return true;
-  }else{
     return false;
   }
 }
-*/
+
 //-----------------------------------------------------------------------------
 int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, vtkIdType length,
   int type, Operation* operation, int destProcessId)
@@ -1917,7 +1976,7 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
 }
 
 //-----------------------------------------------------------------------------
-
+/*
 int MonaCommunicator::AllReduceVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int operation)
 {
@@ -1963,66 +2022,95 @@ int MonaCommunicator::AllReduceVoidArray(
   return CheckForMPIError(MonaCommunicatorAllReduceData(
     sendBuffer, recvBuffer, length, type, mpiOp, this->MPIComm->Handle));
 }
+*/
 
-/*
 int MonaCommunicator::AllReduceVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int operation)
 {
   std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
-  this->ColzaComm->barrier();
-  std::cout << "allreduce length " << length << " datatype " << type << " operation type " <<
-operation << std::endl;
+  std::cout << "allreduce length " << length << " datatype " << type << " operation type "
+            << operation << std::endl;
+  // get comm
+  auto mona_comm = this->MonaComm->GetHandle();
+  // barrier
+  na_return_t status = mona_comm_barrier(mona_comm, MONA_COMM_BARRIER_TAG);
+  if (status != NA_SUCCESS)
+  {
+    std::cerr << "failed for barrier in " << __FUNCTION__ << std::endl;
+    return -1;
+  }
 
-  colza::COLZA_Reduction_Op colzaOp;
+  // get typesize and operator
+  na_size_t typesize;
+  mona_op_t monaop;
   switch (operation)
   {
     case MAX_OP:
-      colzaOp = colza::COLZA_Reduction_Op::MAX;
+      if (type == VTK_INT)
+      {
+        monaop = mona_op_max_i64;
+        typesize = sizeof(int64_t);
+      }
+      else if (type == VTK_UNSIGNED_CHAR)
+      {
+        monaop = mona_op_max_u8;
+        typesize = sizeof(unsigned char);
+      }
+      else if (type == VTK_DOUBLE)
+      {
+        monaop = mona_op_max_f64;
+        typesize = sizeof(double);
+      }
+      else
+      {
+        vtkWarningMacro(<< "operation number " << operation << " and type number " << type
+                        << " not supported.");
+      }
       break;
     case MIN_OP:
-      colzaOp = colza::COLZA_Reduction_Op::MIN;
+      if (type == VTK_DOUBLE)
+      {
+        monaop = mona_op_min_f64;
+        typesize = sizeof(double);
+      }
+      else
+      {
+        vtkWarningMacro(<< "operation number " << operation << " and type number " << type
+                        << " not supported.");
+      }
       break;
     case SUM_OP:
-      colzaOp = colza::COLZA_Reduction_Op::SUM;
+      if (type == VTK_UNSIGNED_LONG_LONG)
+      {
+        monaop = mona_op_sum_u64;
+        typesize = sizeof(uint64_t);
+      }
+      else
+      {
+        vtkWarningMacro(<< "operation number " << operation << " and type number " << type
+                        << " not supported.");
+      }
       break;
     default:
-      vtkWarningMacro(<< "Operation number " << colzaOp << " not supported.");
+      vtkWarningMacro(<< "Operation number " << operation << " not supported.");
       return 0;
   }
 
-  // get colza type and type size
-  uint32_t colzaType = MonaCommunicatorGetColzaType(type);
-  int sizeOfType;
-  switch (type)
-  {
-    vtkTemplateMacro(sizeOfType = sizeof(VTK_TT));
-    default:
-      vtkWarningMacro(<< "Invalid data type " << type);
-      sizeOfType = 1;
-      break;
-  }
+  status = mona_comm_allreduce(
+    mona_comm, sendBuffer, recvBuffer, typesize, length, monaop, NULL, MONA_COMM_ALLREDUCE_TAG);
 
-  // get the funcptr
-  colza::COLZA_Operation_Func funcptr = colza::get_ops_func(colzaOp, colzaType);
-  if (funcptr == nullptr)
+  // the source code may use true or false to adjust if it is ok
+  if (status == NA_SUCCESS)
   {
-    std::cerr << "failed to get the operation by colza op: " << colzaOp
-              << " colza type: " << colzaType << std::endl;
-    return -1;
+    return true;
   }
-  int status = this->ColzaComm->allreduce(sendBuffer, recvBuffer, length, sizeOfType, funcptr);
-  if (status != 0)
+  else
   {
     std::cerr << "failed for allreduce" << std::endl;
-  }
-  //the source code may use true or false to adjust if it is ok
-  if(status==0){
-    return true;
-  }else{
     return false;
   }
 }
-*/
+
 //-----------------------------------------------------------------------------
 int MonaCommunicator::AllReduceVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, Operation* operation)
