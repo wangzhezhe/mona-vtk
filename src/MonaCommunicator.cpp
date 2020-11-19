@@ -29,6 +29,12 @@
 #include <cassert>
 #include <vector>
 
+#ifdef DEBUG_BUILD
+#  define DEBUG(x) std::cout << x << std::endl;
+#else
+#  define DEBUG(x) do {} while (0)
+#endif
+
 static inline void MonaCommunicatorDebugBarrier(MPI_Comm* handle)
 {
   // If NDEBUG is defined, do nothing.
@@ -51,25 +57,25 @@ MonaCommunicator* MonaCommunicator::WorldCommunicator = 0;
 
 MPICommunicatorOpaqueComm::MPICommunicatorOpaqueComm(MPI_Comm* handle)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   this->Handle = handle;
 }
 
 MonaCommunicatorOpaqueComm::MonaCommunicatorOpaqueComm(mona_comm_t handle)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   this->Handle = handle;
 }
 
 MPI_Comm* MPICommunicatorOpaqueComm::GetHandle()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return this->Handle;
 }
 
 mona_comm_t MonaCommunicatorOpaqueComm::GetHandle()
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   return this->Handle;
 }
 //-----------------------------------------------------------------------------
@@ -78,7 +84,7 @@ mona_comm_t MonaCommunicatorOpaqueComm::GetHandle()
 // breakpoint.
 extern "C" void MonaCommunicatorMPIErrorHandler(MPI_Comm* comm, int* errorcode, ...)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   char ErrorMessage[MPI_MAX_ERROR_STRING];
   int len;
   MPI_Error_string(*errorcode, ErrorMessage, &len);
@@ -232,7 +238,7 @@ inline MPI_Datatype MonaCommunicatorGetMPIType(int vtkType)
 
 inline int MonaCommunicatorGetVTKType(MPI_Datatype type)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (type == MPI_FLOAT)
     return VTK_FLOAT;
   if (type == MPI_DOUBLE)
@@ -274,7 +280,7 @@ inline int MonaCommunicatorGetVTKType(MPI_Datatype type)
 
 inline int MonaCommunicatorCheckSize(vtkIdType length)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   if (length > VTK_INT_MAX)
   {
     vtkGenericWarningMacro(<< "This operation not yet supported for more than " << VTK_INT_MAX
@@ -293,7 +299,7 @@ template <class T>
 int MonaCommunicatorSendData(const T* data, int length, int sizeoftype, int remoteProcessId,
   int tag, MPI_Datatype datatype, MPI_Comm* Handle, int useCopy, int useSsend)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG(  "monaCommunicator call function: " << __FUNCTION__ );
   if (useCopy)
   {
     int retVal;
@@ -329,7 +335,7 @@ template <class T>
 int MonaCommunicatorSendData(const T* data, int length, int sizeoftype, int remoteProcessId,
   int tag, mona_comm_t monacomm, int useCopy, int useSsend)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   int retStatus;
   if (useCopy)
   {
@@ -353,7 +359,7 @@ int MonaCommunicatorSendData(const T* data, int length, int sizeoftype, int remo
 int MonaCommunicator::ReceiveDataInternal(char* data, int length, int sizeoftype,
   int remoteProcessId, int tag, MonaCommunicatorReceiveDataInfo* info, int useCopy, int& senderId)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   if (remoteProcessId == vtkMultiProcessController::ANY_SOURCE)
   {
     remoteProcessId = MPI_ANY_SOURCE;
@@ -386,7 +392,7 @@ int MonaCommunicator::ReceiveDataInternal(char* data, int length, int sizeoftype
 int MonaCommunicator::ReceiveDataInternal(char* data, int length, int sizeoftype,
   int remoteProcessId, int tag, mona_comm_t monacomm, int useCopy, int& senderId)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
 
   if (remoteProcessId == vtkMultiProcessController::ANY_SOURCE)
   {
@@ -424,7 +430,7 @@ template <class T>
 int MonaCommunicatorNoBlockSendData(const T* data, int length, int remoteProcessId, int tag,
   MPI_Datatype datatype, MonaCommunicator::Request& req, MPI_Comm* Handle)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return MPI_Isend(
     const_cast<T*>(data), length, datatype, remoteProcessId, tag, *(Handle), &req.Req->Handle);
 }
@@ -433,7 +439,7 @@ template <class T>
 int MonaCommunicatorNoBlockReceiveData(T* data, int length, int remoteProcessId, int tag,
   MPI_Datatype datatype, MonaCommunicator::Request& req, MPI_Comm* Handle)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (remoteProcessId == vtkMultiProcessController::ANY_SOURCE)
   {
     remoteProcessId = MPI_ANY_SOURCE;
@@ -446,7 +452,7 @@ int MonaCommunicatorNoBlockReceiveData(T* data, int length, int remoteProcessId,
 int MonaCommunicatorReduceData(const void* sendBuffer, void* recvBuffer, vtkIdType length, int type,
   MPI_Op operation, int destProcessId, MPI_Comm* comm)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (!MonaCommunicatorCheckSize(length))
     return 0;
   MPI_Datatype mpiType = MonaCommunicatorGetMPIType(type);
@@ -459,7 +465,7 @@ int MonaCommunicatorReduceData(const void* sendBuffer, void* recvBuffer, vtkIdTy
 int MonaCommunicatorAllReduceData(const void* sendBuffer, void* recvBuffer, vtkIdType length,
   int type, MPI_Op operation, MPI_Comm* comm)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (!MonaCommunicatorCheckSize(length))
     return 0;
   MPI_Datatype mpiType = MonaCommunicatorGetMPIType(type);
@@ -471,7 +477,7 @@ int MonaCommunicatorAllReduceData(const void* sendBuffer, void* recvBuffer, vtkI
 int MonaCommunicatorIprobe(int source, int tag, int* flag, int* actualSource, MPI_Datatype datatype,
   int* size, MPI_Comm* handle)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (source == vtkMultiProcessController::ANY_SOURCE)
   {
     source = MPI_ANY_SOURCE;
@@ -506,7 +512,7 @@ extern "C" void MonaCommunicatorUserFunction(
   void* invec, void* inoutvec, int* len, MPI_Datatype* datatype)
 #endif
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   int vtkType = MonaCommunicatorGetVTKType(*datatype);
   CurrentOperation->Function(invec, inoutvec, *len, vtkType);
 }
@@ -517,7 +523,7 @@ extern "C" void MonaCommunicatorUserFunction(
 /*
 MonaCommunicator *MonaCommunicator::GetWorldCommunicator()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   int err, size;
 
   if (MonaCommunicator::WorldCommunicator == 0)
@@ -557,7 +563,7 @@ MonaCommunicator *MonaCommunicator::GetWorldCommunicator()
 
 MonaCommunicator* MonaCommunicator::GetWorldCommunicator()
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   int err, size;
 
   if (MonaCommunicator::WorldCommunicator == 0)
@@ -631,7 +637,7 @@ MonaCommunicator* MonaCommunicator::GetWorldCommunicator()
 //----------------------------------------------------------------------------
 void MonaCommunicator::PrintSelf(ostream& os, vtkIndent indent)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   this->Superclass::PrintSelf(os, indent);
   os << indent << "MPI Communicator handler: ";
   if (this->MPIComm->Handle)
@@ -665,7 +671,7 @@ void MonaCommunicator::PrintSelf(ostream& os, vtkIndent indent)
 //----------------------------------------------------------------------------
 MonaCommunicator::MonaCommunicator()
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   this->MonaComm = new MonaCommunicatorOpaqueComm;
   this->Initialized = 0;
   this->KeepHandle = 0;
@@ -676,7 +682,7 @@ MonaCommunicator::MonaCommunicator()
 //----------------------------------------------------------------------------
 MonaCommunicator::~MonaCommunicator()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   // Free the handle if required and asked for.
   if (this->MPIComm)
   {
@@ -695,7 +701,7 @@ MonaCommunicator::~MonaCommunicator()
 //-----------------------------------------------------------------------------
 int MonaCommunicator::Initialize(vtkProcessGroup* group)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (this->Initialized)
   {
     return 0;
@@ -808,7 +814,7 @@ int MonaCommunicator::Initialize(vtkProcessGroup* group)
 //-----------------------------------------------------------------------------
 int MonaCommunicator::SplitInitialize(vtkCommunicator* oldcomm, int color, int key)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (this->Initialized)
     return 0;
 
@@ -854,7 +860,7 @@ int MonaCommunicator::SplitInitialize(vtkCommunicator* oldcomm, int color, int k
 /*
 int MonaCommunicator::InitializeExternal(MonaCommunicatorOpaqueComm* comm)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__ );
   this->KeepHandleOn();
 
   delete this->MPIComm->Handle;
@@ -869,7 +875,7 @@ int MonaCommunicator::InitializeExternal(MonaCommunicatorOpaqueComm* comm)
 */
 int MonaCommunicator::InitializeExternal(MonaCommunicatorOpaqueComm* comm)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   this->KeepHandleOn();
   free(this->MonaComm->Handle);
   this->MonaComm->Handle = comm->GetHandle();
@@ -886,7 +892,7 @@ int MonaCommunicator::InitializeExternal(MonaCommunicatorOpaqueComm* comm)
 
 void MonaCommunicator::InitializeCopy(MonaCommunicator* source)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (!source)
   {
     return;
@@ -909,7 +915,7 @@ void MonaCommunicator::InitializeCopy(MonaCommunicator* source)
 /*
 void MonaCommunicator::InitializeCopy(MonaCommunicator* source)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__ );
   if (!source)
   {
     return;
@@ -936,7 +942,7 @@ void MonaCommunicator::InitializeCopy(MonaCommunicator* source)
 /*
 int MonaCommunicator::InitializeNumberOfProcesses()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   int err;
 
   this->Modified();
@@ -965,7 +971,7 @@ int MonaCommunicator::InitializeNumberOfProcesses()
 
 int MonaCommunicator::InitializeNumberOfProcesses()
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   int ret;
   this->Modified();
   mona_comm_t mona_comm = this->MonaComm->Handle;
@@ -997,7 +1003,7 @@ int MonaCommunicator::InitializeNumberOfProcesses()
 // Copy the MPI handle
 void MonaCommunicator::CopyFrom(MonaCommunicator* source)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   this->InitializeCopy(source);
 
   if (source->MPIComm->Handle)
@@ -1013,7 +1019,7 @@ void MonaCommunicator::CopyFrom(MonaCommunicator* source)
 
 void MonaCommunicator::Duplicate(MonaCommunicator* source)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   this->InitializeCopy(source);
 
   this->KeepHandleOff();
@@ -1034,7 +1040,7 @@ void MonaCommunicator::Duplicate(MonaCommunicator* source)
 /*
 void MonaCommunicator::Duplicate(MonaCommunicator* newcomm)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "replaced, monaCommunicator call function: " << __FUNCTION__ );
 
   this->KeepHandleOff();
   int status = this->ColzaComm->duplicate(&(newcomm->ColzaComm));
@@ -1048,7 +1054,7 @@ void MonaCommunicator::Duplicate(MonaCommunicator* newcomm)
 //----------------------------------------------------------------------------
 char* MonaCommunicator::Allocate(size_t size)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   //#ifdef MPIPROALLOC
   //  char *ptr;
   //  MPI_Alloc_mem(size, NULL, &ptr);
@@ -1061,7 +1067,7 @@ char* MonaCommunicator::Allocate(size_t size)
 //----------------------------------------------------------------------------
 void MonaCommunicator::Free(char* ptr)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   //#ifdef MPIPROALLOC
   //  MPI_Free_mem(ptr);
   //#else
@@ -1072,7 +1078,7 @@ void MonaCommunicator::Free(char* ptr)
 //----------------------------------------------------------------------------
 int MonaCommunicator::CheckForMPIError(int err)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
 
   if (err == MPI_SUCCESS)
   {
@@ -1092,7 +1098,7 @@ int MonaCommunicator::CheckForMPIError(int err)
 int MonaCommunicator::SendVoidArray(
   const void* data, vtkIdType length, int type, int remoteProcessId, int tag)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   const char* byteData = static_cast<const char*>(data);
   MPI_Datatype mpiType = MonaCommunicatorGetMPIType(type);
   int sizeOfType;
@@ -1125,7 +1131,7 @@ int MonaCommunicator::SendVoidArray(
 int MonaCommunicator::SendVoidArray(
   const void* data, vtkIdType length, int type, int remoteProcessId, int tag)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   const char* byteData = static_cast<const char*>(data);
   // MPI_Datatype mpiType = MonaCommunicatorGetMPIType(type);
   int sizeOfType;
@@ -1176,7 +1182,7 @@ inline vtkIdType MonaCommunicatorMin(vtkIdType a, vtkIdType b)
 int MonaCommunicator::ReceiveVoidArray(
   void* data, vtkIdType maxlength, int type, int remoteProcessId, int tag)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   this->Count = 0;
   char* byteData = static_cast<char*>(data);
   MPI_Datatype mpiType = MonaCommunicatorGetMPIType(type);
@@ -1230,7 +1236,7 @@ int MonaCommunicator::ReceiveVoidArray(
 int MonaCommunicator::ReceiveVoidArray(
   void* data, vtkIdType maxlength, int type, int remoteProcessId, int tag)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   this->Count = 0;
   char* byteData = static_cast<char*>(data);
 
@@ -1287,7 +1293,7 @@ int MonaCommunicator::ReceiveVoidArray(
 int MonaCommunicator::NoBlockSend(
   const int* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
 
   return CheckForMPIError(MonaCommunicatorNoBlockSendData(
     data, length, remoteProcessId, tag, MPI_INT, req, this->MPIComm->Handle));
@@ -1296,7 +1302,7 @@ int MonaCommunicator::NoBlockSend(
 int MonaCommunicator::NoBlockSend(
   const unsigned long* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockSendData(
     data, length, remoteProcessId, tag, MPI_UNSIGNED_LONG, req, this->MPIComm->Handle));
 }
@@ -1304,7 +1310,7 @@ int MonaCommunicator::NoBlockSend(
 int MonaCommunicator::NoBlockSend(
   const char* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockSendData(
     data, length, remoteProcessId, tag, MPI_CHAR, req, this->MPIComm->Handle));
 }
@@ -1312,7 +1318,7 @@ int MonaCommunicator::NoBlockSend(
 int MonaCommunicator::NoBlockSend(
   const unsigned char* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockSendData(
     data, length, remoteProcessId, tag, MPI_UNSIGNED_CHAR, req, this->MPIComm->Handle));
 }
@@ -1320,7 +1326,7 @@ int MonaCommunicator::NoBlockSend(
 int MonaCommunicator::NoBlockSend(
   const float* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockSendData(
     data, length, remoteProcessId, tag, MPI_FLOAT, req, this->MPIComm->Handle));
 }
@@ -1328,7 +1334,7 @@ int MonaCommunicator::NoBlockSend(
 int MonaCommunicator::NoBlockSend(
   const double* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockSendData(
     data, length, remoteProcessId, tag, MPI_DOUBLE, req, this->MPIComm->Handle));
 }
@@ -1337,7 +1343,7 @@ int MonaCommunicator::NoBlockSend(
 int MonaCommunicator::NoBlockSend(
   const vtkIdType* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockSendData(data, length, remoteProcessId, tag,
     MonaCommunicatorGetMPIType(VTK_ID_TYPE), req, this->MPIComm->Handle));
 }
@@ -1347,7 +1353,7 @@ int MonaCommunicator::NoBlockSend(
 int MonaCommunicator::NoBlockReceive(
   int* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockReceiveData(
     data, length, remoteProcessId, tag, MPI_INT, req, this->MPIComm->Handle));
 }
@@ -1355,7 +1361,7 @@ int MonaCommunicator::NoBlockReceive(
 int MonaCommunicator::NoBlockReceive(
   unsigned long* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockReceiveData(
     data, length, remoteProcessId, tag, MPI_UNSIGNED_LONG, req, this->MPIComm->Handle));
 }
@@ -1363,7 +1369,7 @@ int MonaCommunicator::NoBlockReceive(
 int MonaCommunicator::NoBlockReceive(
   char* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockReceiveData(
     data, length, remoteProcessId, tag, MPI_CHAR, req, this->MPIComm->Handle));
 }
@@ -1371,7 +1377,7 @@ int MonaCommunicator::NoBlockReceive(
 int MonaCommunicator::NoBlockReceive(
   unsigned char* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockReceiveData(
     data, length, remoteProcessId, tag, MPI_UNSIGNED_CHAR, req, this->MPIComm->Handle));
 }
@@ -1379,7 +1385,7 @@ int MonaCommunicator::NoBlockReceive(
 int MonaCommunicator::NoBlockReceive(
   float* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockReceiveData(
     data, length, remoteProcessId, tag, MPI_FLOAT, req, this->MPIComm->Handle));
 }
@@ -1387,7 +1393,7 @@ int MonaCommunicator::NoBlockReceive(
 int MonaCommunicator::NoBlockReceive(
   double* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockReceiveData(
     data, length, remoteProcessId, tag, MPI_DOUBLE, req, this->MPIComm->Handle));
 }
@@ -1396,7 +1402,7 @@ int MonaCommunicator::NoBlockReceive(
 int MonaCommunicator::NoBlockReceive(
   vtkIdType* data, int length, int remoteProcessId, int tag, Request& req)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorNoBlockReceiveData(data, length, remoteProcessId, tag,
     MonaCommunicatorGetMPIType(VTK_ID_TYPE), req, this->MPIComm->Handle));
 }
@@ -1405,14 +1411,14 @@ int MonaCommunicator::NoBlockReceive(
 //----------------------------------------------------------------------------
 MonaCommunicator::Request::Request()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   this->Req = new MonaCommunicatorOpaqueRequest;
 }
 
 //----------------------------------------------------------------------------
 MonaCommunicator::Request::Request(const MonaCommunicator::Request& src)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   this->Req = new MonaCommunicatorOpaqueRequest;
   this->Req->Handle = src.Req->Handle;
 }
@@ -1421,7 +1427,7 @@ MonaCommunicator::Request::Request(const MonaCommunicator::Request& src)
 MonaCommunicator::Request& MonaCommunicator::Request::operator=(
   const MonaCommunicator::Request& src)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (this == &src)
   {
     return *this;
@@ -1433,14 +1439,14 @@ MonaCommunicator::Request& MonaCommunicator::Request::operator=(
 //----------------------------------------------------------------------------
 MonaCommunicator::Request::~Request()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   delete this->Req;
 }
 
 //----------------------------------------------------------------------------
 int MonaCommunicator::Request::Test()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   MPI_Status status;
   int retVal;
 
@@ -1462,7 +1468,7 @@ int MonaCommunicator::Request::Test()
 //----------------------------------------------------------------------------
 void MonaCommunicator::Request::Wait()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   MPI_Status status;
 
   int err = MPI_Wait(&this->Req->Handle, &status);
@@ -1478,7 +1484,7 @@ void MonaCommunicator::Request::Wait()
 //----------------------------------------------------------------------------
 void MonaCommunicator::Request::Cancel()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   int err = MPI_Cancel(&this->Req->Handle);
 
   if (err != MPI_SUCCESS)
@@ -1501,7 +1507,7 @@ void MonaCommunicator::Request::Cancel()
 //-----------------------------------------------------------------------------
 void MonaCommunicator::Barrier()
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   CheckForMPIError(MPI_Barrier(*this->MPIComm->Handle));
 }
 
@@ -1509,7 +1515,7 @@ void MonaCommunicator::Barrier()
 /*
 int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type, int root)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   if (!MonaCommunicatorCheckSize(length))
     return 0;
@@ -1520,7 +1526,7 @@ int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type,
 
 int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type, int root)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   if (!MonaCommunicatorCheckSize(length))
     return 0;
 
@@ -1536,15 +1542,11 @@ int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type,
   }
   // barrier
   auto mona_comm = this->MonaComm->GetHandle();
-  na_return_t status = mona_comm_barrier(mona_comm, MONA_COMM_BARRIER_TAG);
-  if (status != NA_SUCCESS)
-  {
-    std::cerr << "failed for barrier in " << __FUNCTION__ << std::endl;
-    return -1;
-  }
-  size_t dataSize = sizeOfType * length;
 
-  status = mona_comm_bcast(mona_comm, data, dataSize, root, MONA_COMM_BCAST_TAG);
+  size_t dataSize = sizeOfType * length;
+  //it only works when we add log here and open the debug
+  DEBUG ("todo, print sth manually to avoid the libfabric issue" );
+  na_return_t status = mona_comm_bcast(mona_comm, data, dataSize, root, MONA_COMM_BCAST_TAG);
   if (status == NA_SUCCESS)
   {
     return true;
@@ -1560,7 +1562,7 @@ int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type,
 int MonaCommunicator::GatherVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int destProcessId)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   int numProc;
   MPI_Comm_size(*this->MPIComm->Handle, &numProc);
@@ -1575,7 +1577,7 @@ int MonaCommunicator::GatherVoidArray(
 int MonaCommunicator::GatherVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int destProcessId)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
 
   // check the type length
   int sizeOfType;
@@ -1606,7 +1608,7 @@ int MonaCommunicator::GatherVoidArray(
 int MonaCommunicator::GatherVVoidArray(const void* sendBuffer, void* recvBuffer,
   vtkIdType sendLength, vtkIdType* recvLengths, vtkIdType* offsets, int type, int destProcessId)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   if (!MonaCommunicatorCheckSize(sendLength))
     return 0;
@@ -1661,7 +1663,7 @@ int MonaCommunicator::GatherVVoidArray(const void* sendBuffer, void* recvBuffer,
 int MonaCommunicator::ScatterVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int srcProcessId)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   if (!MonaCommunicatorCheckSize(length))
     return 0;
@@ -1674,7 +1676,7 @@ int MonaCommunicator::ScatterVoidArray(
 int MonaCommunicator::ScatterVVoidArray(const void* sendBuffer, void* recvBuffer,
   vtkIdType* sendLengths, vtkIdType* offsets, vtkIdType recvLength, int type, int srcProcessId)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   if (!MonaCommunicatorCheckSize(recvLength))
     return 0;
@@ -1729,7 +1731,7 @@ int MonaCommunicator::ScatterVVoidArray(const void* sendBuffer, void* recvBuffer
 int MonaCommunicator::AllGatherVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   int numProc;
   MPI_Comm_size(*this->MPIComm->Handle, &numProc);
@@ -1744,7 +1746,7 @@ int MonaCommunicator::AllGatherVoidArray(
 int MonaCommunicator::AllGatherVVoidArray(const void* sendBuffer, void* recvBuffer,
   vtkIdType sendLength, vtkIdType* recvLengths, vtkIdType* offsets, int type)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   if (!MonaCommunicatorCheckSize(sendLength))
     return 0;
@@ -1804,7 +1806,7 @@ int MonaCommunicator::AllGatherVVoidArray(const void* sendBuffer, void* recvBuff
 int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, vtkIdType length,
   int type, int operation, int destProcessId)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   MPI_Op mpiOp;
   switch (operation)
@@ -1851,16 +1853,10 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
 int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, vtkIdType length,
   int type, int operation, int destProcessId)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
-  std::cout << "reduce length " << length << " datatype " << type << " operation type " << operation
-            << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
+  DEBUG("reduce length " << length << " datatype " << type << " operation type " << operation);
   auto mona_comm = this->MonaComm->GetHandle();
-  na_return_t status = mona_comm_barrier(mona_comm, MONA_COMM_BARRIER_TAG);
-  if (status != NA_SUCCESS)
-  {
-    std::cerr << "failed for barrier in " << __FUNCTION__ << std::endl;
-    return -1;
-  }
+
 
   // get mona operation
   /*
@@ -1937,7 +1933,7 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
       return 0;
   }
 
-  status = mona_comm_reduce(mona_comm, sendBuffer, recvBuffer, typesize, length, monaop, NULL,
+  na_return_t status = mona_comm_reduce(mona_comm, sendBuffer, recvBuffer, typesize, length, monaop, NULL,
     destProcessId, MONA_COMM_REDUCE_TAG);
 
   if (status == NA_SUCCESS)
@@ -1980,7 +1976,7 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
 int MonaCommunicator::AllReduceVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int operation)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaCommunicator call function: " << __FUNCTION__ );
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   MPI_Op mpiOp;
   switch (operation)
@@ -2027,18 +2023,11 @@ int MonaCommunicator::AllReduceVoidArray(
 int MonaCommunicator::AllReduceVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, int operation)
 {
-  std::cout << "replaced, monaCommunicator call function: " << __FUNCTION__ << std::endl;
-  std::cout << "allreduce length " << length << " datatype " << type << " operation type "
-            << operation << std::endl;
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
+  DEBUG("allreduce length " << length << " datatype " << type << " operation type " << operation);
   // get comm
   auto mona_comm = this->MonaComm->GetHandle();
-  // barrier
-  na_return_t status = mona_comm_barrier(mona_comm, MONA_COMM_BARRIER_TAG);
-  if (status != NA_SUCCESS)
-  {
-    std::cerr << "failed for barrier in " << __FUNCTION__ << std::endl;
-    return -1;
-  }
+
 
   // get typesize and operator
   na_size_t typesize;
@@ -2096,7 +2085,7 @@ int MonaCommunicator::AllReduceVoidArray(
       return 0;
   }
 
-  status = mona_comm_allreduce(
+  na_return_t status = mona_comm_allreduce(
     mona_comm, sendBuffer, recvBuffer, typesize, length, monaop, NULL, MONA_COMM_ALLREDUCE_TAG);
 
   // the source code may use true or false to adjust if it is ok
@@ -2115,8 +2104,7 @@ int MonaCommunicator::AllReduceVoidArray(
 int MonaCommunicator::AllReduceVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type, Operation* operation)
 {
-  std::cout << "unsupported, monaCommunicator call function by Operation*: " << __FUNCTION__
-            << std::endl;
+  DEBUG("unsupported, monaCommunicator call function by Operation*: " << __FUNCTION__);
   /*
   MonaCommunicatorDebugBarrier(this->MPIComm->Handle);
   MPI_Op mpiOp;
@@ -2137,7 +2125,7 @@ int MonaCommunicator::AllReduceVoidArray(
 //-----------------------------------------------------------------------------
 int MonaCommunicator::WaitAll(const int count, Request requests[])
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (count < 1)
   {
     return -1;
@@ -2157,7 +2145,7 @@ int MonaCommunicator::WaitAll(const int count, Request requests[])
 //-----------------------------------------------------------------------------
 int MonaCommunicator::WaitAny(const int count, Request requests[], int& idx)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (count < 1)
   {
     return 0;
@@ -2178,7 +2166,7 @@ int MonaCommunicator::WaitAny(const int count, Request requests[], int& idx)
 //-----------------------------------------------------------------------------
 int MonaCommunicator::WaitSome(const int count, Request requests[], int& NCompleted, int* completed)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (count < 1)
   {
     return 0;
@@ -2198,7 +2186,7 @@ int MonaCommunicator::WaitSome(const int count, Request requests[], int& NComple
 //-----------------------------------------------------------------------------
 int MonaCommunicator::TestAll(const int count, MonaCommunicator::Request requests[], int& flag)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (count < 1)
   {
     flag = 0;
@@ -2220,7 +2208,7 @@ int MonaCommunicator::TestAll(const int count, MonaCommunicator::Request request
 int MonaCommunicator::TestAny(
   const int count, MonaCommunicator::Request requests[], int& idx, int& flag)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (count < 1)
   {
     flag = 0;
@@ -2241,7 +2229,7 @@ int MonaCommunicator::TestAny(
 //-----------------------------------------------------------------------------
 int MonaCommunicator::TestSome(const int count, Request requests[], int& NCompleted, int* completed)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   if (count < 1)
   {
     NCompleted = 0;
@@ -2262,7 +2250,7 @@ int MonaCommunicator::TestSome(const int count, Request requests[], int& NComple
 //-----------------------------------------------------------------------------
 int MonaCommunicator::Iprobe(int source, int tag, int* flag, int* actualSource)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(
     MonaCommunicatorIprobe(source, tag, flag, actualSource, MPI_INT, NULL, this->MPIComm->Handle));
 }
@@ -2271,7 +2259,7 @@ int MonaCommunicator::Iprobe(int source, int tag, int* flag, int* actualSource)
 int MonaCommunicator::Iprobe(
   int source, int tag, int* flag, int* actualSource, int* vtkNotUsed(type), int* size)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(
     MonaCommunicatorIprobe(source, tag, flag, actualSource, MPI_INT, size, this->MPIComm->Handle));
 }
@@ -2280,7 +2268,7 @@ int MonaCommunicator::Iprobe(
 int MonaCommunicator::Iprobe(
   int source, int tag, int* flag, int* actualSource, unsigned long* vtkNotUsed(type), int* size)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorIprobe(
     source, tag, flag, actualSource, MPI_UNSIGNED_LONG, size, this->MPIComm->Handle));
 }
@@ -2289,7 +2277,7 @@ int MonaCommunicator::Iprobe(
 int MonaCommunicator::Iprobe(
   int source, int tag, int* flag, int* actualSource, const char* vtkNotUsed(type), int* size)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(
     MonaCommunicatorIprobe(source, tag, flag, actualSource, MPI_CHAR, size, this->MPIComm->Handle));
 }
@@ -2298,7 +2286,7 @@ int MonaCommunicator::Iprobe(
 int MonaCommunicator::Iprobe(
   int source, int tag, int* flag, int* actualSource, float* vtkNotUsed(type), int* size)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorIprobe(
     source, tag, flag, actualSource, MPI_FLOAT, size, this->MPIComm->Handle));
 }
@@ -2307,7 +2295,7 @@ int MonaCommunicator::Iprobe(
 int MonaCommunicator::Iprobe(
   int source, int tag, int* flag, int* actualSource, double* vtkNotUsed(type), int* size)
 {
-  std::cout << "monaCommunicator call function: " << __FUNCTION__ << std::endl;
+  DEBUG("monaCommunicator call function: " << __FUNCTION__);
   return CheckForMPIError(MonaCommunicatorIprobe(
     source, tag, flag, actualSource, MPI_DOUBLE, size, this->MPIComm->Handle));
 }

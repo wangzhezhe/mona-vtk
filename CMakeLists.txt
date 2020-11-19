@@ -22,6 +22,8 @@ set (BUILD_SHARED_LIBS "OFF" CACHE BOOL "Build a shared library")
 set (CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+#use the debug build when it is necessary
+#SET(CMAKE_CXX_FLAGS  "-DDEBUG_BUILD")
 
 if(ENABLE_EXAMPLE)
 # there is issue to find target Python3::Pyhon if we put this find_package command into the example folder

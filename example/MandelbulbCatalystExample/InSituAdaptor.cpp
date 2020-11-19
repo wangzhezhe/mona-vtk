@@ -26,6 +26,13 @@
 #include <MonaController.hpp>
 #include <iostream>
 
+
+#ifdef DEBUG_BUILD
+#  define DEBUG(x) std::cout << x << std::endl;
+#else
+#  define DEBUG(x) do {} while (0)
+#endif
+
 namespace
 {
 vtkMultiProcessController* Controller = nullptr;
@@ -165,7 +172,7 @@ namespace InSitu
 void* icetFactoryMona(vtkMultiProcessController* controller, void* args)
 {
   // return the icet communicator based on colza
-  std::cout << "---icetFactoryMona is called to create the icet comm" << std::endl;
+  DEBUG("---icetFactoryMona is called to create the icet comm");
   auto m_comm = ((MonaCommunicator*)(controller->GetCommunicator()))->GetMonaComm()->GetHandle();
   if (m_comm == nullptr)
   {
@@ -177,7 +184,7 @@ void* icetFactoryMona(vtkMultiProcessController* controller, void* args)
 
 void MPIInitialize(const std::string& script)
 {
-  std::cout << "InSituAdaptor MPIInitialize Start " << std::endl;
+  DEBUG("InSituAdaptor MPIInitialize Start ");
   vtkMPICommunicator* communicator = vtkMPICommunicator::New();
   vtkMPIController* controller = vtkMPIController::New();
   controller->SetCommunicator(communicator);
@@ -199,12 +206,12 @@ void MPIInitialize(const std::string& script)
   pipeline->Initialize(script.c_str());
 
   Processor->AddPipeline(pipeline.GetPointer());
-  std::cout << "InSituAdaptor MPIInitialize Finish " << std::endl;
+  DEBUG( "InSituAdaptor MPIInitialize Finish " );
 }
 
 void MonaInitialize(const std::string& script)
 {
-  std::cout << "InSituAdaptor Initialize Start " << std::endl;
+  DEBUG("InSituAdaptor Initialize Start " );
   MonaCommunicator* communicator = MonaCommunicator::New();
   MonaController* controller = MonaController::New();
   // controller->SetCommunicator(communicator);
@@ -238,7 +245,7 @@ void MonaInitialize(const std::string& script)
   vtkNew<vtkCPPythonScriptPipeline> pipeline;
   pipeline->Initialize(script.c_str());
   Processor->AddPipeline(pipeline.GetPointer());
-  std::cout << "InSituAdaptor Initialize Finish " << std::endl;
+  DEBUG("InSituAdaptor Initialize Finish ");
 }
 
 void Finalize()
@@ -258,7 +265,7 @@ void Finalize()
 void MonaCoProcessDynamic(mona_comm_t mona_comm, std::vector<Mandelbulb>& mandelbulbList,
   int global_nblocks, double time, unsigned int timeStep)
 {
-  std::cout << "---execute MonaCoProcessDynamic" << std::endl;
+  DEBUG ("---execute MonaCoProcessDynamic" );
   if (mona_comm != NULL)
   {
     // reset the communicator if it is not null
@@ -351,7 +358,7 @@ void MPICoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, uns
       printf("---timeStep=%d, subgroup nrank=%d\n", timeStep, sub_nprocs);
     }
 
-    std::cout << "InSituAdaptor MPICoProcess Start for rank " << rank << std::endl;
+    DEBUG( "InSituAdaptor MPICoProcess Start for rank " << rank);
     // set the new communicator
     vtkMPICommunicatorOpaqueComm opaqueComm(&subcomm);
     vtkNew<vtkMPICommunicator> mpiCommunicator;
@@ -378,13 +385,13 @@ void MPICoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, uns
       idd->SetGrid(VTKGrid);
       Processor->CoProcess(dataDescription.GetPointer());
     }
-    std::cout << "InSituAdaptor MPICoProcess Finish for rank " << rank << std::endl;
+    DEBUG( "InSituAdaptor MPICoProcess Finish for rank " << rank );
   }
 }
 
 void MonaCoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, unsigned int timeStep)
 {
-  std::cout << "InSituAdaptor MonaCoProcess Start " << std::endl;
+  DEBUG("InSituAdaptor MonaCoProcess Start " );
   vtkNew<vtkCPDataDescription> dataDescription;
   dataDescription->AddInput("input");
   dataDescription->SetTimeData(time, timeStep);
@@ -395,7 +402,7 @@ void MonaCoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, un
     idd->SetGrid(VTKGrid);
     Processor->CoProcess(dataDescription.GetPointer());
   }
-  std::cout << "InSituAdaptor MonaCoProcess Finish " << std::endl;
+  DEBUG( "InSituAdaptor MonaCoProcess Finish " );
 }
 
 } // namespace InSitu

@@ -1,6 +1,7 @@
 # -ltinfo is for solving mesa issues, refer to https://github.com/halide/Halide/issues/1112
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -luuid -ltinfo")
 
+
 if(NOT PARAVIEW_USE_MPI)
   message(SEND_ERROR "ParaView must be built with MPI enabled")
 endif()

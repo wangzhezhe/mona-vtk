@@ -25,6 +25,12 @@ PURPOSE.  See the above copyright notice for more information.
 
 #define VTK_CREATE(type, name) vtkSmartPointer<type> name = vtkSmartPointer<type>::New()
 
+#ifdef DEBUG_BUILD
+#  define DEBUG(x) std::cout << x << std::endl;
+#else
+#  define DEBUG(x) do {} while (0)
+#endif
+
 int MonaController::Initialized = 0;
 char MonaController::ProcessorName[MPI_MAX_PROCESSOR_NAME] = "";
 int MonaController::UseSsendForRMI = 0;
@@ -57,7 +63,7 @@ protected:
 
 void MonaController::CreateOutputWindow()
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   MonaOutputWindow* window = new MonaOutputWindow;
   window->InitializeObjectBase();
   window->Controller = this;
@@ -71,7 +77,7 @@ vtkStandardNewMacro(MonaController);
 /*
 MonaController::MonaController()
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   // If MPI was already initialized obtain rank and size.
   if (MonaController::Initialized)
   {
@@ -89,7 +95,7 @@ MonaController::MonaController()
 
 MonaController::MonaController()
 {
-  std::cout << "replaced, mochiContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "replaced, mochiContorller call function: " << __FUNCTION__ );
   // If MPI was already initialized obtain rank and size.
   if (MonaController::Initialized)
   {
@@ -109,7 +115,7 @@ MonaController::MonaController()
 //----------------------------------------------------------------------------
 MonaController::~MonaController()
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   this->SetCommunicator(0);
   if (this->RMICommunicator)
   {
@@ -120,7 +126,7 @@ MonaController::~MonaController()
 //----------------------------------------------------------------------------
 void MonaController::PrintSelf(ostream& os, vtkIndent indent)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   this->Superclass::PrintSelf(os, indent);
   os << indent << "Initialized: " << (MonaController::Initialized ? "(yes)" : "(no)") << endl;
 }
@@ -131,7 +137,7 @@ MonaCommunicator* MonaController::WorldRMICommunicator = 0;
 void MonaController::TriggerRMIInternal(
   int remoteProcessId, void* arg, int argLength, int rmiTag, bool propagate)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   MonaCommunicator* mpiComm = MonaCommunicator::SafeDownCast(this->RMICommunicator);
   int use_ssend = mpiComm->GetUseSsend();
   if (MonaController::UseSsendForRMI == 1 && use_ssend == 0)
@@ -150,7 +156,7 @@ void MonaController::TriggerRMIInternal(
 //----------------------------------------------------------------------------
 void MonaController::Initialize()
 {
-  std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
   this->Initialize(0, 0, 1);
 }
 
@@ -158,7 +164,7 @@ void MonaController::Initialize()
 /*
 void MonaController::Initialize(int* argc, char*** argv, int initializedExternally)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   if (MonaController::Initialized)
   {
     vtkWarningMacro("Already initialized.");
@@ -193,7 +199,7 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
 
 void MonaController::Initialize(int* argc, char*** argv, int initializedExternally)
 {
-  std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
   if (MonaController::Initialized)
   {
     vtkWarningMacro("Already initialized.");
@@ -240,7 +246,7 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
 
 const char* MonaController::GetProcessorName()
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   return ProcessorName;
 }
 
@@ -249,7 +255,7 @@ const char* MonaController::GetProcessorName()
 // (Except maybe MPI_XXX_free()) unless finalized externally.
 void MonaController::Finalize(int finalizedExternally)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   if (MonaController::Initialized)
   {
     MonaController::WorldRMICommunicator->Delete();
@@ -276,7 +282,7 @@ void MonaController::Finalize(int finalizedExternally)
 // during construction).
 void MonaController::InitializeCommunicator(MonaCommunicator* comm)
 {
-  std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
   if (this->Communicator != comm)
   {
     if (this->Communicator != 0)
@@ -298,7 +304,7 @@ void MonaController::InitializeCommunicator(MonaCommunicator* comm)
 
 void MonaController::InitializeRMICommunicator()
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   if (this->RMICommunicator)
   {
     this->RMICommunicator->Delete();
@@ -314,7 +320,7 @@ void MonaController::InitializeRMICommunicator()
 /*
 void MonaController::InitializeRMICommunicator()
 {
-  std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
   if (this->RMICommunicator)
   {
     this->RMICommunicator->Delete();
@@ -331,7 +337,7 @@ void MonaController::InitializeRMICommunicator()
 /*
 void MonaController::SetCommunicator(MonaCommunicator* comm)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   this->InitializeCommunicator(comm);
   this->InitializeRMICommunicator();
 }
@@ -339,7 +345,7 @@ void MonaController::SetCommunicator(MonaCommunicator* comm)
 
 void MonaController::SetCommunicator(MonaCommunicator* comm)
 {
-  std::cout << "replaced, monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
   this->InitializeCommunicator(comm);
   //TODO consider RMI communication in future
   //this->InitializeRMICommunicator();
@@ -349,7 +355,7 @@ void MonaController::SetCommunicator(MonaCommunicator* comm)
 // Execute the method set as the SingleMethod.
 void MonaController::SingleMethodExecute()
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   if (!MonaController::Initialized)
   {
     vtkWarningMacro("MPI has to be initialized first.");
@@ -374,7 +380,7 @@ void MonaController::SingleMethodExecute()
 // Execute the methods set as the MultipleMethods.
 void MonaController::MultipleMethodExecute()
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   if (!MonaController::Initialized)
   {
     vtkWarningMacro("MPI has to be initialized first.");
@@ -402,7 +408,7 @@ void MonaController::MultipleMethodExecute()
 
 char* MonaController::ErrorString(int err)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   char* buffer = new char[MPI_MAX_ERROR_STRING];
   int resLen;
   MPI_Error_string(err, buffer, &resLen);
@@ -412,7 +418,7 @@ char* MonaController::ErrorString(int err)
 //-----------------------------------------------------------------------------
 MonaController* MonaController::CreateSubController(vtkProcessGroup* group)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   VTK_CREATE(MonaCommunicator, subcomm);
 
   if (!subcomm->Initialize(group))
@@ -439,7 +445,7 @@ MonaController* MonaController::CreateSubController(vtkProcessGroup* group)
 //-----------------------------------------------------------------------------
 MonaController* MonaController::PartitionController(int localColor, int localKey)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   VTK_CREATE(MonaCommunicator, subcomm);
 
   if (!subcomm->SplitInitialize(this->Communicator, localColor, localKey))
@@ -456,7 +462,7 @@ MonaController* MonaController::PartitionController(int localColor, int localKey
 int MonaController::WaitSome(
   const int count, MonaCommunicator::Request rqsts[], vtkIntArray* completed)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   assert("pre: completed array is nullptr!" && (completed != nullptr));
 
   // Allocate set of completed requests
@@ -478,7 +484,7 @@ int MonaController::WaitSome(
 //-----------------------------------------------------------------------------
 bool MonaController::TestAll(const int count, MonaCommunicator::Request requests[])
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   int flag = 0;
 
   // Downcast to MPI communicator
@@ -495,7 +501,7 @@ bool MonaController::TestAll(const int count, MonaCommunicator::Request requests
 //-----------------------------------------------------------------------------
 bool MonaController::TestAny(const int count, MonaCommunicator::Request requests[], int& idx)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   int flag = 0;
 
   // Downcast to MPI communicator
@@ -513,7 +519,7 @@ bool MonaController::TestAny(const int count, MonaCommunicator::Request requests
 bool MonaController::TestSome(
   const int count, MonaCommunicator::Request requests[], vtkIntArray* completed)
 {
-  std::cout << "monaContorller call function: " << __FUNCTION__ << std::endl;
+  DEBUG( "monaContorller call function: " << __FUNCTION__ );
   assert("pre: completed array is nullptr" && (completed != nullptr));
 
   // Allocate set of completed requests

@@ -16,6 +16,8 @@
 
 #include "vtkSystemIncludes.h"
 
+
+
 class /* VTKPARALLELMPI_EXPORT */ MPICommunicatorOpaqueComm
 {
 public:
