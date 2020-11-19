@@ -79,7 +79,7 @@ void fixMochiCommSize(std::string scriptname, int total_block_number, int totals
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
   InSitu::MonaInitialize(scriptname);
-
+  //InSitu::MPIInitialize(scriptname);
   unsigned reminder = 0;
   if (total_block_number % nprocs != 0 && rank == (nprocs - 1))
   {
@@ -127,8 +127,8 @@ void fixMochiCommSize(std::string scriptname, int total_block_number, int totals
       // reinit it
       // mona_comm_t mona_comm = initMonaComm();
       // the mona comm is created in the init process of the insitu Init in default
-      InSitu::MonaCoProcessDynamic(NULL, MandelbulbList, total_block_number, i, i);
-
+       InSitu::MonaCoProcessDynamic(NULL, MandelbulbList, total_block_number, i, i);
+      //InSitu::MPICoProcessDynamic(MPI_COMM_WORLD, MandelbulbList, total_block_number, i, i);
       MPI_Barrier(MPI_COMM_WORLD);
       t_end = MPI_Wtime();
     }

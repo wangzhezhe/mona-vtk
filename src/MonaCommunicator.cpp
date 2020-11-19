@@ -1889,8 +1889,8 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
     case MAX_OP:
       if (type == VTK_INT)
       {
-        monaop = mona_op_max_i64;
-        typesize = sizeof(int64_t);
+        monaop = mona_op_max_i32;
+        typesize = sizeof(int32_t);
       }
       else if (type == VTK_UNSIGNED_CHAR)
       {
@@ -2048,8 +2048,8 @@ int MonaCommunicator::AllReduceVoidArray(
     case MAX_OP:
       if (type == VTK_INT)
       {
-        monaop = mona_op_max_i64;
-        typesize = sizeof(int64_t);
+        monaop = mona_op_max_i32;
+        typesize = sizeof(int32_t);
       }
       else if (type == VTK_UNSIGNED_CHAR)
       {
