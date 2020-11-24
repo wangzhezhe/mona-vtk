@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=2
+#SBATCH --tasks-per-node=32
+#SBATCH --time=00:29:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell 
+
+cd $SCRATCH/build_monavtk
+
+rm -rf input_*
+
+export MPICH_GNI_NDREG_ENTRIES=1024
+
+NODE=2
+PROC=64
+BLOCKS=64
+STEPS=10
+COREPERTASK=1
+
+rm log_render_${PROC}_${BLOCKS}.log
+
+srun -N $NODE -n $PROC -c $COREPERTASK --cpu_bind=cores ./example/MandelbulbCatalystExample/MandelbulbDynamic ~/cworkspace/src/mona-vtk/example/MandelbulbCatalystExample/scripts/render.py $BLOCKS 1 $STEPS> log_render_${PROC}_${BLOCKS}.log
+
+wait

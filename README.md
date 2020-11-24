@@ -40,6 +40,12 @@ PATH="/global/common/cori/software/altd/2.0/bin:$PATH"
 cd $SCRATCH/build_monavtk
 ```
 
+The mona example with the debug option
+
+```
+spack install mochi-mona build_type=Debug ^mercury  build_type=Debug
+```
+
 cmake example:
 
 ```

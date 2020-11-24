@@ -22,6 +22,8 @@ mona-vtk
 ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel)
 
 add_executable(MandelbulbDynamic 
-     ${CMAKE_SOURCE_DIR}/example/MandelbulbCatalystExample/Mandelbulb_dynamic.cpp)
+     ${CMAKE_SOURCE_DIR}/example/MandelbulbCatalystExample/Mandelbulb_dynamic.cpp
+     ${CMAKE_SOURCE_DIR}/example/MandelbulbCatalystExample/ProcessController.cpp
+     )
 target_link_libraries(MandelbulbDynamic LINK_PRIVATE CatalystMandelbulbAdaptor)
 

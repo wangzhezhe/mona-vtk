@@ -680,6 +680,7 @@ MonaCommunicator::MonaCommunicator()
 }
 
 //----------------------------------------------------------------------------
+/*
 MonaCommunicator::~MonaCommunicator()
 {
   DEBUG("monaCommunicator call function: " << __FUNCTION__);
@@ -695,6 +696,23 @@ MonaCommunicator::~MonaCommunicator()
     }
     delete this->MPIComm->Handle;
     delete this->MPIComm;
+  }
+}
+*/
+MonaCommunicator::~MonaCommunicator()
+{
+  DEBUG("replaces, monaCommunicator call function: " << __FUNCTION__);
+  // Free the handle if required and asked for.
+  if (this->MonaComm)
+  {
+    if (this->MonaComm->Handle && !this->KeepHandle)
+    {
+      if (this->MonaComm->Handle != NULL)
+      {
+        mona_comm_free(this->MonaComm->Handle);
+      }
+    }
+    delete this->MonaComm;
   }
 }
 
@@ -1544,8 +1562,7 @@ int MonaCommunicator::BroadcastVoidArray(void* data, vtkIdType length, int type,
   auto mona_comm = this->MonaComm->GetHandle();
 
   size_t dataSize = sizeOfType * length;
-  //it only works when we add log here and open the debug
-  DEBUG ("todo, print sth manually to avoid the libfabric issue" );
+  // it only works when we add log here and open the debug
   na_return_t status = mona_comm_bcast(mona_comm, data, dataSize, root, MONA_COMM_BCAST_TAG);
   if (status == NA_SUCCESS)
   {
@@ -1857,7 +1874,6 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
   DEBUG("reduce length " << length << " datatype " << type << " operation type " << operation);
   auto mona_comm = this->MonaComm->GetHandle();
 
-
   // get mona operation
   /*
   vtk type: 6 operation: 0
@@ -1933,8 +1949,8 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
       return 0;
   }
 
-  na_return_t status = mona_comm_reduce(mona_comm, sendBuffer, recvBuffer, typesize, length, monaop, NULL,
-    destProcessId, MONA_COMM_REDUCE_TAG);
+  na_return_t status = mona_comm_reduce(mona_comm, sendBuffer, recvBuffer, typesize, length, monaop,
+    NULL, destProcessId, MONA_COMM_REDUCE_TAG);
 
   if (status == NA_SUCCESS)
   {
@@ -1942,7 +1958,7 @@ int MonaCommunicator::ReduceVoidArray(const void* sendBuffer, void* recvBuffer, 
   }
   else
   {
-    std::cerr << "failed for reduce " << std::endl;
+    std::cerr << "failed for reduce with status " << status << std::endl;
     return false;
   }
 }
@@ -2027,7 +2043,6 @@ int MonaCommunicator::AllReduceVoidArray(
   DEBUG("allreduce length " << length << " datatype " << type << " operation type " << operation);
   // get comm
   auto mona_comm = this->MonaComm->GetHandle();
-
 
   // get typesize and operator
   na_size_t typesize;
