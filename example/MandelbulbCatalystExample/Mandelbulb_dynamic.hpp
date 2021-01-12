@@ -15,9 +15,12 @@ static unsigned Globalpid = 0;
 #define MONA_UNDEFINED -1
 
 #ifdef DEBUG_BUILD
-#  define DEBUG(x) std::cout << x << std::endl;
+#define DEBUG(x) std::cout << x << std::endl;
 #else
-#  define DEBUG(x) do {} while (0)
+#define DEBUG(x)                                                                                   \
+  do                                                                                               \
+  {                                                                                                \
+  } while (0)
 #endif
 
 class Mandelbulb
@@ -124,7 +127,7 @@ public:
 
   int GetNumberOfLocalCells() const { return m_data.size(); }
 
-  unsigned GetZoffset()const {return m_z_offset;}
+  unsigned GetZoffset() const { return m_z_offset; }
 
 private:
   size_t m_width;
@@ -133,7 +136,7 @@ private:
   std::vector<int> m_extents;
   std::vector<double> m_origin;
   std::vector<int> m_data;
-   unsigned m_z_offset;
-   float m_range;
-   unsigned m_nblocks;
+  unsigned m_z_offset;
+  float m_range;
+  unsigned m_nblocks;
 };

@@ -46,7 +46,7 @@ void BuildVTKGrid(Mandelbulb& grid, int nprocs, int rank)
   vtkNew<vtkImageData> imageData;
   imageData->SetSpacing(1.0 / nprocs, 1, 1);
   imageData->SetExtent(extents);
-  imageData->SetOrigin(grid.GetOrigin()); // Not necessary for (0,0,0)
+  imageData->SetOrigin(grid.GetOrigin()); // Not necessary for (0,0,0) // the origin is different for different block
   vtkNew<vtkMultiPieceDataSet> multiPiece;
   multiPiece->SetNumberOfPieces(nprocs);
   multiPiece->SetPiece(rank, imageData.GetPointer());

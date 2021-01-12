@@ -25,15 +25,22 @@ this is an example about the configuration on cori
 ```
 #!/bin/bash
 source ~/.color
+
+module swap PrgEnv-intel PrgEnv-gnu
+# ssg need gcc9.3 for installation
+module swap gcc/8.3.0 gcc/9.3.0
+
 module load python3
 module load spack
 module load cmake/3.18.2
 spack load -r mesa/qozjngg
-spack load -r mochi-mona@master
+# for compiling vtk on cori
+export CRAYPE_LINK_TYPE=dynamic
 
-# let cc and CC to be the gnu compier
-module swap PrgEnv-intel PrgEnv-gnu
-
+# load mochi package
+spack load -r mochi-colza
+#spack load nlohmann-json
+#spack load -r mochi-mona@master
 #important! make sure the cc can find the correct linker, the spack may load the wrong linker
 PATH="/global/common/cori/software/altd/2.0/bin:$PATH"
 
