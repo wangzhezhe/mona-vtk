@@ -105,6 +105,15 @@ class DummyPipeline : public colza::Backend {
     colza::RequestResult<int32_t> start(uint64_t iteration) override;
 
     /**
+     * @brief Tells the pipeline that the given iteration is aborted.
+     * This function is used automatically when there is a mismatch
+     * between the client's view of the group and the group itself.
+     *
+     * @param iteration Iteration
+     */
+    void abort(uint64_t iteration) override;
+
+    /**
      * @brief Stage some data.
      */
     colza::RequestResult<int32_t> stage(
@@ -132,10 +141,10 @@ class DummyPipeline : public colza::Backend {
     /**
      * @brief Destroys the underlying pipeline.
      *
-     * @return a RequestResult<bool> instance indicating
+     * @return a RequestResult<int32_t> instance indicating
      * whether the database was successfully destroyed.
      */
-    colza::RequestResult<bool> destroy() override;
+    colza::RequestResult<int32_t> destroy() override;
 
     /**
      * @brief Static factory function used by the PipelineFactory to

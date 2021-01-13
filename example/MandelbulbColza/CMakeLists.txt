@@ -4,7 +4,6 @@
 # find colza and related package
 
 find_package (colza REQUIRED)
-
 find_package (thallium REQUIRED)
 find_package (PkgConfig REQUIRED)
 
@@ -27,4 +26,12 @@ set (dummy-src-files
 
 # dummy pipeline library
 add_library (dummy-pipeline ${dummy-src-files})
-target_link_libraries (dummy-pipeline colza-server)
+target_link_libraries (dummy-pipeline colza-server MPI::MPI_C)
+
+# client
+add_executable (mbclient mbclient.cpp)
+target_link_libraries (mbclient colza-client MPI::MPI_C nlohmann_json::nlohmann_json)
+
+# server
+add_executable (mbserver mbserver.cpp)
+target_link_libraries (mbserver colza-server MPI::MPI_C)

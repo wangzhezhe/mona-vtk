@@ -24,6 +24,10 @@ colza::RequestResult<int32_t> DummyPipeline::start(uint64_t iteration) {
     return result;
 }
 
+void DummyPipeline::abort(uint64_t iteration) {
+    std::cerr << "Client aborted iteration " << iteration << std::endl;
+}
+
 colza::RequestResult<int32_t> DummyPipeline::execute(
         uint64_t iteration) {
     (void)iteration;
@@ -87,8 +91,8 @@ colza::RequestResult<int32_t> DummyPipeline::stage(
     return result;
 }
 
-colza::RequestResult<bool> DummyPipeline::destroy() {
-    colza::RequestResult<bool> result;
+colza::RequestResult<int32_t> DummyPipeline::destroy() {
+    colza::RequestResult<int32_t> result;
     result.value() = true;
     return result;
 }

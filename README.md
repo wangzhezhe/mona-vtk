@@ -25,24 +25,24 @@ this is an example about the configuration on cori
 ```
 #!/bin/bash
 source ~/.color
-
-module swap PrgEnv-intel PrgEnv-gnu
-# ssg need gcc9.3 for installation
-module swap gcc/8.3.0 gcc/9.3.0
-
 module load python3
 module load spack
 module load cmake/3.18.2
-spack load -r mesa/qozjngg
 # for compiling vtk on cori
 export CRAYPE_LINK_TYPE=dynamic
 
-# load mochi package
-spack load -r mochi-colza
-#spack load nlohmann-json
-#spack load -r mochi-mona@master
+# let cc and CC to be the gnu compier
+module swap PrgEnv-intel PrgEnv-gnu
+# use the gcc8.2.0, since osmesa use this version 
+# keep sure allpackages are compiled by same gcc
+# make sure the package.yaml has the same compiler version
+module swap gcc/8.3.0 gcc/8.2.0
+spack load -r mochi-colza@main%gcc@8.2.0
+#spack load cppunit
 #important! make sure the cc can find the correct linker, the spack may load the wrong linker
-PATH="/global/common/cori/software/altd/2.0/bin:$PATH"
+#there are still issues after loading the mesa not sure the reason
+#spack load -r mesa/qozjngg
+#PATH="/global/common/cori/software/altd/2.0/bin:$PATH"
 
 cd $SCRATCH/build_monavtk
 ```
