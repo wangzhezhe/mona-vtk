@@ -20,13 +20,29 @@ find_package (nlohmann_json REQUIRED)
 # search for spdlog
 find_package(spdlog REQUIRED)
 
+if(NOT PARAVIEW_USE_MPI)
+  message(SEND_ERROR "ParaView must be built with MPI enabled")
+endif()
+find_package(MPI REQUIRED)
+include_directories(${MPI_C_INCLUDE_PATH})
+find_package (Python3)
+
+#set include dir for mochiController
+include_directories(${CMAKE_SOURCE_DIR}/src)
+
 # buld the pipeline library
 set (dummy-src-files
-     ./pipeline/DummyBackend.cpp)
+     ./pipeline/DummyBackend.cpp
+     ./InSituAdaptor.cpp
+     )
 
 # dummy pipeline library
 add_library (dummy-pipeline ${dummy-src-files})
-target_link_libraries (dummy-pipeline colza-server MPI::MPI_C)
+target_link_libraries (dummy-pipeline 
+colza-server 
+mona-vtk-icet
+mona-vtk
+ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel MPI::MPI_C)
 
 # client
 add_executable (mbclient mbclient.cpp)

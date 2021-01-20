@@ -58,3 +58,7 @@ cmake example:
 ```
 cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc  -DVTK_DIR=$SCRATCH/build_paraview_matthieu/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_matthieu
 ```
+
+# other potential issues
+
+https://discourse.paraview.org/t/undefined-symbol-pyexc-valueerror/5494/5

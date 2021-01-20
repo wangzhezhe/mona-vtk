@@ -1,3 +1,6 @@
+#ifndef __MB_HEADER
+#define __MB_HEADER
+
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -140,3 +143,6 @@ private:
   float m_range;
   unsigned m_nblocks;
 };
+
+
+#endif

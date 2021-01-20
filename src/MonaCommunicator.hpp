@@ -43,7 +43,8 @@ public:
    * communicator (MPI_COMM_WORLD)
    */
   static MonaCommunicator* GetWorldCommunicator();
-
+  
+  static MonaCommunicator* GetWorldCommunicatorByMona(mona_comm_t mona_comm);
 
   /**
    * Used to initialize the communicator (i.e. create the underlying MPI_Comm).

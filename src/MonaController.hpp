@@ -37,7 +37,8 @@ public:
 
   virtual void Initialize(int *vtkNotUsed(argc), char ***vtkNotUsed(argv),
                           int initializedExternally) override;
-
+  
+  void Initialize(int* argc, char*** argv, int initializedExternally, mona_comm_t mona_comm);
   /**
    * Same as Initialize(0, 0, 1). Mainly for calling from wrapped languages.
    */

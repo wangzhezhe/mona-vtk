@@ -197,6 +197,7 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
 }
 */
 
+//create the mona internally
 void MonaController::Initialize(int* argc, char*** argv, int initializedExternally)
 {
   DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
@@ -216,7 +217,52 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
   //the actual operations to create the mona comm
   //and register it into the controller
   this->InitializeCommunicator(MonaCommunicator::GetWorldCommunicator());
+  // try to remove this when MPI is not used when init the colza
+  // int tmp;
+  // MPI_Get_processor_name(ProcessorName, &tmp);
+  // Make a copy of MPI_COMM_WORLD creating a new context.
+  // This is used in the creating of the communicators after
+  // Initialize() has been called. It has to be done here
+  // because for this to work, all processes have to call
+  // MPI_Comm_dup and this is the only method which is
+  // guaranteed to be called by all processes.
+  
+  // TODO? set it as GetWorldCommunicator or null currently
+  // consider this thing when the RMICommunicator will be used actually
+  // create the WorldRMICommunicator
+  MonaController::WorldRMICommunicator = NULL;
 
+  // set the necessary info into the new communicator
+  // ((MonaCommunicator*)(this->Communicator))->Duplicate(MonaController::WorldRMICommunicator);
+
+  this->RMICommunicator = NULL;
+  // Since we use Delete to get rid of the reference, we should use nullptr to
+  // register.
+  // TODO, consider RMICommunicator in future
+  // this->RMICommunicator->Register(nullptr);
+  this->Modified();
+}
+
+//use the mona created outside by the caller
+void MonaController::Initialize(int* argc, char*** argv, int initializedExternally, mona_comm_t mona_comm)
+{
+  DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
+  if (MonaController::Initialized)
+  {
+    vtkWarningMacro("Already initialized.");
+    return;
+  }
+
+  // Can be done once in the program.
+  MonaController::Initialized = 1;
+  if (initializedExternally == 0)
+  {
+    // the mpi is needed to bootstrap the mona
+    MPI_Init(argc, argv);
+  }
+  //the actual operations to create the mona comm
+  //and register it into the controller
+  this->InitializeCommunicator(MonaCommunicator::GetWorldCommunicatorByMona(mona_comm));
   // try to remove this when MPI is not used when init the colza
   // int tmp;
   // MPI_Get_processor_name(ProcessorName, &tmp);

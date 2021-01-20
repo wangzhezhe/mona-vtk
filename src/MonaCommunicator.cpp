@@ -30,9 +30,12 @@
 #include <vector>
 
 #ifdef DEBUG_BUILD
-#  define DEBUG(x) std::cout << x << std::endl;
+#define DEBUG(x) std::cout << x << std::endl;
 #else
-#  define DEBUG(x) do {} while (0)
+#define DEBUG(x)                                                                                   \
+  do                                                                                               \
+  {                                                                                                \
+  } while (0)
 #endif
 
 static inline void MonaCommunicatorDebugBarrier(MPI_Comm* handle)
@@ -560,6 +563,21 @@ MonaCommunicator *MonaCommunicator::GetWorldCommunicator()
   return MonaCommunicator::WorldCommunicator;
 }
 */
+MonaCommunicator* MonaCommunicator::GetWorldCommunicatorByMona(mona_comm_t mona_comm)
+{
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
+
+  if (MonaCommunicator::WorldCommunicator == 0)
+  {
+    MonaCommunicator* comm = MonaCommunicator::New();
+    comm->MonaComm->Handle = mona_comm;
+    comm->InitializeNumberOfProcesses();
+    comm->Initialized = 1;
+    comm->KeepHandleOn();
+    MonaCommunicator::WorldCommunicator = comm;
+  }
+  return MonaCommunicator::WorldCommunicator;
+}
 
 MonaCommunicator* MonaCommunicator::GetWorldCommunicator()
 {
