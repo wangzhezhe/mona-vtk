@@ -106,13 +106,15 @@ int main(int argc, char** argv)
         // stage the data at current iteration
         blockid = blockid_base + i;
         int32_t result;
-        int* extents = MandelbulbList[i].GetExtents();
-        std::vector<size_t> dimensions = { int2size_t(*(extents + 1)), int2size_t(*(extents + 3)),
-          int2size_t(*(extents + 5)) };
-        std::vector<int64_t> offsets = { 0, 0, MandelbulbList[i].GetZoffset() };
-        // the type of the generated simulation data
-        auto type = colza::Type::INT32;
 
+        int* extents = MandelbulbList[i].GetExtents();
+        //the extends value is from 0 to 29
+        //the dimension value should be extend value +1
+        std::vector<size_t> dimensions = { int2size_t(*(extents + 1)) + 1,
+          int2size_t(*(extents + 3)) + 1, int2size_t(*(extents + 5)) + 1 };
+        std::vector<int64_t> offsets = { 0, 0, MandelbulbList[i].GetZoffset() };
+
+        auto type = colza::Type::INT32;
         pipeline.stage(
           "mydata", step, blockid, dimensions, offsets, type, MandelbulbList[i].GetData(), &result);
 

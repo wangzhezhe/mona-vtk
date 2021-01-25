@@ -5,11 +5,16 @@
  */
 #include "DummyBackend.hpp"
 #include "../InSituAdaptor.hpp"
+#include "../mb.hpp"
 #include <iostream>
+
+// this is only for testing
+size_t totalBlock = 6;
 
 COLZA_REGISTER_BACKEND(dummy, DummyPipeline);
 
 // this function is called by colza framework when the pipeline is created
+// this function is also called when there is join or leave of the processes
 void DummyPipeline::updateMonaAddresses(
   mona_instance_t mona, const std::vector<na_addr_t>& addresses)
 {
@@ -19,7 +24,8 @@ void DummyPipeline::updateMonaAddresses(
   if (firstUpdateMona)
   {
     // create the mona communicator
-    // there are seg fault here if we create themm multiple times without the condition of firstUpdateMona
+    // there are seg fault here if we create themm multiple times without the condition of
+    // firstUpdateMona
     na_return_t ret =
       mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
     if (ret != 0)
@@ -31,15 +37,15 @@ void DummyPipeline::updateMonaAddresses(
     int procRank;
     mona_comm_size(this->m_mona_comm, &procSize);
     mona_comm_rank(this->m_mona_comm, &procRank);
-    std::cout << "Init mona, mona addresses have been updated, size is " << procSize << " rank is " << procRank
-              << std::endl;
+    std::cout << "Init mona, mona addresses have been updated, size is " << procSize << " rank is "
+              << procRank << std::endl;
 
     // init the mochi communicator
     // this is supposed to be called once
     // TODO set this from the client or server parameters?
     std::string scriptname =
       "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/render.py";
-    // also init the insitu adaptor
+    // this is supposed to be called once
     InSitu::MonaInitialize(scriptname, this->m_mona_comm);
     firstUpdateMona = false;
   }
@@ -62,7 +68,47 @@ void DummyPipeline::abort(uint64_t iteration)
 // update the data, try to add the visulization operations
 colza::RequestResult<int32_t> DummyPipeline::execute(uint64_t iteration)
 {
-  (void)iteration;
+
+  // redistribute the process
+  // get the suitable workload (mandelbulb instance list) based on current data staging services
+  int procSize;
+  int procRank;
+  mona_comm_size(this->m_mona_comm, &procSize);
+  mona_comm_rank(this->m_mona_comm, &procRank);
+
+  this->m_datasets_mtx.lock();
+  int totalBlocksNum = m_datasets[iteration]["mydata"].size();
+  this->m_datasets_mtx.unlock();
+
+  // output all key in current map
+  // extract data list from current map
+
+  // get the total block number
+  // the largest key+1 is the total block number
+  // it might be convenient to get the info by API
+  size_t maxID = 0;
+  std::vector<Mandelbulb> MandelbulbList;
+
+  {
+    std::lock_guard<tl::mutex> g(m_datasets_mtx);
+    // std::cout << "procRank " << procRank << " key ";
+    for (auto& t : m_datasets[iteration]["mydata"])
+    {
+      size_t blockID = t.first;
+      // std::cout << blockID;
+      // reconstruct the List
+      Mandelbulb mb(WIDTH, HEIGHT, DEPTH, blockID, 1.2, totalBlock);
+      mb.SetData(t.second.data);
+      MandelbulbList.push_back(mb);
+    }
+    // std::cout << std::endl;
+  }
+
+  // process the insitu function for the MandelbulbList
+  // what if there is no data in MandelbulbList??
+  InSitu::MonaCoProcessDynamic(this->m_mona_comm, MandelbulbList, totalBlock, iteration, iteration);
+
+  // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
   return result;

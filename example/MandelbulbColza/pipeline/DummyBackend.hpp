@@ -15,9 +15,10 @@
 using json = nlohmann::json;
 namespace tl = thallium;
 
+
 struct DataBlock
 {
-
+  //this is a generalized buffer 
   std::vector<char> data;
   std::vector<size_t> dimensions;
   std::vector<int64_t> offsets;

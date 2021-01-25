@@ -5,7 +5,10 @@
 #include <fstream>
 #include <iostream>
 #include <mpi.h>
+#include <thallium.hpp>
+#include <thallium/serialization/stl/vector.hpp>
 #include <vector>
+namespace tl = thallium;
 
 static unsigned WIDTH = 30;
 static unsigned HEIGHT = 30;
@@ -74,6 +77,7 @@ class Mandelbulb
   }
 
 public:
+  Mandelbulb(){};
   Mandelbulb(unsigned width, unsigned height, unsigned depth, double z_offset, float range = 1.2,
     unsigned nblocks = 1)
     : m_width(width)
@@ -128,10 +132,93 @@ public:
 
   int* GetData() const { return const_cast<int*>(m_data.data()); }
 
+  // copy it to data by memory operation
+  void SetData(std::vector<char>& stageData)
+  {
+    size_t byteSize = stageData.size();
+    if (byteSize != this->m_data.size() * sizeof(int))
+    {
+      throw std::runtime_error("wrong data length, bytesize " + std::to_string(byteSize) + " cell size " + std::to_string(this->m_data.size()) );
+    }
+    int* array = static_cast<int*>((void*)stageData.data());
+    //replace current m_data
+    memcpy(&(this->m_data[0]), array, byteSize);
+  }
+
   int GetNumberOfLocalCells() const { return m_data.size(); }
 
   unsigned GetZoffset() const { return m_z_offset; }
 
+  bool compare(Mandelbulb& other)
+  {
+    if (other.m_width != m_width || other.m_height != m_height || other.m_depth != m_depth)
+    {
+      std::cout << "unequal part1" << std::endl;
+      return false;
+    }
+    if (other.m_z_offset != m_z_offset || other.m_range != m_range || other.m_nblocks != m_nblocks)
+    {
+      std::cout << "unequal part2" << std::endl;
+      return false;
+    }
+    if (other.m_extents.size() != m_extents.size() || other.m_origin.size() != m_origin.size() ||
+      other.m_data.size() != m_data.size())
+    {
+      std::cout << "unequal part3" << std::endl;
+      return false;
+    }
+    for (int i = 0; i < m_extents.size(); i++)
+    {
+      if (other.m_extents[i] != m_extents[i])
+      {
+        std::cout << "unequal m_extents" << std::endl;
+        return false;
+      }
+    }
+    for (int i = 0; i < m_origin.size(); i++)
+    {
+      if (other.m_origin[i] != m_origin[i])
+      {
+        std::cout << "unequal m_origin" << std::endl;
+        return false;
+      }
+    }
+    for (int i = 0; i < m_data.size(); i++)
+    {
+      if (other.m_data[i] != m_data[i])
+      {
+        std::cout << "unequal m_data" << std::endl;
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // binary output based on cereal
+  // https://uscilab.github.io/cereal/serialization_archives.html
+  // the function should be public one!
+  template <typename A>
+  void serialize(A& ar)
+  {
+    ar& m_width;
+    ar& m_height;
+    ar& m_depth;
+    ar& m_extents;
+    ar& m_origin;
+    ar& m_data;
+    ar& m_z_offset;
+    ar& m_range;
+    ar& m_nblocks;
+  }
+
+  /*
+   template <typename A>
+   void serialize(A& ar)
+   {
+     ar(m_width, m_height, m_depth, CEREAL_NVP(m_extents), CEREAL_NVP(m_origin), CEREAL_NVP(m_data),
+       m_z_offset, m_range, m_nblocks);
+   }
+   */
 private:
   size_t m_width;
   size_t m_height;
@@ -143,6 +230,5 @@ private:
   float m_range;
   unsigned m_nblocks;
 };
-
 
 #endif
