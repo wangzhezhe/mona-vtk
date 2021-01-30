@@ -18,6 +18,8 @@ void MPIInitialize(const std::string& script);
 
 void MonaInitialize(const std::string& script);
 
+void MonaInitialize(const std::string& script, mona_comm_t mona_comm);
+
 void Finalize();
 
 void MPICoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, unsigned int timeStep);

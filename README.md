@@ -9,13 +9,19 @@ https://gitlab.kitware.com/mdorier/paraview/-/tree/dev-icet-integration
 build command
 
 ```
-cmake ~/cworkspace/src/ParaView/ -DPARAVIEW_USE_QT=OFF -DPARAVIEW_USE_PYTHON=ON -DPARAVIEW_USE_MPI=ON -DVTK_OPENGL_HAS_OSMESA:BOOL=TRUE -DVTK_USE_X:BOOL=FALSE -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc
+cmake ~/cworkspace/src/ParaView_matthieu/paraview -DPARAVIEW_USE_QT=OFF -DPARAVIEW_USE_PYTHON=ON -DPARAVIEW_USE_MPI=ON -DVTK_OPENGL_HAS_OSMESA:BOOL=TRUE -DVTK_USE_X:BOOL=FALSE -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_PYTHON_OPTIONAL_LINK=OFF
 ```
 
 other depedencies:
 
 ```
 spack install mochi-mona@master
+```
+
+For the osmesa, maybe try following command if it is not installed on the targeted platform
+
+```
+spack install mesa+osmesa~llvm swr=none
 ```
 
 # Build
@@ -56,9 +62,21 @@ spack install mochi-mona build_type=Debug ^mercury  build_type=Debug
 cmake example:
 
 ```
-cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc  -DVTK_DIR=$SCRATCH/build_paraview_matthieu/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_matthieu -DBUILD_SHARED_LIBS=ON
+cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_DIR=$SCRATCH/build_paraview_matthieu/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_matthieu -DBUILD_SHARED_LIBS=ON 
 ```
 
 # other potential issues
 
 https://discourse.paraview.org/t/undefined-symbol-pyexc-valueerror/5494/5
+
+
+```
+/usr/bin/ld: /global/common/sw/cray/sles15/x86_64/mesa/18.3.6/gcc/8.2.0/qozjngg/lib/libOSMesa.so: undefined reference to `del_curterm@NCURSES6_TINFO_5.0.19991023'
+```
+try this:
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ltinfo")
+
+refer to
+
+https://github.com/halide/Halide/issues/1112

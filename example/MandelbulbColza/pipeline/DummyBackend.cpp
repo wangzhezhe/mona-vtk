@@ -43,10 +43,10 @@ void DummyPipeline::updateMonaAddresses(
     // init the mochi communicator
     // this is supposed to be called once
     // TODO set this from the client or server parameters?
-    std::string scriptname =
+    //std::string scriptname =
       "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/render.py";
     // this is supposed to be called once
-    InSitu::MonaInitialize(scriptname, this->m_mona_comm);
+    // InSitu::MonaInitialize(scriptname, this->m_mona_comm);
     firstUpdateMona = false;
   }
 }
@@ -106,7 +106,8 @@ colza::RequestResult<int32_t> DummyPipeline::execute(uint64_t iteration)
 
   // process the insitu function for the MandelbulbList
   // what if there is no data in MandelbulbList??
-  InSitu::MonaCoProcessDynamic(this->m_mona_comm, MandelbulbList, totalBlock, iteration, iteration);
+  // do not call this if the list size is zero ???
+  // InSitu::MonaCoProcessDynamic(this->m_mona_comm, MandelbulbList, totalBlock, iteration, iteration);
 
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();

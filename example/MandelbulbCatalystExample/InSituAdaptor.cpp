@@ -26,11 +26,13 @@
 #include <MonaController.hpp>
 #include <iostream>
 
-
 #ifdef DEBUG_BUILD
-#  define DEBUG(x) std::cout << x << std::endl;
+#define DEBUG(x) std::cout << x << std::endl;
 #else
-#  define DEBUG(x) do {} while (0)
+#define DEBUG(x)                                                                                   \
+  do                                                                                               \
+  {                                                                                                \
+  } while (0)
 #endif
 
 namespace
@@ -46,7 +48,8 @@ void BuildVTKGrid(Mandelbulb& grid, int nprocs, int rank)
   vtkNew<vtkImageData> imageData;
   imageData->SetSpacing(1.0 / nprocs, 1, 1);
   imageData->SetExtent(extents);
-  imageData->SetOrigin(grid.GetOrigin()); // Not necessary for (0,0,0) // the origin is different for different block
+  imageData->SetOrigin(
+    grid.GetOrigin()); // Not necessary for (0,0,0) // the origin is different for different block
   vtkNew<vtkMultiPieceDataSet> multiPiece;
   multiPiece->SetNumberOfPieces(nprocs);
   multiPiece->SetPiece(rank, imageData.GetPointer());
@@ -72,8 +75,16 @@ void BuildVTKGridList(std::vector<Mandelbulb>& gridList, int global_blocks)
   }
 
   // one block conains one multipiece, one multipiece contains multiple actual data objects
-  VTKGrid->SetNumberOfBlocks(1);
-  VTKGrid->SetBlock(0, multiPiece.GetPointer());
+  if (local_piece_num == 0)
+  {
+    // when there is no grid, and it is dummy node
+    VTKGrid->SetNumberOfBlocks(0);
+  }
+  else
+  {
+    VTKGrid->SetNumberOfBlocks(1);
+    VTKGrid->SetBlock(0, multiPiece.GetPointer());
+  }
 }
 
 void UpdateVTKAttributes(Mandelbulb& mandelbulb, int rank, vtkCPInputDataDescription* idd)
@@ -102,27 +113,31 @@ void UpdateVTKAttributesList(
   std::vector<Mandelbulb>& mandelbulbList, vtkCPInputDataDescription* idd)
 {
   int pieceNum = mandelbulbList.size();
-  vtkMultiPieceDataSet* multiPiece = vtkMultiPieceDataSet::SafeDownCast(VTKGrid->GetBlock(0));
-  if (idd->IsFieldNeeded("mandelbulb", vtkDataObject::POINT))
+  if (pieceNum > 0)
   {
-    for (int i = 0; i < pieceNum; i++)
+    vtkMultiPieceDataSet* multiPiece = vtkMultiPieceDataSet::SafeDownCast(VTKGrid->GetBlock(0));
+    if (idd->IsFieldNeeded("mandelbulb", vtkDataObject::POINT))
     {
-      vtkDataSet* dataSet = vtkDataSet::SafeDownCast(multiPiece->GetPiece(i));
-      if (dataSet->GetPointData()->GetNumberOfArrays() == 0)
+      for (int i = 0; i < pieceNum; i++)
       {
-        // pressure array
-        vtkNew<vtkIntArray> data;
-        data->SetName("mandelbulb");
-        data->SetNumberOfComponents(1);
-        dataSet->GetPointData()->AddArray(data.GetPointer());
+        vtkDataSet* dataSet = vtkDataSet::SafeDownCast(multiPiece->GetPiece(i));
+        if (dataSet->GetPointData()->GetNumberOfArrays() == 0)
+        {
+          // pressure array
+          vtkNew<vtkIntArray> data;
+          data->SetName("mandelbulb");
+          data->SetNumberOfComponents(1);
+          dataSet->GetPointData()->AddArray(data.GetPointer());
+        }
+        vtkIntArray* data =
+          vtkIntArray::SafeDownCast(dataSet->GetPointData()->GetArray("mandelbulb"));
+        // The pressure array is a scalar array so we can reuse
+        // memory as long as we ordered the points properly.
+        // std::cout << "set actual value for piece " << i << std::endl;
+        int* theData = mandelbulbList[i].GetData();
+        data->SetArray(
+          theData, static_cast<vtkIdType>(mandelbulbList[i].GetNumberOfLocalCells()), 1);
       }
-      vtkIntArray* data =
-        vtkIntArray::SafeDownCast(dataSet->GetPointData()->GetArray("mandelbulb"));
-      // The pressure array is a scalar array so we can reuse
-      // memory as long as we ordered the points properly.
-      // std::cout << "set actual value for piece " << i << std::endl;
-      int* theData = mandelbulbList[i].GetData();
-      data->SetArray(theData, static_cast<vtkIdType>(mandelbulbList[i].GetNumberOfLocalCells()), 1);
     }
   }
 }
@@ -206,12 +221,56 @@ void MPIInitialize(const std::string& script)
   pipeline->Initialize(script.c_str());
 
   Processor->AddPipeline(pipeline.GetPointer());
-  DEBUG( "InSituAdaptor MPIInitialize Finish " );
+  DEBUG("InSituAdaptor MPIInitialize Finish ");
+}
+
+void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
+{
+  DEBUG("InSituAdaptor Initialize Start ");
+  MonaCommunicator* communicator = MonaCommunicator::New();
+  MonaController* controller = MonaController::New();
+  // controller->SetCommunicator(communicator);
+  // the initilize operation will also init the communicator
+  // there are segfault to call the setCommunicator then call the Init
+  controller->Initialize(nullptr, nullptr, 1, mona_comm);
+  Controller = controller;
+
+  // register the icet communicator into the paraview
+  // based on the paraview patch
+  // https://gitlab.kitware.com/mdorier/paraview/-/commit/3423280e57778a0f8d208543caf2e01ba2524e02
+  // related issue https://discourse.paraview.org/t/glgenframebuffers-errors-in-pvserver-5-8/3632/15
+  // refer to this commit to check how to use different communicator for MPI example
+  // https://gitlab.kitware.com/paraview/paraview/-/merge_requests/4361
+  vtkIceTContext::RegisterIceTCommunicatorFactory("MonaCommunicator", icetFactoryMona, controller);
+
+  /* to make sure no mpi barrier is used here*/
+  /* this part may contains some operations that hangs the current mona logic*/
+  if (Processor == NULL)
+  {
+
+    vtkMultiProcessController::SetGlobalController(controller);
+    Processor = vtkCPProcessor::New();
+    // the global controller is acquired during the Initialize
+    // we want the mona to be used, so we set the controller before the init
+    Processor->Initialize("./");
+    // It is important to set the controller again to make sure to use the mochi
+    // controller, the controller might be replaced during the init process
+    // the processor new will set the mpi controller
+  }
+  else
+  {
+    Processor->RemoveAllPipelines();
+  }
+
+  vtkNew<vtkCPPythonScriptPipeline> pipeline;
+  pipeline->Initialize(script.c_str());
+  Processor->AddPipeline(pipeline.GetPointer());
+  DEBUG("InSituAdaptor Initialize Finish ");
 }
 
 void MonaInitialize(const std::string& script)
 {
-  DEBUG("InSituAdaptor Initialize Start " );
+  DEBUG("InSituAdaptor Initialize Start ");
   MonaCommunicator* communicator = MonaCommunicator::New();
   MonaController* controller = MonaController::New();
   // controller->SetCommunicator(communicator);
@@ -265,7 +324,7 @@ void Finalize()
 void MonaCoProcessDynamic(mona_comm_t mona_comm, std::vector<Mandelbulb>& mandelbulbList,
   int global_nblocks, double time, unsigned int timeStep)
 {
-  DEBUG ("---execute MonaCoProcessDynamic" );
+  DEBUG("---execute MonaCoProcessDynamic");
   if (mona_comm != NULL)
   {
     // reset the communicator if it is not null
@@ -358,7 +417,7 @@ void MPICoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, uns
       printf("---timeStep=%d, subgroup nrank=%d\n", timeStep, sub_nprocs);
     }
 
-    DEBUG( "InSituAdaptor MPICoProcess Start for rank " << rank);
+    DEBUG("InSituAdaptor MPICoProcess Start for rank " << rank);
     // set the new communicator
     vtkMPICommunicatorOpaqueComm opaqueComm(&subcomm);
     vtkNew<vtkMPICommunicator> mpiCommunicator;
@@ -385,13 +444,13 @@ void MPICoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, uns
       idd->SetGrid(VTKGrid);
       Processor->CoProcess(dataDescription.GetPointer());
     }
-    DEBUG( "InSituAdaptor MPICoProcess Finish for rank " << rank );
+    DEBUG("InSituAdaptor MPICoProcess Finish for rank " << rank);
   }
 }
 
 void MonaCoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, unsigned int timeStep)
 {
-  DEBUG("InSituAdaptor MonaCoProcess Start " );
+  DEBUG("InSituAdaptor MonaCoProcess Start ");
   vtkNew<vtkCPDataDescription> dataDescription;
   dataDescription->AddInput("input");
   dataDescription->SetTimeData(time, timeStep);
@@ -402,7 +461,7 @@ void MonaCoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, un
     idd->SetGrid(VTKGrid);
     Processor->CoProcess(dataDescription.GetPointer());
   }
-  DEBUG( "InSituAdaptor MonaCoProcess Finish " );
+  DEBUG("InSituAdaptor MonaCoProcess Finish ");
 }
 
 } // namespace InSitu

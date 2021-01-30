@@ -6,7 +6,7 @@
 #ifndef __DUMMY_BACKEND_HPP
 #define __DUMMY_BACKEND_HPP
 
-#include "../InSituAdaptor.hpp"
+//#include "../InSituAdaptor.hpp"
 #include <colza/Backend.hpp>
 #include <mona-coll.h>
 #include <mona.h>
@@ -155,7 +155,7 @@ public:
    */
   mona_comm_t m_mona_comm;
 
-  bool firstUpdateMona = true;
+  bool firstUpdateMona = false;
 };
 
 #endif

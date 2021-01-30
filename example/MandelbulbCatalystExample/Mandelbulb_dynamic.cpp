@@ -69,6 +69,158 @@ mona_comm_t initMonaComm()
   return mona_comm;
 }
 
+void fixMochiCommSizeTest(std::string scriptname, int total_block_number, int totalstep)
+{
+  int rank, nprocs;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+
+  // create the mona comm for all procs
+  // init mona comm
+  ABT_init(0, NULL);
+  mona_instance_t mona = mona_init("ofi+tcp", NA_TRUE, NULL);
+
+  // caculate num_procs and other addr
+  // mona need init all the communicators based on MPI
+  int ret;
+  na_addr_t self_addr;
+  ret = mona_addr_self(mona, &self_addr);
+  if (ret != 0)
+  {
+    throw std::runtime_error("failed to get mona self addr");
+  }
+  char self_addr_str[128];
+  na_size_t self_addr_size = 128;
+  ret = mona_addr_to_string(mona, self_addr_str, &self_addr_size, self_addr);
+  if (ret != 0)
+  {
+    throw std::runtime_error("failed to execute mona_addr_to_string");
+  }
+
+  int num_procs;
+  MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+
+  char* other_addr_str = (char*)malloc(128 * num_procs);
+
+  MPI_Allgather(self_addr_str, 128, MPI_BYTE, other_addr_str, 128, MPI_BYTE, MPI_COMM_WORLD);
+
+  na_addr_t* other_addr = (na_addr_t*)malloc(num_procs * sizeof(*other_addr));
+
+  int i;
+  for (i = 0; i < num_procs; i++)
+  {
+    ret = mona_addr_lookup(mona, other_addr_str + 128 * i, other_addr + i);
+    if (ret != 0)
+    {
+      throw std::runtime_error("failed to execute mona_addr_lookup");
+    }
+  }
+  free(other_addr_str);
+
+  // create the mona_comm based on the other_addr
+  mona_comm_t mona_comm;
+  ret = mona_comm_create(mona, num_procs, other_addr, &mona_comm);
+  if (ret != 0)
+  {
+    throw std::runtime_error("failed to init mona");
+  }
+
+  // create the catalyst pipeline and register comm
+  InSitu::MonaInitialize(scriptname, mona_comm);
+
+  if (nprocs - 0 <= 0)
+  {
+    throw std::runtime_error("nprocs should large than 2");
+  }
+
+  // it runs ok when the dummy value is 0
+  // it is ok for the dummy node that conains the zero data block
+  size_t dummyValue = 2;
+  size_t actualProcWithData = nprocs - dummyValue;
+
+  // InSitu::MPIInitialize(scriptname);
+
+  unsigned reminder = 0;
+  if (total_block_number % actualProcWithData != 0 && rank == (actualProcWithData - 1))
+  {
+    // the last process will process the reminder
+    reminder = (total_block_number) % unsigned(actualProcWithData);
+  }
+  // this value will vary when there is process join/leave
+  unsigned nblocks_per_proc = reminder + total_block_number / actualProcWithData;
+  if (rank >= actualProcWithData)
+  {
+    nblocks_per_proc = 0;
+  }
+
+  DEBUG(nblocks_per_proc << " blocks for rank " << rank);
+  // do work
+  int blockid_base = rank * nblocks_per_proc;
+  std::vector<Mandelbulb> MandelbulbList;
+  if (rank < actualProcWithData)
+  {
+    // the mandelbulb list is zero for the dummy node
+    for (int i = 0; i < nblocks_per_proc; i++)
+    {
+      int blockid = blockid_base + i;
+      int block_offset = blockid * DEPTH;
+      MandelbulbList.push_back(
+        Mandelbulb(WIDTH, HEIGHT, DEPTH, block_offset, 1.2, total_block_number));
+    }
+  }
+
+  for (int i = 0; i < totalstep; i++)
+  {
+    double t_start, t_end;
+    {
+      double order = 4.0 + ((double)i) * 8.0 / 100.0;
+      // MPI_Barrier(MPI_COMM_WORLD);
+      // t_start = MPI_Wtime();
+      for (auto& mandelbulb : MandelbulbList)
+      {
+        mandelbulb.compute(order);
+      }
+      // MPI_Barrier(MPI_COMM_WORLD);
+      // t_end = MPI_Wtime();
+    }
+
+    if (rank == 0)
+    {
+      std::cout << "Computation " << i << " completed in " << (t_end - t_start) << " seconds."
+                << std::endl;
+    }
+
+    {
+      // MPI_Barrier(MPI_COMM_WORLD);
+      // t_start = MPI_Wtime();
+      // if there is updates for the mona_comm
+      // reinit it
+      // mona_comm_t mona_comm = initMonaComm();
+      // the mona comm is created in the init process of the insitu Init in default
+      // use the mona created outside of the InSitu scope
+      InSitu::MonaCoProcessDynamic(mona_comm, MandelbulbList, total_block_number, i, i);
+      // InSitu::MonaCoProcessDynamic(NULL, MandelbulbList, total_block_number, i, i);
+      // InSitu::MPICoProcessDynamic(MPI_COMM_WORLD, MandelbulbList, total_block_number, i, i);
+      // MPI_Barrier(MPI_COMM_WORLD);
+      // t_end = MPI_Wtime();
+    }
+    if (rank == 0)
+    {
+      std::cout << "InSitu " << i << " completed in " << (t_end - t_start) << " seconds."
+                << std::endl;
+    }
+  }
+
+  std::cout << " proc " << rank << " waiting" << std::endl;
+
+  // set a barrier
+  mona_comm_barrier(mona_comm, 6666);
+  std::cout << " proc " << rank << " finish in situ step" << std::endl;
+
+  // There are still some issues to call the paraview finalize
+  // InSitu::Finalize();
+}
+
 void fixMochiCommSize(std::string scriptname, int total_block_number, int totalstep)
 {
   int rank, nprocs;
@@ -270,13 +422,13 @@ void variedMPICommSize(
       {
         // if there is not enough remaining procs, the number of decreased procs will be
         // localnprocs-1
-        PController::processLeave(subcomm, localrank, localnprocs, color, total_block_number, MandelbulbList,
-          localnprocs - 1, step % globalnprocs);
+        PController::processLeave(subcomm, localrank, localnprocs, color, total_block_number,
+          MandelbulbList, localnprocs - 1, step % globalnprocs);
       }
       else
       {
-        PController::processLeave(subcomm, localrank, localnprocs, color, total_block_number, MandelbulbList,
-          process_granularity, step % globalnprocs);
+        PController::processLeave(subcomm, localrank, localnprocs, color, total_block_number,
+          MandelbulbList, process_granularity, step % globalnprocs);
       }
     }
     if (ifIncrease)
@@ -287,7 +439,8 @@ void variedMPICommSize(
       // comm grop some times and there coresponding value is not updated in-time
       // we only support one procs join each time currently
       MPI_Bcast(&localnprocs, 1, MPI_INT, 0, MPI_COMM_WORLD);
-      PController::processJoin(subcomm, globalrank, localnprocs, color, total_block_number, MandelbulbList);
+      PController::processJoin(
+        subcomm, globalrank, localnprocs, color, total_block_number, MandelbulbList);
     }
   }
   InSitu::Finalize();
@@ -427,8 +580,9 @@ void variedMonaCommSize(
 
       if (globalrank == 0)
       {
-        std::cout << "Computation " << step << " block size " << MandelbulbList.size() << " localnprocs " << localnprocs << " completed in "
-                  << (t_end - t_start) << " seconds." << std::endl;
+        std::cout << "Computation " << step << " block size " << MandelbulbList.size()
+                  << " localnprocs " << localnprocs << " completed in " << (t_end - t_start)
+                  << " seconds." << std::endl;
       }
 
       {
@@ -474,13 +628,13 @@ void variedMonaCommSize(
       {
         // if there is not enough remaining procs, the number of decreased procs will be
         // localnprocs-1
-        PController::processLeave(subcomm, localrank, localnprocs, color, total_block_number, MandelbulbList,
-          localnprocs - 1, step % globalnprocs);
+        PController::processLeave(subcomm, localrank, localnprocs, color, total_block_number,
+          MandelbulbList, localnprocs - 1, step % globalnprocs);
       }
       else
       {
-        PController::processLeave(subcomm, localrank, localnprocs, color, total_block_number, MandelbulbList,
-          process_granularity, step % globalnprocs);
+        PController::processLeave(subcomm, localrank, localnprocs, color, total_block_number,
+          MandelbulbList, process_granularity, step % globalnprocs);
       }
     }
     if (ifIncrease)
@@ -494,8 +648,8 @@ void variedMonaCommSize(
       mona_comm_bcast(mona_comm_bootstrap, &localnprocs, sizeof(int), 0, MANDELBULB_BCAST_TAG);
 
       // bootstrap comm is necessary here, since we need to join another new process into the group
-      PController::processJoin(subcomm, mona_comm_bootstrap, globalrank, localnprocs, color, total_block_number,
-        MandelbulbList);
+      PController::processJoin(subcomm, mona_comm_bootstrap, globalrank, localnprocs, color,
+        total_block_number, MandelbulbList);
     }
   }
   InSitu::Finalize();
@@ -524,7 +678,7 @@ int main(int argc, char** argv)
 
   if (process_granularity == 0)
   {
-    fixMochiCommSize(scriptname, total_block_number, totalstep);
+    fixMochiCommSizeTest(scriptname, total_block_number, totalstep);
   }
   else
   {

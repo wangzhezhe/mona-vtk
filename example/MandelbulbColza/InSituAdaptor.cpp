@@ -75,8 +75,16 @@ void BuildVTKGridList(std::vector<Mandelbulb>& gridList, int global_blocks)
   }
 
   // one block conains one multipiece, one multipiece contains multiple actual data objects
-  VTKGrid->SetNumberOfBlocks(1);
-  VTKGrid->SetBlock(0, multiPiece.GetPointer());
+  if (local_piece_num == 0)
+  {
+    // when there is no grid, and it is dummy node
+    VTKGrid->SetNumberOfBlocks(0);
+  }
+  else
+  {
+    VTKGrid->SetNumberOfBlocks(1);
+    VTKGrid->SetBlock(0, multiPiece.GetPointer());
+  }
 }
 
 void UpdateVTKAttributes(Mandelbulb& mandelbulb, int rank, vtkCPInputDataDescription* idd)
@@ -105,27 +113,32 @@ void UpdateVTKAttributesList(
   std::vector<Mandelbulb>& mandelbulbList, vtkCPInputDataDescription* idd)
 {
   int pieceNum = mandelbulbList.size();
-  vtkMultiPieceDataSet* multiPiece = vtkMultiPieceDataSet::SafeDownCast(VTKGrid->GetBlock(0));
-  if (idd->IsFieldNeeded("mandelbulb", vtkDataObject::POINT))
+  if (pieceNum > 0)
   {
-    for (int i = 0; i < pieceNum; i++)
+    //there is piece only when there is datablock
+    vtkMultiPieceDataSet* multiPiece = vtkMultiPieceDataSet::SafeDownCast(VTKGrid->GetBlock(0));
+    if (idd->IsFieldNeeded("mandelbulb", vtkDataObject::POINT))
     {
-      vtkDataSet* dataSet = vtkDataSet::SafeDownCast(multiPiece->GetPiece(i));
-      if (dataSet->GetPointData()->GetNumberOfArrays() == 0)
+      for (int i = 0; i < pieceNum; i++)
       {
-        // pressure array
-        vtkNew<vtkIntArray> data;
-        data->SetName("mandelbulb");
-        data->SetNumberOfComponents(1);
-        dataSet->GetPointData()->AddArray(data.GetPointer());
+        vtkDataSet* dataSet = vtkDataSet::SafeDownCast(multiPiece->GetPiece(i));
+        if (dataSet->GetPointData()->GetNumberOfArrays() == 0)
+        {
+          // pressure array
+          vtkNew<vtkIntArray> data;
+          data->SetName("mandelbulb");
+          data->SetNumberOfComponents(1);
+          dataSet->GetPointData()->AddArray(data.GetPointer());
+        }
+        vtkIntArray* data =
+          vtkIntArray::SafeDownCast(dataSet->GetPointData()->GetArray("mandelbulb"));
+        // The pressure array is a scalar array so we can reuse
+        // memory as long as we ordered the points properly.
+        // std::cout << "set actual value for piece " << i << std::endl;
+        int* theData = mandelbulbList[i].GetData();
+        data->SetArray(
+          theData, static_cast<vtkIdType>(mandelbulbList[i].GetNumberOfLocalCells()), 1);
       }
-      vtkIntArray* data =
-        vtkIntArray::SafeDownCast(dataSet->GetPointData()->GetArray("mandelbulb"));
-      // The pressure array is a scalar array so we can reuse
-      // memory as long as we ordered the points properly.
-      // std::cout << "set actual value for piece " << i << std::endl;
-      int* theData = mandelbulbList[i].GetData();
-      data->SetArray(theData, static_cast<vtkIdType>(mandelbulbList[i].GetNumberOfLocalCells()), 1);
     }
   }
 }
