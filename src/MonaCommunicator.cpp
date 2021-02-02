@@ -719,7 +719,7 @@ MonaCommunicator::~MonaCommunicator()
 */
 MonaCommunicator::~MonaCommunicator()
 {
-  DEBUG("replaces, monaCommunicator call function: " << __FUNCTION__);
+  DEBUG("replaced, monaCommunicator call function: " << __FUNCTION__);
   // Free the handle if required and asked for.
   if (this->MonaComm)
   {
@@ -1014,6 +1014,7 @@ int MonaCommunicator::InitializeNumberOfProcesses()
   // get size and rank
   int size, rank;
   ret = mona_comm_size(mona_comm, &size);
+  std::cout << "debug size " << size << std::endl;
   if (ret != 0)
   {
     throw std::runtime_error("failed to get mona size");
@@ -1021,6 +1022,8 @@ int MonaCommunicator::InitializeNumberOfProcesses()
   }
 
   ret = mona_comm_rank(mona_comm, &rank);
+    std::cout << "debug rank " << rank << std::endl;
+
   if (ret != 0)
   {
     throw std::runtime_error("failed to get mona rank");
@@ -2061,6 +2064,28 @@ int MonaCommunicator::AllReduceVoidArray(
   DEBUG("allreduce length " << length << " datatype " << type << " operation type " << operation);
   // get comm
   auto mona_comm = this->MonaComm->GetHandle();
+
+  //check info here
+  // get size and rank
+  int size, rank;
+  int ret = mona_comm_size(mona_comm, &size);
+  std::cout << "debug size for allreduce " << size << std::endl;
+  if (ret != 0)
+  {
+    throw std::runtime_error("failed to get mona size");
+    return -1;
+  }
+
+  ret = mona_comm_rank(mona_comm, &rank);
+    std::cout << "debug rank for allreduce " << rank << std::endl;
+
+  if (ret != 0)
+  {
+    throw std::runtime_error("failed to get mona rank");
+    return -1;
+  }
+  
+
 
   // get typesize and operator
   na_size_t typesize;

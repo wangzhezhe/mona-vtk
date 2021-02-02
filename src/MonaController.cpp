@@ -247,6 +247,8 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
 void MonaController::Initialize(int* argc, char*** argv, int initializedExternally, mona_comm_t mona_comm)
 {
   DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
+  
+  //this may initilized multiple times
   if (MonaController::Initialized)
   {
     vtkWarningMacro("Already initialized.");
@@ -392,6 +394,7 @@ void MonaController::SetCommunicator(MonaCommunicator* comm)
 void MonaController::SetCommunicator(MonaCommunicator* comm)
 {
   DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
+  //TODO free the old communicator
   this->InitializeCommunicator(comm);
   //TODO consider RMI communication in future
   //this->InitializeRMICommunicator();

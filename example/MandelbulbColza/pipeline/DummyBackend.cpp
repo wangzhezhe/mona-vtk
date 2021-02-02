@@ -21,12 +21,10 @@ void DummyPipeline::updateMonaAddresses(
   // this function is called when server is started first time
   // or when there is process join and leave
   std::cout << "updateMonaAddresses is called" << std::endl;
-
-  // try to init the monaCommunicator it is called the first time
+  this->m_need_reset = true;
 
   // create the mona communicator
   // there are seg fault here if we create themm multiple times without the condition of
-  // firstUpdateMona
   na_return_t ret =
     mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
   if (ret != 0)
@@ -40,14 +38,6 @@ void DummyPipeline::updateMonaAddresses(
   mona_comm_rank(this->m_mona_comm, &procRank);
   std::cout << "Init mona, mona addresses have been updated, size is " << procSize << " rank is "
             << procRank << std::endl;
-
-  // init the mochi communicator
-  // this is supposed to be called once
-  // TODO set this from the client or server parameters?
-  std::string scriptname =
-    "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/render.py";
-  // this is supposed to be called once
-  InSitu::MonaInitialize(scriptname, this->m_mona_comm);
 }
 
 colza::RequestResult<int32_t> DummyPipeline::start(uint64_t iteration)
@@ -67,6 +57,32 @@ void DummyPipeline::abort(uint64_t iteration)
 // update the data, try to add the visulization operations
 colza::RequestResult<int32_t> DummyPipeline::execute(uint64_t iteration)
 {
+
+  // when the mona is updated, init and reset
+  // otherwise, do not reset
+  // it might need some time for the fir step
+  if (this->m_first_init)
+  {
+    // init the mochi communicator and register the pipeline
+    // this is supposed to be called once
+    // TODO set this from the client or server parameters?
+    std::string scriptname =
+      "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/render.py";
+    InSitu::MonaInitialize(scriptname, this->m_mona_comm);
+    this->m_first_init = false;
+  }
+  else
+  {
+    if (this->m_need_reset)
+    {
+      // when communicator is updated after the first initilization
+      // the global communicator will be replaced
+      // there are still some issues here
+      // icet contect is updated automatically in paraveiw patch
+      InSitu::MonaUpdateController(this->m_mona_comm);
+      m_need_reset = false;
+    }
+  }
 
   // redistribute the process
   // get the suitable workload (mandelbulb instance list) based on current data staging services
@@ -101,7 +117,8 @@ colza::RequestResult<int32_t> DummyPipeline::execute(uint64_t iteration)
   }
 
   // process the insitu function for the MandelbulbList
-  InSitu::MonaCoProcessDynamic(this->m_mona_comm, MandelbulbList, totalBlock, iteration, iteration);
+  // the controller is updated in the MonaUpdateController
+  InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
 
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();

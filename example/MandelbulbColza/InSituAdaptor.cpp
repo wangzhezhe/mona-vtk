@@ -115,7 +115,7 @@ void UpdateVTKAttributesList(
   int pieceNum = mandelbulbList.size();
   if (pieceNum > 0)
   {
-    //there is piece only when there is datablock
+    // there is piece only when there is datablock
     vtkMultiPieceDataSet* multiPiece = vtkMultiPieceDataSet::SafeDownCast(VTKGrid->GetBlock(0));
     if (idd->IsFieldNeeded("mandelbulb", vtkDataObject::POINT))
     {
@@ -248,7 +248,6 @@ void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
   /* this part may contains some operations that hangs the current mona logic*/
   if (Processor == NULL)
   {
-
     vtkMultiProcessController::SetGlobalController(controller);
     Processor = vtkCPProcessor::New();
     // the global controller is acquired during the Initialize
@@ -283,16 +282,22 @@ void Finalize()
   }
 }
 
-void MonaCoProcessDynamic(mona_comm_t mona_comm, std::vector<Mandelbulb>& mandelbulbList,
-  int global_nblocks, double time, unsigned int timeStep)
+void MonaUpdateController(mona_comm_t mona_comm)
 {
-  DEBUG("---execute MonaCoProcessDynamic");
+  DEBUG("---execute MonaUpdateController");
   if (mona_comm != NULL)
   {
+    // the global communicator is updated every time
     // reset the communicator if it is not null
     MonaCommunicatorOpaqueComm opaqueComm(mona_comm);
-    vtkNew<MonaCommunicator> monaCommunicator;
+    //this is a wrapper for the new communicator, it is ok to be an stack object
+    //MonaCommunicatorOpaqueComm* opaqueComm = new MonaCommunicatorOpaqueComm(mona_comm);
+    // the communicator will be deleted automatically if we use vtkNew
+    //  vtkNew<MonaCommunicator> monaCommunicator;
+    // old one is freed when execute set communicator
+    MonaCommunicator* monaCommunicator = MonaCommunicator::New();
     monaCommunicator->InitializeExternal(&opaqueComm);
+    //get the address of the global controller
     if (auto controller =
           MonaController::SafeDownCast(vtkMultiProcessController::GetGlobalController()))
     {
@@ -304,7 +309,14 @@ void MonaCoProcessDynamic(mona_comm_t mona_comm, std::vector<Mandelbulb>& mandel
         "Cannot change communicator since existing global controller is not a MonaController.");
     }
   }
+}
 
+//the controller is supposed to be updated when executing this function
+void MonaCoProcessDynamic(
+  std::vector<Mandelbulb>& mandelbulbList, int global_nblocks, double time, unsigned int timeStep)
+{
+  DEBUG("---execute MonaCoProcessDynamic");
+  
   // actual execution of the coprocess
   vtkNew<vtkCPDataDescription> dataDescription;
   dataDescription->AddInput("input");

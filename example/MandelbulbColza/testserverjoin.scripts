@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --time=10:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+rm -rf server*.log
+
+#srun -C haswell --time=00:10:00 -l -n 1 -c 1 --cpu_bind=cores --mem-per-cpu=1000  ./example/MandelbulbColza/mbserver -a ofi+tcp -s ssgfile -v trace &> server1.log &
+
+srun -C haswell --time=00:10:00 -n 1 -c 4 --cpu_bind=cores --mem-per-cpu=1000 ./example/MandelbulbColza/mbserver -a ofi+tcp -s ssgfile -c /global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/config.json -v trace &> server1.log &
+
+# how to make sure the .so file is loaded successfully?
+sleep 60
+
+#srun -C haswell --time=00:10:00 -l -n 1 -c 1 --cpu_bind=cores --mem-per-cpu=1000  ./example/MandelbulbColza/mbserver -a ofi+tcp -s ssgfile -v trace -j &> server2.log
+
+srun -C haswell --time=00:10:00 -n 1 -c 4 --cpu_bind=cores --mem-per-cpu=1000 ./example/MandelbulbColza/mbserver -a ofi+tcp -s ssgfile -c /global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/config.json -v trace -j &> server2.log
+
+wait

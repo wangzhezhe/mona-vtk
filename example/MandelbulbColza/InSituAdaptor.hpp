@@ -28,7 +28,9 @@ void MPICoProcessDynamic(MPI_Comm subcomm, std::vector<Mandelbulb>& mandelbulbLi
 void MonaCoProcess(
   Mandelbulb& mandelbulb, int nprocs, int rank, double time, unsigned int timeStep);
 
-void MonaCoProcessDynamic(mona_comm_t mona_comm, std::vector<Mandelbulb>& mandelbulbList,
+void MonaUpdateController(mona_comm_t mona_comm);
+
+void MonaCoProcessDynamic(std::vector<Mandelbulb>& mandelbulbList,
   int global_nblocks, double time, unsigned int timeStep);
 
 }// namespace InSitu

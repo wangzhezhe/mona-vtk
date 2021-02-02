@@ -154,6 +154,10 @@ public:
    *
    */
   mona_comm_t m_mona_comm;
+  
+  //these two varibles are not accessed by multi-thread
+  bool m_first_init = true;
+  bool m_need_reset = false;
 };
 
 #endif

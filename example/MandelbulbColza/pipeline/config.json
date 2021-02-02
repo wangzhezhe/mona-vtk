@@ -1,6 +1,6 @@
 {
     "pipelines" : {
-        "naive" : {
+        "dummy" : {
             "library" : "/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libdummy-pipeline.so",
             "type" : "dummy",
             "config" : {}
