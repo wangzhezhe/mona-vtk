@@ -62,10 +62,13 @@ int main(int argc, char** argv)
 
   int blockid_base = rank * nblocks_per_proc;
   std::vector<Mandelbulb> MandelbulbList;
+  //std::cout << "g_total_block_number " << g_total_block_number << std::endl;
+
   for (int i = 0; i < nblocks_per_proc; i++)
   {
     int blockid = blockid_base + i;
     int block_offset = blockid * DEPTH;
+    //std::cout << "push blockid " << blockid << std::endl;
     MandelbulbList.push_back(
       Mandelbulb(WIDTH, HEIGHT, DEPTH, block_offset, 1.2, g_total_block_number));
   }
@@ -108,8 +111,8 @@ int main(int argc, char** argv)
         int32_t result;
 
         int* extents = MandelbulbList[i].GetExtents();
-        //the extends value is from 0 to 29
-        //the dimension value should be extend value +1
+        // the extends value is from 0 to 29
+        // the dimension value should be extend value +1
         std::vector<size_t> dimensions = { int2size_t(*(extents + 1)) + 1,
           int2size_t(*(extents + 3)) + 1, int2size_t(*(extents + 5)) + 1 };
         std::vector<int64_t> offsets = { 0, 0, MandelbulbList[i].GetZoffset() };

@@ -61,7 +61,8 @@ static mona_request_t getMonaRequest(IceTCommRequest icet_request)
   }
   if (icet_request->magic_number != ICET_MONA_REQUEST_MAGIC_NUMBER)
   {
-    icetRaiseError(ICET_INVALID_VALUE, "Request object is not from the MPI communicator.");
+    std::cout << "---icet debug magic_number: " << icet_request->magic_number << std::endl;
+    icetRaiseError(ICET_INVALID_VALUE, "Request object is not from the Mona communicator.");
     return MONA_REQUEST_NULL;
   }
 

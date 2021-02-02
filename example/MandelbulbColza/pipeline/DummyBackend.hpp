@@ -154,8 +154,6 @@ public:
    *
    */
   mona_comm_t m_mona_comm;
-
-  bool firstUpdateMona = false;
 };
 
 #endif

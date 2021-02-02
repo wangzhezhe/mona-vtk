@@ -31,7 +31,8 @@ this is an example about the configuration on cori
 ```
 #!/bin/bash
 source ~/.color
-module load python3
+#module load python3
+module load python/3.7-anaconda-2019.10
 module load spack
 module load cmake/3.18.2
 # for compiling vtk on cori
@@ -51,6 +52,11 @@ spack load -r mochi-colza@main%gcc@8.2.0
 #PATH="/global/common/cori/software/altd/2.0/bin:$PATH"
 
 cd $SCRATCH/build_monavtk
+
+# important!
+export MPICH_GNI_NDREG_ENTRIES=1024
+# get more mercury info
+export HG_NA_LOG_LEVEL=debug
 ```
 
 The mona example with the debug option
@@ -80,3 +86,15 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ltinfo")
 refer to
 
 https://github.com/halide/Halide/issues/1112
+
+if the MPICH_GNI_NDREG_ENTRIES is not set properly
+https://github.com/mercury-hpc/mercury/issues/426
+
+some osmesa warning from paraview if it is built in the Debug mode for building paraview (it is ok when we use the Release mode to build the paraview)
+
+(  44.958s) [pvbatch.3       ]vtkOpenGLFramebufferObj:356    ERR| vtkOpenGLFramebufferObject (0x10005dc58e0): failed at glGenFramebuffers 1 OpenGL errors detected
+1:   0 : (1280) Invalid enum
+
+ vtkOpenGLState.cxx:505   WARN| Error glBindFramebuffer1 OpenGL errors detected
+2:   0 : (1280) Invalid enum
+
