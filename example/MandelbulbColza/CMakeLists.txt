@@ -30,27 +30,31 @@ find_package (Python3)
 #set include dir for mochiController
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
-# buld the pipeline library
-set (dummy-src-files
-     ./pipeline/DummyBackend.cpp
-     ./InSituAdaptor.cpp
-     )
+# buld the monabackend pipeline library
+set (monabackend-src-files
+     ./pipeline/MonaBackend.cpp
+     ./MonaInSituAdaptor.cpp)
 
-# dummy pipeline library
-add_library (dummy-pipeline ${dummy-src-files})
-target_link_libraries (dummy-pipeline 
+# monabackend pipeline library
+add_library (monabackend-pipeline ${monabackend-src-files})
+target_link_libraries (monabackend-pipeline 
 colza-server 
 mona-vtk-icet
 mona-vtk
 ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel MPI::MPI_C)
 
-# buld the pipeline library without vtk things
-#set (dummy-src-files
-#     ./pipeline/DummyBackend.cpp)
+# buld the mpibackend pipeline library
+set (mpibackend-src-files
+     ./pipeline/MPIBackend.cpp
+     ./MPIInSituAdaptor.cpp)
 
-# dummy pipeline library
-#add_library (dummy-pipeline ${dummy-src-files})
-#target_link_libraries (dummy-pipeline colza-server)
+# mpibackend pipeline library (we link mona things since we use one insitu adaptor file)
+# but the mona things is not used in MPI case
+add_library (mpibackend-pipeline ${mpibackend-src-files})
+target_link_libraries (mpibackend-pipeline 
+colza-server 
+ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel MPI::MPI_C)
+
 
 # client
 add_executable (mbclient mbclient.cpp)

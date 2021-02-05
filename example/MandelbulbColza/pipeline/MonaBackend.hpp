@@ -3,8 +3,8 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __DUMMY_BACKEND_HPP
-#define __DUMMY_BACKEND_HPP
+#ifndef __MONA_BACKEND_HPP
+#define __MONA_BACKEND_HPP
 
 //#include "../InSituAdaptor.hpp"
 #include <colza/Backend.hpp>
@@ -33,9 +33,9 @@ struct DataBlock
 };
 
 /**
- * Dummy implementation of an colza Backend.
+ * MonaBackend implementation of an colza Backend.
  */
-class DummyPipeline : public colza::Backend
+class MonaBackendPipeline : public colza::Backend
 {
 
 protected:
@@ -53,7 +53,7 @@ public:
   /**
    * @brief Constructor.
    */
-  DummyPipeline(const colza::PipelineFactoryArgs& args)
+  MonaBackendPipeline(const colza::PipelineFactoryArgs& args)
     : m_engine(args.engine)
     , m_gid(args.gid)
     , m_config(args.config)
@@ -62,27 +62,27 @@ public:
   /**
    * @brief Move-constructor.
    */
-  DummyPipeline(DummyPipeline&&) = delete;
+  MonaBackendPipeline(MonaBackendPipeline&&) = delete;
 
   /**
    * @brief Copy-constructor.
    */
-  DummyPipeline(const DummyPipeline&) = delete;
+  MonaBackendPipeline(const MonaBackendPipeline&) = delete;
 
   /**
    * @brief Move-assignment operator.
    */
-  DummyPipeline& operator=(DummyPipeline&&) = delete;
+  MonaBackendPipeline& operator=(MonaBackendPipeline&&) = delete;
 
   /**
    * @brief Copy-assignment operator.
    */
-  DummyPipeline& operator=(const DummyPipeline&) = delete;
+  MonaBackendPipeline& operator=(const MonaBackendPipeline&) = delete;
 
   /**
    * @brief Destructor.
    */
-  virtual ~DummyPipeline() = default;
+  virtual ~MonaBackendPipeline() = default;
 
   /**
    * @brief Update the array of Mona addresses associated with
@@ -141,7 +141,7 @@ public:
 
   /**
    * @brief Static factory function used by the PipelineFactory to
-   * create a DummyPipeline.
+   * create a MonaBackendPipeline.
    *
    * @param args arguments used for creating the pipeline.
    *

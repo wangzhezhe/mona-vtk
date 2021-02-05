@@ -1,0 +1,9 @@
+{
+    "pipelines" : {
+        "mpibackend" : {
+            "library" : "/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libmpibackend-pipeline.so",
+            "type" : "mpibackend",
+            "config" : {}
+        }
+    }
+}

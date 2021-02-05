@@ -3,44 +3,47 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#include "DummyBackend.hpp"
-#include "../InSituAdaptor.hpp"
+#include "MPIBackend.hpp"
+#include "../MPIInSituAdaptor.hpp"
 #include "../mb.hpp"
 #include <iostream>
 
 // this is only for testing
 size_t totalBlock = 6;
+int global_rank = 0;
+int global_proc = 0;
 
-COLZA_REGISTER_BACKEND(dummy, DummyPipeline);
+COLZA_REGISTER_BACKEND(mpibackend, MPIBackendPipeline);
 
 // this function is called by colza framework when the pipeline is created
 // this function is also called when there is join or leave of the processes
-void DummyPipeline::updateMonaAddresses(
+void MPIBackendPipeline::updateMonaAddresses(
   mona_instance_t mona, const std::vector<na_addr_t>& addresses)
 {
   // this function is called when server is started first time
   // or when there is process join and leave
-  std::cout << "updateMonaAddresses is called" << std::endl;
-  this->m_need_reset = true;
-
-  // create the mona communicator
-  // there are seg fault here if we create themm multiple times without the condition of
-  na_return_t ret =
-    mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
-  if (ret != 0)
+  std::cout << "updateMonaAddresses is called, do not reset communicator for MPI backend"
+            << std::endl;
+  if (this->m_first_init)
   {
-    throw std::runtime_error("failed to init mona");
+    this->m_mpi_comm = MPI_COMM_WORLD;
+    MPI_Comm_rank(this->m_mpi_comm, &global_rank);
+    MPI_Comm_size(this->m_mpi_comm, &global_proc);
   }
-
-  int procSize;
-  int procRank;
-  mona_comm_size(this->m_mona_comm, &procSize);
-  mona_comm_rank(this->m_mona_comm, &procRank);
-  std::cout << "Init mona, mona addresses have been updated, size is " << procSize << " rank is "
-            << procRank << std::endl;
+  else
+  {
+    int rank_new;
+    int proc_new;
+    MPI_Comm_rank(this->m_mpi_comm, &rank_new);
+    MPI_Comm_size(this->m_mpi_comm, &proc_new);
+    if (rank_new != global_rank || proc_new != global_proc)
+    {
+      throw std::runtime_error("the mpi comm group change");
+    }
+  }
 }
 
-colza::RequestResult<int32_t> DummyPipeline::start(uint64_t iteration)
+colza::RequestResult<int32_t> MPIBackendPipeline::start(uint64_t iteration)
 {
   std::cerr << "Iteration " << iteration << " starting" << std::endl;
   colza::RequestResult<int32_t> result;
@@ -49,13 +52,13 @@ colza::RequestResult<int32_t> DummyPipeline::start(uint64_t iteration)
   return result;
 }
 
-void DummyPipeline::abort(uint64_t iteration)
+void MPIBackendPipeline::abort(uint64_t iteration)
 {
   std::cerr << "Client aborted iteration " << iteration << std::endl;
 }
 
 // update the data, try to add the visulization operations
-colza::RequestResult<int32_t> DummyPipeline::execute(uint64_t iteration)
+colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
 {
 
   // when the mona is updated, init and reset
@@ -68,28 +71,9 @@ colza::RequestResult<int32_t> DummyPipeline::execute(uint64_t iteration)
     // TODO set this from the client or server parameters?
     std::string scriptname =
       "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/render.py";
-    InSitu::MonaInitialize(scriptname, this->m_mona_comm);
+    InSitu::MPIInitialize(scriptname);
     this->m_first_init = false;
   }
-  else
-  {
-    if (this->m_need_reset)
-    {
-      // when communicator is updated after the first initilization
-      // the global communicator will be replaced
-      // there are still some issues here
-      // icet contect is updated automatically in paraveiw patch
-      InSitu::MonaUpdateController(this->m_mona_comm);
-      m_need_reset = false;
-    }
-  }
-
-  // redistribute the process
-  // get the suitable workload (mandelbulb instance list) based on current data staging services
-  int procSize;
-  int procRank;
-  mona_comm_size(this->m_mona_comm, &procSize);
-  mona_comm_rank(this->m_mona_comm, &procRank);
 
   // output all key in current map
   // extract data list from current map
@@ -118,7 +102,7 @@ colza::RequestResult<int32_t> DummyPipeline::execute(uint64_t iteration)
 
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
-  InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
+  InSitu::MPICoProcessDynamic(this->m_mpi_comm, MandelbulbList, totalBlock, iteration, iteration);
 
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
@@ -126,7 +110,7 @@ colza::RequestResult<int32_t> DummyPipeline::execute(uint64_t iteration)
   return result;
 }
 
-colza::RequestResult<int32_t> DummyPipeline::cleanup(uint64_t iteration)
+colza::RequestResult<int32_t> MPIBackendPipeline::cleanup(uint64_t iteration)
 {
   std::lock_guard<tl::mutex> g(m_datasets_mtx);
   m_datasets.erase(iteration);
@@ -135,7 +119,7 @@ colza::RequestResult<int32_t> DummyPipeline::cleanup(uint64_t iteration)
   return result;
 }
 
-colza::RequestResult<int32_t> DummyPipeline::stage(const std::string& sender_addr,
+colza::RequestResult<int32_t> MPIBackendPipeline::stage(const std::string& sender_addr,
   const std::string& dataset_name, uint64_t iteration, uint64_t block_id,
   const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets,
   const colza::Type& type, const thallium::bulk& data)
@@ -180,14 +164,14 @@ colza::RequestResult<int32_t> DummyPipeline::stage(const std::string& sender_add
   return result;
 }
 
-colza::RequestResult<int32_t> DummyPipeline::destroy()
+colza::RequestResult<int32_t> MPIBackendPipeline::destroy()
 {
   colza::RequestResult<int32_t> result;
   result.value() = true;
   return result;
 }
 
-std::unique_ptr<colza::Backend> DummyPipeline::create(const colza::PipelineFactoryArgs& args)
+std::unique_ptr<colza::Backend> MPIBackendPipeline::create(const colza::PipelineFactoryArgs& args)
 {
-  return std::unique_ptr<colza::Backend>(new DummyPipeline(args));
+  return std::unique_ptr<colza::Backend>(new MPIBackendPipeline(args));
 }

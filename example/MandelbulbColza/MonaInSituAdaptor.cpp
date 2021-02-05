@@ -1,4 +1,4 @@
-#include "InSituAdaptor.hpp"
+#include "MonaInSituAdaptor.hpp"
 
 #include <mpi.h>
 #include <vtkCPDataDescription.h>
@@ -198,32 +198,6 @@ void* icetFactoryMona(vtkMultiProcessController* controller, void* args)
   return icetCreateMonaCommunicator(m_comm);
 }
 
-void MPIInitialize(const std::string& script)
-{
-  DEBUG("InSituAdaptor MPIInitialize Start ");
-  vtkMPICommunicator* communicator = vtkMPICommunicator::New();
-  vtkMPIController* controller = vtkMPIController::New();
-  controller->SetCommunicator(communicator);
-  controller->Initialize(nullptr, nullptr, 1);
-  Controller = controller;
-
-  if (Processor == NULL)
-  {
-    Processor = vtkCPProcessor::New();
-    Processor->Initialize("./");
-    vtkMultiProcessController::SetGlobalController(controller);
-  }
-  else
-  {
-    Processor->RemoveAllPipelines();
-  }
-
-  vtkNew<vtkCPPythonScriptPipeline> pipeline;
-  pipeline->Initialize(script.c_str());
-
-  Processor->AddPipeline(pipeline.GetPointer());
-  DEBUG("InSituAdaptor MPIInitialize Finish ");
-}
 
 void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
 {
@@ -334,92 +308,6 @@ void MonaCoProcessDynamic(
   }
 
   return;
-}
-
-void MPICoProcessDynamic(MPI_Comm subcomm, std::vector<Mandelbulb>& mandelbulbList,
-  int global_nblocks, double time, unsigned int timeStep)
-{
-  // set the new communicator
-  vtkMPICommunicatorOpaqueComm opaqueComm(&subcomm);
-  vtkNew<vtkMPICommunicator> mpiCommunicator;
-  mpiCommunicator->InitializeExternal(&opaqueComm);
-  if (auto controller =
-        vtkMPIController::SafeDownCast(vtkMultiProcessController::GetGlobalController()))
-  {
-    controller->SetCommunicator(mpiCommunicator);
-  }
-  else
-  {
-    throw std::runtime_error(
-      "Cannot change communicator since existing global controller is not a vtkMPIController.");
-  }
-
-  // actual execution of the coprocess
-  // this is for vti
-  vtkNew<vtkCPDataDescription> dataDescription;
-  dataDescription->AddInput("input");
-  dataDescription->SetTimeData(time, timeStep);
-
-  if (Processor->RequestDataDescription(dataDescription.GetPointer()) != 0)
-  {
-    // TODO use the blocknumber and blockid
-    // std::cout << "debug list size " << mandelbulbList.size() << " for rank " << rank <<
-    // std::endl;
-    vtkCPInputDataDescription* idd = dataDescription->GetInputDescriptionByName("input");
-    BuildVTKDataStructuresList(mandelbulbList, global_nblocks, idd);
-    idd->SetGrid(VTKGrid);
-    Processor->CoProcess(dataDescription.GetPointer());
-  }
-}
-// this paraview branch support the MPI communicator changing dynamically
-// https://gitlab.kitware.com/mdorier/paraview/-/tree/dev-icet-integration
-void MPICoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, unsigned int timeStep)
-{
-  // switch the communicator
-  const int color = (rank == 0 || ((timeStep * rank) % 2 == 0)) ? 0 : MPI_UNDEFINED;
-  MPI_Comm subcomm;
-  MPI_Comm_split(MPI_COMM_WORLD, color, rank, &subcomm);
-
-  if (subcomm != MPI_COMM_NULL)
-  {
-
-    int sub_rank, sub_nprocs;
-    MPI_Comm_rank(subcomm, &sub_rank);
-    MPI_Comm_size(subcomm, &sub_nprocs);
-    if (sub_rank == 0)
-    {
-      printf("---timeStep=%d, subgroup nrank=%d\n", timeStep, sub_nprocs);
-    }
-
-    DEBUG("InSituAdaptor MPICoProcess Start for rank " << rank);
-    // set the new communicator
-    vtkMPICommunicatorOpaqueComm opaqueComm(&subcomm);
-    vtkNew<vtkMPICommunicator> mpiCommunicator;
-    mpiCommunicator->InitializeExternal(&opaqueComm);
-    if (auto controller =
-          vtkMPIController::SafeDownCast(vtkMultiProcessController::GetGlobalController()))
-    {
-      controller->SetCommunicator(mpiCommunicator);
-    }
-    else
-    {
-      throw std::runtime_error(
-        "Cannot change communicator since existing global controller is not a vtkMPIController.");
-    }
-
-    // actual execution of the coprocess
-    vtkNew<vtkCPDataDescription> dataDescription;
-    dataDescription->AddInput("input");
-    dataDescription->SetTimeData(time, timeStep);
-    if (Processor->RequestDataDescription(dataDescription.GetPointer()) != 0)
-    {
-      vtkCPInputDataDescription* idd = dataDescription->GetInputDescriptionByName("input");
-      BuildVTKDataStructures(mandelbulb, nprocs, rank, idd);
-      idd->SetGrid(VTKGrid);
-      Processor->CoProcess(dataDescription.GetPointer());
-    }
-    DEBUG("InSituAdaptor MPICoProcess Finish for rank " << rank);
-  }
 }
 
 void MonaCoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, unsigned int timeStep)

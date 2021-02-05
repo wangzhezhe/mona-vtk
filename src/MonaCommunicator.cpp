@@ -1014,7 +1014,7 @@ int MonaCommunicator::InitializeNumberOfProcesses()
   // get size and rank
   int size, rank;
   ret = mona_comm_size(mona_comm, &size);
-  std::cout << "debug size " << size << std::endl;
+  //std::cout << "debug size " << size << std::endl;
   if (ret != 0)
   {
     throw std::runtime_error("failed to get mona size");
@@ -1022,7 +1022,7 @@ int MonaCommunicator::InitializeNumberOfProcesses()
   }
 
   ret = mona_comm_rank(mona_comm, &rank);
-    std::cout << "debug rank " << rank << std::endl;
+  //std::cout << "debug rank " << rank << std::endl;
 
   if (ret != 0)
   {
@@ -2067,6 +2067,7 @@ int MonaCommunicator::AllReduceVoidArray(
 
   //check info here
   // get size and rank
+  /*
   int size, rank;
   int ret = mona_comm_size(mona_comm, &size);
   std::cout << "debug size for allreduce " << size << std::endl;
@@ -2077,14 +2078,14 @@ int MonaCommunicator::AllReduceVoidArray(
   }
 
   ret = mona_comm_rank(mona_comm, &rank);
-    std::cout << "debug rank for allreduce " << rank << std::endl;
+  std::cout << "debug rank for allreduce " << rank << std::endl;
 
   if (ret != 0)
   {
     throw std::runtime_error("failed to get mona rank");
     return -1;
   }
-  
+  */
 
 
   // get typesize and operator
