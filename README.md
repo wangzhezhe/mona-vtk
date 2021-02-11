@@ -98,3 +98,9 @@ some osmesa warning from paraview if it is built in the Debug mode for building 
  vtkOpenGLState.cxx:505   WARN| Error glBindFramebuffer1 OpenGL errors detected
 2:   0 : (1280) Invalid enum
 
+Try to build the paraview with the Release mode, otherwise, there are mosa related issues
+
+For the python on cori, refer to this (https://docs.nersc.gov/development/languages/python/nersc-python/)
+If you only use the module option, but the python is not the default one, there are some issues
+One issue is "unnamed python module encoding", or other issues that have different gcc version which may cause the byte code issue
+It is prefered to use the conda activate than the python virtual env 

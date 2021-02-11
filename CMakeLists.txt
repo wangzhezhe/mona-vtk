@@ -25,6 +25,18 @@ set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 #use the debug build when it is necessary
 #SET(CMAKE_CXX_FLAGS  "-DDEBUG_BUILD")
 
+option(USE_GNI "use cray gni" ON)
+
+if(USE_GNI)
+  add_definitions(-DUSE_GNI)
+  find_package(DRC REQUIRED)
+  include_directories(${DRC_INCLUDE_DIRS})
+  message ("use cray DRC")
+  message ("include drc" ${DRC_INCLUDE_DIRS})
+  message ("link drc lib" ${DRC_LIBRARIES})
+endif()
+
+
 if(ENABLE_EXAMPLE)
 # there is issue to find target Python3::Pyhon if we put this find_package command into the example folder
 find_package(ParaView 5.8 REQUIRED COMPONENTS Catalyst PythonCatalyst)

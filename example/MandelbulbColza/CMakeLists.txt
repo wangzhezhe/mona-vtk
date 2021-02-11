@@ -58,12 +58,12 @@ ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI
 
 # client
 add_executable (mbclient mbclient.cpp)
-target_link_libraries (mbclient colza-client MPI::MPI_C nlohmann_json::nlohmann_json)
+target_link_libraries (mbclient colza-client MPI::MPI_C nlohmann_json::nlohmann_json ${DRC_LIBRARIES})
 
 # server
 add_executable (mbserver mbserver.cpp)
-target_link_libraries (mbserver colza-server MPI::MPI_C)
+target_link_libraries (mbserver colza-server MPI::MPI_C ${DRC_LIBRARIES})
 
 # admin
 add_executable (mbadmin ${CMAKE_CURRENT_SOURCE_DIR}/mbadmin.cpp)
-target_link_libraries (mbadmin colza-admin)
+target_link_libraries (mbadmin colza-admin ${DRC_LIBRARIES})

@@ -9,7 +9,7 @@
 #include <iostream>
 
 // this is only for testing
-size_t totalBlock = 6;
+int totalBlock = 0;
 int global_rank = 0;
 int global_proc = 0;
 
@@ -29,6 +29,21 @@ void MPIBackendPipeline::updateMonaAddresses(
     this->m_mpi_comm = MPI_COMM_WORLD;
     MPI_Comm_rank(this->m_mpi_comm, &global_rank);
     MPI_Comm_size(this->m_mpi_comm, &global_proc);
+    // check the env to load the BLOCKNUM
+    try
+    {
+      std::string blocNum = getenv("BLOCKNUM");
+      totalBlock = std::stoi(blocNum);
+      if (global_rank == 0)
+      {
+        std::cout << "get the totalBlock number: " << totalBlock << std::endl;
+      }
+    }
+    catch (std::exception& e)
+    {
+      std::cout << "failed to get env: " << std::string(e.what()) << std::endl;
+      exit(-1);
+    }
   }
   else
   {
@@ -83,7 +98,10 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
   // it might be convenient to get the info by API
   size_t maxID = 0;
   std::vector<Mandelbulb> MandelbulbList;
-
+  if (totalBlock == 0)
+  {
+    throw std::runtime_error("failed to init the totalBlock, the env BLOCKNUM should be set");
+  }
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     // std::cout << "iteration " << iteration << " procRank " << procRank << " key ";

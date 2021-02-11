@@ -9,7 +9,7 @@
 #include <iostream>
 
 // this is only for testing
-size_t totalBlock = 6;
+int totalBlock = 0;
 
 COLZA_REGISTER_BACKEND(monabackend, MonaBackendPipeline);
 
@@ -70,6 +70,10 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
       "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/render.py";
     InSitu::MonaInitialize(scriptname, this->m_mona_comm);
     this->m_first_init = false;
+
+    // check the env to load the BLOCKNUM
+    std::string blocNum = getenv("BLOCKNUM");
+    totalBlock = std::stoi(blocNum);
   }
   else
   {

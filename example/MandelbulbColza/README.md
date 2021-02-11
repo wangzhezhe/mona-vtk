@@ -20,8 +20,26 @@ srun -C haswell -n 4 -c 4 --cpu_bind=cores --mem-per-cpu=1000 ./example/Mandelbu
 **MPI comm**
 srun -C haswell -n 4 -c 4 --cpu_bind=cores --mem-per-cpu=1000 ./example/MandelbulbColza/mbserver -a ofi+tcp -s ssgfile -c /global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/mpiconfig.json -v trace -t 4
 
+**client** 
+
+srun -C haswell -n 4 -c 1 --cpu_bind=cores ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p mpibackend -b $BLOCKNUM -t $STEP
+
 ### potential issues
 
 if we use one core, there might some problems for SSG to add new nodes when loading the .so by config
 
 if we use the config file to load the .so and with multiple thread, there are some seg faults for execution (not sure the reason yet)
+
+python issue
+
+https://gitlab.kitware.com/paraview/paraview/-/issues/20086
+
+for current patch paraview, it is ok for python3.6
+
+if there is unnamed module encoding issue for paraview, try to use the default python, namely python3.6 on cori
+
+try to read this if the python and cori are used
+
+https://docs.nersc.gov/development/languages/python/overview/
+
+

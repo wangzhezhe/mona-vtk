@@ -1,0 +1,40 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=17
+#SBATCH --tasks-per-node=32
+#SBATCH --time=10:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+# run this in the build dir of the monavtk
+
+
+BLOCKNUM=4096
+#server get the blocknum from env
+export BLOCKNUM=4096
+STEP=20
+PROTOCOL=gni
+SSGFILE=ssgfile
+BACKEND=/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libmpibackend-pipeline.so
+
+
+
+rm $SSGFILE global_cred_conf
+
+# 1 nodes for server (16*4=64=2*32)
+srun -C haswell -n 4 -c 16 --cpu_bind=cores ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -t 16 &> mbserver_4.log &
+
+# how to make sure server init ok?
+while [ ! -f $SSGFILE ]
+do
+    echo "not exist"
+    sleep 1
+done
+
+# use admin to register pipeline
+srun -C haswell -n 1 -c 1 --cpu_bind=cores --mem-per-cpu=1000 ./example/MandelbulbColza/mbadmin -a $PROTOCOL -s $SSGFILE -x create -t mpibackend -n mpibackend -l $BACKEND &> mbadmin.log
+
+# 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
+srun -C haswell -n 512 -c 2 --cpu_bind=cores ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p mpibackend -b $BLOCKNUM -t $STEP &> mbclient_4_512.log
+
+wait
