@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=32
+#SBATCH --nodes=48
 #SBATCH --tasks-per-node=32
 #SBATCH --time=10:00
 #SBATCH --licenses=cscratch1
@@ -15,13 +15,13 @@ export BLOCKNUM=2048
 STEP=20
 PROTOCOL=gni
 SSGFILE=ssgfile
-BACKEND=/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libmpibackend-pipeline.so
-CONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/mpiconfig.json
+BACKEND=/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libmonabackend-pipeline.so
+CONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/monaconfig.json
 
 rm $SSGFILE global_cred_conf
 
 # 1 nodes for server (16*4=64=2*32)
-srun -C haswell -N 16 -n 64 -c 16 --cpu_bind=cores ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 &> mbserver_mpi_64.log &
+srun -C haswell -N 32 -n 128 -c 16 --cpu_bind=cores ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 &> mbserver_mona_128.log &
 
 # how to make sure server init ok?
 while [ ! -f $SSGFILE ]
@@ -34,6 +34,6 @@ done
 sleep 30
 
 # 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
-srun -C haswell -N 16 -n 512 -c 2 --cpu_bind=cores ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p mpibackend -b $BLOCKNUM -t $STEP > mbclient_mpi_64_512.log
+srun -C haswell -N 16 -n 512 -c 2 --cpu_bind=cores ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p monabackend -b $BLOCKNUM -t $STEP > mbclient_mona_128_512.log
 
 wait

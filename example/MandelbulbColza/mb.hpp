@@ -10,9 +10,9 @@
 #include <vector>
 namespace tl = thallium;
 
-static unsigned WIDTH = 30;
-static unsigned HEIGHT = 30;
-static unsigned DEPTH = 30;
+static unsigned WIDTH = 128;
+static unsigned HEIGHT = 128;
+static unsigned DEPTH = 128;
 static unsigned Globalpid = 0;
 
 #define MANDELBULB_ALLGATHER_TAG 2001

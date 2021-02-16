@@ -84,7 +84,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
       // there are still some issues here
       // icet contect is updated automatically in paraveiw patch
       InSitu::MonaUpdateController(this->m_mona_comm);
-      m_need_reset = false;
+      this->m_need_reset = false;
     }
   }
 

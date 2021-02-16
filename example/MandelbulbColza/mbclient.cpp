@@ -81,7 +81,6 @@ int main(int argc, char** argv)
     std::cout << "load cred_id: " << cred_id << std::endl;
     drc_credential_id = (uint32_t)atoi(cred_id.c_str());
   }
-
   MPI_Bcast(&drc_credential_id, 1, MPI_UINT32_T, 0, MPI_COMM_WORLD);
 
   /*
@@ -160,13 +159,19 @@ int main(int argc, char** argv)
         MandelbulbList[i].compute(order);
       }
 
-      MPI_Barrier(MPI_COMM_WORLD);
-
       // the join and leave may happens here
       // this should be called after the compute process
+      std::cout << "debug6" << std::endl;
+
       pipeline.start(step);
+
       // generate the datablock and put the data
       spdlog::trace("Calling stage {}", step);
+
+      // make sure the pipeline start is called by every process
+      // before the stage call
+      MPI_Barrier(MPI_COMM_WORLD);
+
       uint64_t blockid;
       // use another iteration to do the stage
       // for every block
@@ -197,8 +202,10 @@ int main(int argc, char** argv)
         }
       }
       double stageEnd = tl::timer::wtime();
-      std::cout << "rank " << rank << " stage time " << stageEnd - stageStart << std::endl;
-
+      if (rank == 0)
+      {
+        std::cout << "rank " << rank << " stage time " << stageEnd - stageStart << std::endl;
+      }
       MPI_Barrier(MPI_COMM_WORLD);
 
       spdlog::trace("Calling execute {}", step);
@@ -207,8 +214,11 @@ int main(int argc, char** argv)
       // execute the pipeline
       pipeline.execute(step);
       double exeEnd = tl::timer::wtime();
-
-      std::cout << "rank " << rank << " execution time " << exeEnd - exeStart << std::endl;
+      if (rank == 0)
+      {
+        // only care about the rank0
+        std::cout << "rank " << rank << " execution time " << exeEnd - exeStart << std::endl;
+      }
 
       MPI_Barrier(MPI_COMM_WORLD);
       spdlog::trace("Calling cleanup {}", step);
