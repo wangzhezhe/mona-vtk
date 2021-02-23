@@ -43,3 +43,20 @@ try to read this if the python and cori are used
 https://docs.nersc.gov/development/languages/python/overview/
 
 
+### known issue in large scale
+
+cori_weakscale_mona_128_1024.script
+happens by chance
+```
+Iteration 0 starting
+ICET,23:ERROR: Radix-kr received image with wrong size.
+ICET,23:ERROR: Input buffers do not agree for compressed-compressed composite.
+ICET,21:ERROR: Radix-kr received image with wrong size.
+# NA -- error -- /global/cscratch1/sd/zw241/sw/spackbuild/spack-stage-mercury-2.0.0-2p6qjd5wa4upto4xbjsirykb2jmxesro/spack-src/src/na/na_ofi.c:4447
+ # na_ofi_msg_recv_unexpected(): Attempting to use OP ID that was not completed
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  not success for wait any
+^[[0m^[[1m^[[91m
+Loguru caught a signal: SIGABRT
+^[[0m^[[0m^[[31mStack trace:
+```

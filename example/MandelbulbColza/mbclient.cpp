@@ -161,8 +161,6 @@ int main(int argc, char** argv)
 
       // the join and leave may happens here
       // this should be called after the compute process
-      std::cout << "debug6" << std::endl;
-
       pipeline.start(step);
 
       // generate the datablock and put the data

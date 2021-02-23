@@ -95,7 +95,6 @@ int main(int argc, char** argv)
     throw std::runtime_error("Could not open SSG group file");
   auto midengine = engine.get_margo_instance();
   ret = ssg_group_observe(midengine, gid);
-
   if (ret != SSG_SUCCESS)
     throw std::runtime_error("Could not observe the SSG group from file");
   // get string addresses
@@ -103,16 +102,15 @@ int main(int argc, char** argv)
   std::cout << "group size: " << group_size << std::endl;
 
   // std::vector<char> packed_addresses(group_size * 256, 0);
-
+  //ssg_group_dump(gid);
   for (int i = 0; i < group_size; i++)
   {
-
     /*
      if we do not add sleep, there is mercurey issue
       # na_ofi_addr_lookup(): Unrecognized provider type found from:
       unable to resolve address
-    */
-    tl::thread::sleep(engine, 1000);
+    
+    // tl::thread::sleep(engine, 1000);
     ssg_member_id_t member_id = ssg_get_group_member_id_from_rank(gid, i);
     std::cout << "get member id " << member_id << std::endl;
     hg_addr_t member_addr = ssg_get_group_member_addr(gid, member_id);
@@ -120,12 +118,14 @@ int main(int argc, char** argv)
     hg_size_t addr_size = 1024;
     margo_addr_to_string(mid, addr, &addr_size, member_addr);
     // check the return value of the above function and then printf addr
-    /* addresses can not be extracted completely in large scale case by this api */
+    //
+    //   addresses can not be extracted completely in large scale case by this api
     // auto addr = ssg_group_id_get_addr_str(gid, i);
     // if (!addr)
     //  throw std::runtime_error("Could not get address");
     std::cout << "get addr: " << std::string(addr) << std::endl;
     // strcpy(packed_addresses.data() + i * 256, addr);
+    */
   }
 
   return 0;

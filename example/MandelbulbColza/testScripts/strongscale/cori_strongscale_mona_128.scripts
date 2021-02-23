@@ -23,15 +23,14 @@ rm $SSGFILE global_cred_conf
 # 1 nodes for server (16*4=64=2*32)
 srun -C haswell -N 32 -n 128 -c 16 --cpu_bind=cores ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 &> mbserver_mona_128.log &
 
-# how to make sure server init ok?
-while [ ! -f $SSGFILE ]
-do
-    echo "not exist"
-    sleep 1
-done
-
 #make sure the server load the pipeline
-sleep 30
+result=0
+while [ $result -ne 128 ]
+do
+    result=$(cat mbserver_mona_128.log | grep "Server running at" | wc -l)
+    echo "$result server loaded backend"
+    sleep 1  
+done
 
 # 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
 srun -C haswell -N 16 -n 512 -c 2 --cpu_bind=cores ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p monabackend -b $BLOCKNUM -t $STEP > mbclient_mona_128_512.log

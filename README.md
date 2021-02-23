@@ -31,8 +31,8 @@ this is an example about the configuration on cori
 ```
 #!/bin/bash
 source ~/.color
-#module load python3
-module load python/3.7-anaconda-2019.10
+#use the system default python, which is 3.6
+#or refer to the python configuration of cori
 module load spack
 module load cmake/3.18.2
 # for compiling vtk on cori
@@ -40,11 +40,10 @@ export CRAYPE_LINK_TYPE=dynamic
 
 # let cc and CC to be the gnu compier
 module swap PrgEnv-intel PrgEnv-gnu
-# use the gcc8.2.0, since osmesa use this version 
-# keep sure allpackages are compiled by same gcc
+
 # make sure the package.yaml has the same compiler version
-module swap gcc/8.3.0 gcc/8.2.0
-spack load -r mochi-colza@main%gcc@8.2.0
+module swap gcc/8.3.0 gcc/9.3.0
+spack load -r mochi-colza@main%gcc@9.3.0
 #spack load cppunit
 #important! make sure the cc can find the correct linker, the spack may load the wrong linker
 #there are still issues after loading the mesa not sure the reason
@@ -53,10 +52,12 @@ spack load -r mochi-colza@main%gcc@8.2.0
 
 cd $SCRATCH/build_monavtk
 
-# important!
 export MPICH_GNI_NDREG_ENTRIES=1024
 # get more mercury info
 export HG_NA_LOG_LEVEL=debug
+
+# try to avoid the argobot stack size issue, set it to 2M
+export ABT_THREAD_STACKSIZE=2097152
 ```
 
 The mona example with the debug option

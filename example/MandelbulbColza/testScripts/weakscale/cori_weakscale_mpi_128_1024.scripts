@@ -1,18 +1,19 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=18
+#SBATCH --nodes=48
 #SBATCH --tasks-per-node=32
-#SBATCH --time=10:00
+#SBATCH --time=20:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
 
 cd /global/cscratch1/sd/zw241/build_monavtk
 
 # run this in the build dir of the monavtk
-BLOCKNUM=2048
+# maybe get the data length by env?
+BLOCKNUM=4096
 #server get the blocknum from env
-export BLOCKNUM=2048
-STEP=10
+export BLOCKNUM=4096
+STEP=20
 PROTOCOL=gni
 SSGFILE=ssgfile
 BACKEND=/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libmpibackend-pipeline.so
@@ -21,17 +22,18 @@ CONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pip
 rm $SSGFILE global_cred_conf
 
 # 1 nodes for server (16*4=64=2*32)
-srun -C haswell -N 2 -n 8 -c 16 --cpu_bind=cores ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 &> mbserver_mpi_8.log &
+srun -C haswell -N 16 -n 128 -c 8 --cpu_bind=cores --time=20:00 ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 &> mbserver_mpi_128.log &
 
 #make sure the server load the pipeline
 result=0
-while [ $result -ne 8 ]
+while [ $result -ne 128 ]
 do
-    result=$(cat mbserver_mpi_8.log | grep "Server running at" | wc -l)
+    result=$(cat mbserver_mpi_128.log | grep "Server running at" | wc -l)
     echo "$result server loaded backend"
     sleep 1  
 done
+
 # 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
-srun -C haswell -N 16 -n 512 -c 2 --cpu_bind=cores ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p mpibackend -b $BLOCKNUM -t $STEP > mbclient_mpi_8_512.log
+srun -C haswell -N 32 -n 1024 -c 2 --cpu_bind=cores --time=20:00 ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p mpibackend -b $BLOCKNUM -t $STEP > mbclient_mpi_128_1024.log
 
 wait
