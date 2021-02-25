@@ -102,7 +102,7 @@ int main(int argc, char** argv)
   std::cout << "group size: " << group_size << std::endl;
 
   // std::vector<char> packed_addresses(group_size * 256, 0);
-  //ssg_group_dump(gid);
+  ssg_group_dump(gid);
   for (int i = 0; i < group_size; i++)
   {
     /*

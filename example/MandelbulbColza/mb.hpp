@@ -10,8 +10,9 @@
 #include <vector>
 namespace tl = thallium;
 
-static unsigned WIDTH = 128;
-static unsigned HEIGHT = 128;
+
+static unsigned WIDTH = 64;
+static unsigned HEIGHT = 64;
 static unsigned DEPTH = 128;
 static unsigned Globalpid = 0;
 
