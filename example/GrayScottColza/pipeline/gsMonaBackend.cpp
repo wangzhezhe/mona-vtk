@@ -4,7 +4,9 @@
  * See COPYRIGHT in top-level directory.
  */
 #include "gsMonaBackend.hpp"
+#include "gsMonaInSituAdaptor.hpp"
 #include <iostream>
+#include <memory> // We need to include this for shared_ptr
 
 // this is only for testing
 int totalBlock = 0;
@@ -56,7 +58,7 @@ void MonaBackendPipeline::abort(uint64_t iteration)
 colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
 {
   std::cout << " gs pipeline execute iteration " << iteration << std::endl;
-  /*
+
   // when the mona is updated, init and reset
   // otherwise, do not reset
   // it might need some time for the fir step
@@ -66,13 +68,17 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     // this is supposed to be called once
     // TODO set this from the client or server parameters?
     std::string scriptname =
-      "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/render.py";
+      "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/render.py";
     InSitu::MonaInitialize(scriptname, this->m_mona_comm);
     this->m_first_init = false;
 
     // check the env to load the BLOCKNUM
     std::string blocNum = getenv("BLOCKNUM");
     totalBlock = std::stoi(blocNum);
+    if (totalBlock == 0)
+    {
+      throw std::runtime_error("totalBlock is not supposed to be zero");
+    }
   }
   else
   {
@@ -96,33 +102,33 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
 
   // output all key in current map
   // extract data list from current map
-
-  // get the total block number
-  // the largest key+1 is the total block number
-  // it might be convenient to get the info by API
-  size_t maxID = 0;
-  std::vector<Mandelbulb> MandelbulbList;
-
+  std::vector<std::shared_ptr<DataBlock> > dataBlockList;
+  // process the data blocks
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     // std::cout << "iteration " << iteration << " procRank " << procRank << " key ";
-    for (auto& t : m_datasets[iteration]["mydata"])
+    for (auto& t : m_datasets[iteration]["grayscottu"])
     {
       size_t blockID = t.first;
-      // std::cout << blockID << ",";
-      size_t blockOffset = blockID * DEPTH;
-      // reconstruct the MandelbulbList
-      Mandelbulb mb(WIDTH, HEIGHT, DEPTH, blockOffset, 1.2, totalBlock);
-      mb.SetData(t.second.data);
-      MandelbulbList.push_back(mb);
+      // process the insitu function for the MandelbulbList
+      // the controller is updated in the MonaUpdateController
+      std::cout << "debug blockID " << t.first << " size " << t.second->data.size() << " dim "
+                << t.second->dimensions[0] << "," << t.second->dimensions[1] << ","
+                << t.second->dimensions[2] << " offset " << t.second->offsets[0] << ","
+                << t.second->offsets[1] << "," << t.second->offsets[2] << std::endl;
+
+      dataBlockList.push_back(t.second);
+      // std::string fileName =
+      // "gsdata/var_" + std::to_string(iteration) + "_" + std::to_string(blockID);
+      // InSitu::outPutVTIFile(t.second, fileName);
+      // InSitu::outPutFigure(t.second, fileName);
     }
     // std::cout << std::endl;
   }
+  // get the block number from env
+  // we may not need the total blocks value here
+  InSitu::MonaCoProcessList(dataBlockList, iteration, iteration);
 
-  // process the insitu function for the MandelbulbList
-  // the controller is updated in the MonaUpdateController
-  InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
-  */
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
@@ -155,16 +161,17 @@ colza::RequestResult<int32_t> MonaBackendPipeline::stage(const std::string& send
       return result;
     }
   }
-  DataBlock block;
-  block.dimensions = dimensions;
-  block.offsets = offsets;
-  block.type = type;
-  block.data.resize(data.size());
+  std::shared_ptr<DataBlock> blockptr = std::make_shared<DataBlock>();
+
+  blockptr->dimensions = dimensions;
+  blockptr->offsets = offsets;
+  blockptr->type = type;
+  blockptr->data.resize(data.size());
 
   try
   {
     std::vector<std::pair<void*, size_t> > segments = { std::make_pair<void*, size_t>(
-      block.data.data(), block.data.size()) };
+      blockptr->data.data(), blockptr->data.size()) };
     auto local_bulk = m_engine.expose(segments, tl::bulk_mode::write_only);
     auto origin_ep = m_engine.lookup(sender_addr);
     data.on(origin_ep) >> local_bulk;
@@ -178,7 +185,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::stage(const std::string& send
   if (result.success())
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
-    m_datasets[iteration][dataset_name][block_id] = std::move(block);
+    m_datasets[iteration][dataset_name][block_id] = blockptr;
   }
   return result;
 }

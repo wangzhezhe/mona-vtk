@@ -41,7 +41,11 @@ target_link_libraries (gsmonabackend-pipeline
 colza-server 
 mona-vtk-icet
 mona-vtk
-ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel MPI::MPI_C)
+ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel 
+VTK::IOImage
+VTK::IOXML
+VTK::IOLegacy
+MPI::MPI_C)
 
 # client
 add_executable (gsclient gsclient.cpp gray-scott.cpp settings.cpp)

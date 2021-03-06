@@ -16,20 +16,21 @@ PROTOCOL=gni
 BACKEND=/global/cscratch1/sd/zw241/build_monavtk/example/GrayScottColza/libgsmonabackend-pipeline.so
 SEVERCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/gsMonaConfig.json
 CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings.json
-
+export BLOCKNUM=4
+SERVERNUM=1
 
 # 1 nodes for server (16*4=64=2*32)
-srun -C haswell -N 1 -n 8 -c 8 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 &> gsserver_mona_8.log &
+srun -C haswell -N $SERVERNUM -n 8 -c 8 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 &> gsserver_mona_$SERVERNUM.log &
 
 #make sure the server load the pipeline
 result=0
-while [ $result -ne 8 ]
+while [ $result -ne $SERVERNUM ]
 do
-    result=$(cat gsserver_mona_8.log | grep "Server running at" | wc -l)
+    result=$(cat gsserver_mona_($SERVERNUM).log | grep "Server running at" | wc -l)
     echo "$result server loaded backend"
     sleep 1  
 done
 
-srun -C haswell -N 2 -n 64 -c 2 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsclient $CLIENTCONFIG > gsclient_mona_8_64.log
+srun -C haswell -n $BLOCKNUM -c 2 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsclient $CLIENTCONFIG > gsclient_mona_8_64.log
 
 wait

@@ -44,7 +44,7 @@ protected:
   std::map<uint64_t,      // iteration
     std::map<std::string, // dataset name
       std::map<uint64_t,  // block id
-        DataBlock> > >
+        std::shared_ptr<DataBlock>> > >
     m_datasets;
   tl::mutex m_datasets_mtx;
 

@@ -187,8 +187,9 @@ int main(int argc, char** argv)
       MPI_Barrier(MPI_COMM_WORLD);
 
       double stageStart = tl::timer::wtime();
-
-      std::vector<size_t> dimensions = { sim.npx, sim.npy, sim.npz };
+      
+      // the sim.npx  sim.npy  sim.npz labels how many process at each dimention not the actual cell dims
+      std::vector<size_t> dimensions = { sim.size_x, sim.size_y, sim.size_z };
 
       // the offset is used to label the current position in global domain
       // the offset means the lower bound of the current grid
@@ -222,6 +223,8 @@ int main(int argc, char** argv)
 
       double exeStart = tl::timer::wtime();
       // execute the pipeline
+      // TODO double check this part, if multiple clients call this, the execute function at the server end
+      // is called only one time???
       pipeline.execute(step);
       double exeEnd = tl::timer::wtime();
       if (rank == 0)
