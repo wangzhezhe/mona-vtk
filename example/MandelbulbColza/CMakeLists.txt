@@ -30,7 +30,7 @@ find_package (Python3)
 #set include dir for mochiController
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
-# buld the monabackend pipeline library
+# buld the monabackend mbpipeline library
 set (monabackend-src-files
      ./pipeline/MonaBackend.cpp
      ./MonaInSituAdaptor.cpp)
@@ -70,3 +70,6 @@ target_link_libraries (mbadmin colza-admin ${DRC_LIBRARIES})
 
 add_executable (testssg ${CMAKE_CURRENT_SOURCE_DIR}/testssg.cpp)
 target_link_libraries (testssg colza-client MPI::MPI_C ${DRC_LIBRARIES})
+
+
+# for the pipilines about the gray scott example

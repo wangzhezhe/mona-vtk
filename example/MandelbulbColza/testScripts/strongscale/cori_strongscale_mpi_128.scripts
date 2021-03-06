@@ -18,7 +18,7 @@ SSGFILE=ssgfile
 BACKEND=/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libmpibackend-pipeline.so
 CONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/mpiconfig.json
 
-rm $SSGFILE global_cred_conf
+rm $SSGFILE global_cred_conf 
 
 # 1 nodes for server (16*4=64=2*32)
 srun -C haswell -N 32 -n 128 -c 16 --cpu_bind=cores ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 &> mbserver_mpi_128.log &

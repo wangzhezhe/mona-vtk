@@ -189,6 +189,10 @@ int main(int argc, char** argv)
           int2size_t(*(extents + 3)) + 1, int2size_t(*(extents + 5)) + 1 };
         std::vector<int64_t> offsets = { 0, 0, MandelbulbList[i].GetZoffset() };
 
+        //TODO test
+        //output the data to detect data offline
+
+
         auto type = colza::Type::INT32;
         pipeline.stage(
           "mydata", step, blockid, dimensions, offsets, type, MandelbulbList[i].GetData(), &result);

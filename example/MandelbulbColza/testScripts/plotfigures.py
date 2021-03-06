@@ -88,3 +88,8 @@ def weak_scale():
 if __name__ == '__main__':
     strong_scale()
     weak_scale()
+
+'''
+There are 4 data blocks for every client, for strong scale case, there are 512 clients and 2048 data blocks in total
+for the weak scale case, the number of the client varies with the number of the client
+'''

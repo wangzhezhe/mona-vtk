@@ -1,0 +1,9 @@
+{
+    "pipelines" : {
+        "gsmonabackend" : {
+            "library" : "/global/cscratch1/sd/zw241/build_monavtk/example/GrayScottColza/libgsmonabackend-pipeline.so",
+            "type" : "gsmonabackend",
+            "config" : {}
+        }
+    }
+}
