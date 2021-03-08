@@ -73,7 +73,8 @@ void BuildVTKGridList(std::vector<std::shared_ptr<DataBlock> >& dataBlockList)
     vtkNew<vtkImageData> imageData;
     imageData->SetSpacing(1, 1, 1);
     imageData->SetExtent(indexlb[0], indexub[0], indexlb[1], indexub[1], indexlb[2], indexub[2]);
-    imageData->SetOrigin(indexlb[0], indexlb[1], indexlb[2]);
+    // imageData->SetOrigin(indexlb[0], indexlb[1], indexlb[2]);
+    imageData->SetOrigin(0, 0, 0);
     // this piece value is local one
     multiPiece->SetPiece(i, imageData.GetPointer());
   }

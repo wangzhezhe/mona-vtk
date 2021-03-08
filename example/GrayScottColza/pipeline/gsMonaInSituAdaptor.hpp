@@ -28,6 +28,8 @@ void outPutFigure(std::shared_ptr<DataBlock> dataBlock, std::string fileName);
 void MonaCoProcessList(
   std::vector<std::shared_ptr<DataBlock> > dataBlockList, double time, unsigned int timeStep);
 
+//for the dynmaic version, we need to update the communicator every time
+
 } // namespace InSitu
 
 #endif

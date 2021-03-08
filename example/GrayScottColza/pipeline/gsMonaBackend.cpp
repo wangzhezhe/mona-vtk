@@ -67,8 +67,10 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     // init the mochi communicator and register the pipeline
     // this is supposed to be called once
     // TODO set this from the client or server parameters?
+    // std::string scriptname =
+    //  "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/render.py";
     std::string scriptname =
-      "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/render.py";
+      "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/gsrender_multiclip.py";
     InSitu::MonaInitialize(scriptname, this->m_mona_comm);
     this->m_first_init = false;
 
