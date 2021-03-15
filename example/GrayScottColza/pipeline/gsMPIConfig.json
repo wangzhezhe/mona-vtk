@@ -1,0 +1,9 @@
+{
+    "pipelines" : {
+        "gsmpibackend" : {
+            "library" : "/global/cscratch1/sd/zw241/build_monavtk/example/GrayScottColza/libgsmpibackend-pipeline.so",
+            "type" : "gsmpibackend",
+            "config" : {}
+        }
+    }
+}

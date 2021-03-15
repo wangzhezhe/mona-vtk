@@ -1,4 +1,30 @@
-# Dependencies
+## mona-vtk examples
+
+This repo shows how to implement the MonaController and use it for Paraview Catalyst to do the in-situ data analytics. The `src` folder contains the implementation details of the MonaController based on the MonaCommunicator which is implemented based on [mochi-mona](https://github.com/mochi-hpc/mochi-mona).
+
+There are several examples in the `example` folder:
+
+- basic: This example shows that how the MonaController can be used to execute the basic vtk parallel operations such as send and recv vtk object.
+
+
+- icetExample: This exmaple shows that how the mochi-mona can be used to execute the iceT test cases based on the iceT wrapper for the mochi-mona.
+
+
+- MandelbulbCatalystExample: This example shows how the MonaController can be used to execute the tightly coupled in-situ analytics in distributed way.
+
+
+- MandelbulbColza: This example shows how the MonaController can be used to execute the loosely coupled in-situ analytics in distributed way, the [mochi-colza](https://github.com/mochi-hpc/mochi-colza) is used as the data staging service for this example.
+
+
+- GrayScottColza: This example is similar with the MandelbulbColza case but the data source is the Gray-Scott simulation.
+
+## Installing
+
+### Colza
+
+When we install Colza, we also install the necessary mochi software stack
+
+### Paraview
 
 MonaVTK requires dedicated ParaView 5.8 or greater, cmake, mona, MPI.
 On a linux workstation with Spack, the following will install the required dependencies.
@@ -22,6 +48,12 @@ For the osmesa, maybe try following command if it is not installed on the target
 
 ```
 spack install mesa+osmesa~llvm swr=none
+```
+
+The example to install the colza with the exmaple and drc
+
+```
+mochi-colza@main+drc+examples
 ```
 
 # Build

@@ -30,7 +30,7 @@ find_package (Python3)
 #set include dir for mochiController
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
-# buld the monabackend mbpipeline library
+# build the monabackend mbpipeline library
 set (gsmonabackend-src-files
      ./pipeline/gsMonaBackend.cpp
      ./pipeline/gsMonaInSituAdaptor.cpp)
@@ -47,6 +47,21 @@ VTK::IOXML
 VTK::IOLegacy
 MPI::MPI_C)
 
+#mpibackend
+set (gsmpibackend-src-files
+     ./pipeline/gsMPIBackend.cpp
+     ./pipeline/gsMPIInSituAdaptor.cpp)
+
+add_library (gsmpibackend-pipeline ${gsmpibackend-src-files})
+target_link_libraries (gsmpibackend-pipeline 
+colza-server 
+ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel 
+VTK::IOImage
+VTK::IOXML
+VTK::IOLegacy
+MPI::MPI_C)
+
+
 # client
 add_executable (gsclient gsclient.cpp gray-scott.cpp settings.cpp)
 target_link_libraries (gsclient colza-client MPI::MPI_C ${DRC_LIBRARIES})
@@ -54,3 +69,5 @@ target_link_libraries (gsclient colza-client MPI::MPI_C ${DRC_LIBRARIES})
 # server
 add_executable (gsserver gsserver.cpp)
 target_link_libraries (gsserver colza-server MPI::MPI_C ${DRC_LIBRARIES})
+
+

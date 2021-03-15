@@ -6,10 +6,10 @@
     "k": 0.048,
     "dt": 1.0,
     "insitugap": 1,
-    "steps": 30,
+    "steps": 6,
     "noise": 0.01,
     "ssgfile":"ssgfile",
     "loglevel":"info",
     "protocol":"gni",
-    "pipelinename":"gsmonabackend"
+    "pipelinename":"gsmpibackend"
 }
