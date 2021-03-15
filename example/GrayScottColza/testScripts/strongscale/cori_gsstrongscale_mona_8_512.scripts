@@ -14,7 +14,7 @@ SSGFILE=ssgfile
 PROTOCOL=gni
 
 SEVERCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/gsMonaConfig.json
-CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_monaback_512.json
+CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_monaback_408.json
 
 SERVERNODE=2
 CLIENTNODE=16

@@ -1,0 +1,39 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=48
+#SBATCH --time=20:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+cd /global/cscratch1/sd/zw241/build_monavtk
+rm $SSGFILE
+
+# key envs
+SSGFILE=ssgfile
+PROTOCOL=gni
+
+SEVERCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/gsMPIConfig.json
+CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_mpiback_408.json
+
+SERVERNODE=16
+CLIENTNODE=32
+
+SERVERNUM=128
+CLIENTNUM=1024
+
+rm gsserver_mona_$SERVERNUM.log gsclient_mpi_${CLIENTNUM}_${SERVERNUM}.log
+
+# 1 nodes for server (16*4=64=2*32)
+srun -C haswell -N $SERVERNODE -n $SERVERNUM -c 8 --cpu_bind=cores --mem=100000 --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v debug &> gsserver_mpi_$SERVERNUM.log &
+
+#make sure the server load the pipeline
+result=0
+while [ $result -ne $SERVERNUM ]
+do
+    result=$(cat gsserver_mpi_"$SERVERNUM".log | grep "Server running at" | wc -l)
+    echo "$result server loaded backend"
+    sleep 1  
+done
+# 512*2/64=16
+srun -C haswell -N $CLIENTNODE -n $CLIENTNUM -c 2 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsclient $CLIENTCONFIG > gsclient_mpi_${CLIENTNUM}_${SERVERNUM}.log
+

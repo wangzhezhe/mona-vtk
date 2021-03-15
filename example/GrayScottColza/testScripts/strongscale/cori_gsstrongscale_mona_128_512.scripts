@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=32
+#SBATCH --nodes=48
 #SBATCH --time=20:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
@@ -13,12 +13,12 @@ SSGFILE=ssgfile
 PROTOCOL=gni
 
 SEVERCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/gsMonaConfig.json
-CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_monaback_512.json
+CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_monaback_408.json
 
-SERVERNODE=16
+SERVERNODE=32
 CLIENTNODE=16
 
-SERVERNUM=64
+SERVERNUM=128
 CLIENTNUM=512
 
 rm gsserver_mona_$SERVERNUM.log gsclient_mona_$CLIENTNUM_$SERVERNUM.log
