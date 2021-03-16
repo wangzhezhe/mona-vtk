@@ -1,7 +1,7 @@
 {
     "pipelines" : {
         "monabackend" : {
-            "library" : "/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libmonabackend-pipeline.so",
+            "library" : "./example/MandelbulbColza/libmonabackend-pipeline.so",
             "type" : "monabackend",
             "config" : {}
         }

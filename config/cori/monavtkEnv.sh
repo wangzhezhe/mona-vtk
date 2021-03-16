@@ -1,5 +1,5 @@
 #!/bin/bash
-source ~/.color
+
 #use the system default python env, which is 3.6
 module load spack
 module load cmake/3.18.2
@@ -25,4 +25,4 @@ export MPICH_GNI_NDREG_ENTRIES=1024
 export HG_NA_LOG_LEVEL=debug
 
 # try to avoid the argobot stack size issue
-export ABT_THREAD_STACKSIZE=2097152
+# export ABT_THREAD_STACKSIZE=2097152

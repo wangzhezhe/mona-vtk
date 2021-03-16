@@ -5,15 +5,15 @@
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
 
-cd /global/cscratch1/sd/zw241/build_monavtk
-rm $SSGFILE
-
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+cd $BUILDDIR
 # key envs
 SSGFILE=ssgfile
 PROTOCOL=gni
 
-SEVERCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/gsMonaConfig.json
-CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_monaback_646.json
+SEVERCONFIG=$SRCDIR/example/GrayScottColza/pipeline/gsMonaConfig.json
+CLIENTCONFIG=$SRCDIR/example/GrayScottColza/client_settings_monaback_646.json
 
 SERVERNODE=16
 CLIENTNODE=32

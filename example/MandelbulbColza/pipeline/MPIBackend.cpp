@@ -84,8 +84,9 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
     // init the mochi communicator and register the pipeline
     // this is supposed to be called once
     // TODO set this from the client or server parameters?
-    std::string scriptname =
-      "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/render.py";
+    std::string SRCDIR = getenv("SRCDIR");
+    // "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/mbrender_64_iso.py";
+    std::string scriptname = SRCDIR + "/example/MandelbulbColza/pipeline/mbrender_64_iso.py";
     InSitu::MPIInitialize(scriptname);
     this->m_first_init = false;
   }

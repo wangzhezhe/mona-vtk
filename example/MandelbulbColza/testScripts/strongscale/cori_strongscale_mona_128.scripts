@@ -6,7 +6,8 @@
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
 
-cd /global/cscratch1/sd/zw241/build_monavtk
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
 
 # run this in the build dir of the monavtk
 BLOCKNUM=2048
@@ -15,8 +16,8 @@ export BLOCKNUM=2048
 STEP=20
 PROTOCOL=gni
 SSGFILE=ssgfile
-BACKEND=/global/cscratch1/sd/zw241/build_monavtk/example/MandelbulbColza/libmonabackend-pipeline.so
-CONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/MandelbulbColza/pipeline/monaconfig.json
+BACKEND=$BUILDDIR/example/MandelbulbColza/libmonabackend-pipeline.so
+CONFIG=$SRCDIR/example/MandelbulbColza/pipeline/monaconfig.json
 
 rm $SSGFILE global_cred_conf
 
