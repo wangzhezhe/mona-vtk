@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=48
+#SBATCH --nodes=12
 #SBATCH --time=20:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
@@ -13,18 +13,18 @@ SSGFILE=ssgfile
 PROTOCOL=gni
 
 SEVERCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/gsMPIConfig.json
-CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_mpiback_408.json
+CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_mpiback_646.json
 
-SERVERNODE=16
-CLIENTNODE=32
+SERVERNODE=4
+CLIENTNODE=8
 
-SERVERNUM=128
-CLIENTNUM=1024
+SERVERNUM=32
+CLIENTNUM=256
 
 rm gsserver_mona_$SERVERNUM.log gsclient_mpi_${CLIENTNUM}_${SERVERNUM}.log
 
 # 1 nodes for server (16*4=64=2*32)
-srun -C haswell -N $SERVERNODE -n $SERVERNUM -c 8 --cpu_bind=cores --mem=100000 --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v debug &> gsserver_mpi_$SERVERNUM.log &
+srun -C haswell -N $SERVERNODE -n $SERVERNUM -c 8 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v debug &> gsserver_mpi_$SERVERNUM.log &
 
 #make sure the server load the pipeline
 result=0

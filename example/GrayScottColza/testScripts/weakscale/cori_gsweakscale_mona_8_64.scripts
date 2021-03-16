@@ -13,7 +13,7 @@ SSGFILE=ssgfile
 PROTOCOL=gni
 
 SEVERCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/gsMonaConfig.json
-CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_monaback_408.json
+CLIENTCONFIG=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/client_settings_monaback_646.json
 
 SERVERNODE=1
 CLIENTNODE=2
@@ -22,7 +22,7 @@ SERVERNUM=8
 CLIENTNUM=64
 
 # 1 nodes for server (16*4=64=2*32)
-srun -C haswell -N $SERVERNODE -n $SERVERNUM -c 8 --cpu_bind=cores --mem=100000 --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 &> gsserver_mona_$SERVERNUM.log &
+srun -C haswell -N $SERVERNODE -n $SERVERNUM -c 8 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 &> gsserver_mona_$SERVERNUM.log &
 
 #make sure the server load the pipeline
 result=0
