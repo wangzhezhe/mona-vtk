@@ -1,4 +1,4 @@
-## mona-vtk examples
+# Mona-vtk examples
 
 This repo shows how to implement the MonaController and use it for Paraview Catalyst to do the in-situ data analytics. The `src` folder contains the implementation details of the MonaController based on the MonaCommunicator which is implemented based on [mochi-mona](https://github.com/mochi-hpc/mochi-mona).
 
@@ -22,17 +22,17 @@ There are several examples in the `example` folder:
 
 We assume there is a new account on cori system, and we need following operations to install necessary depedencies
 
-**config the spack env**
+**spack configuration**
 
-There are two ways to use the spack, the first one is to init the package.yaml file and the second one is to use the spack env.
+There are two ways to use the Spack to install the software packages, the first one is to init the package.yaml file and the second one is to use the spack env.
 
-For example, we use `spack arch -p` to check the current architecture. If the architecture is the cray, the `package.yaml` should locate at the `~/.spack/cray/`. And we update the `package.yaml` file as needed to install the mochi-software stacks. The sample `package.yaml` is located in `./config/cori/packages.yaml`.
+For example, we use `spack arch -p` to check the current architecture. If the architecture is the cray, the `package.yaml` file should locate at the `~/.spack/cray/`. And we update the `package.yaml` file as needed for installing the mochi-software stacks. One sample `package.yaml` for cori system is located in `./config/cori/packages.yaml`.
 
-the repo of the spack used by the mochi project: https://xgitlab.cels.anl.gov/sds/sds-repo.git, and we need to add this repo into the spack system by executing `spack repo add sds-repo` at the current direactlry.
+The repo of the spack used by the mochi project: https://xgitlab.cels.anl.gov/sds/sds-repo.git, we need to add this repo into the spack system by executing `spack repo add sds-repo` at the current direactly.
 
-**build ParaView patch**
+**build ParaView patch version**
 
-The source code of ParaView patch is located at this folder: https://gitlab.kitware.com/mdorier/paraview/-/tree/dev-icet-integration, it needs the osmesa to support the rendering capability. We use the osmesa installed by the spack of the cori system:
+The source code of ParaView patch is located at this repo: https://gitlab.kitware.com/mdorier/paraview/-/tree/dev-icet-integration, it needs the osmesa to support the capability of in-situ rendering. We use the osmesa installed by the spack on the cori system:
 
 ```
 module load spack
@@ -40,7 +40,7 @@ spack load -r mesa/qozjngg
 PATH="/global/common/cori/software/altd/2.0/bin:$PATH"
 ```
 
-We also need set the compiler on the cori
+We also need to set the compiler on the cori before building the ParaView
 
 ```
 # for compiling vtk on cori
@@ -52,33 +52,33 @@ module swap PrgEnv-intel PrgEnv-gnu
 module swap gcc/8.3.0 gcc/9.3.0
 ```
 
-At the build direactory of the ParaView, we use cmake commands as follows (if we assume the source direactory is `~/cworkspace/src/ParaView_matthieu/paraview`):
+At the build direactory of the ParaView, we use cmake commands as follows (if we assume the source direactory is `~/cworkspace/src/ParaView_patch/paraview`):
 
 ```
-cmake ~/cworkspace/src/ParaView_matthieu/paraview -DPARAVIEW_USE_QT=OFF -DPARAVIEW_USE_PYTHON=ON -DPARAVIEW_USE_MPI=ON -DVTK_OPENGL_HAS_OSMESA:BOOL=TRUE -DVTK_USE_X:BOOL=FALSE -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_PYTHON_OPTIONAL_LINK=OFF -DCMAKE_BUILD_TYPE=Release
+cmake ~/cworkspace/src/ParaView_patch/paraview -DPARAVIEW_USE_QT=OFF -DPARAVIEW_USE_PYTHON=ON -DPARAVIEW_USE_MPI=ON -DVTK_OPENGL_HAS_OSMESA:BOOL=TRUE -DVTK_USE_X:BOOL=FALSE -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_PYTHON_OPTIONAL_LINK=OFF -DCMAKE_BUILD_TYPE=Release
 ```
 
 **build and install Colza**
 
+This command will install the mochi-colza and other related mochi softwares
+
 ```
 spack install mochi-colza@main+drc+examples
 ```
-This command will install the necessary mochi softwares
 
 **build all examples**
 
-We can load these depedencies if all depedencies are installed successfully. The sample commands are located in `config/cori/monavtkEnv.sh`. We execute these commands before building the mona-vtk examples. 
-
+We can load these depedencies if all packages are installed successfully. The sample commands are located in `config/cori/monavtkEnv.sh`. We execute these commands before building the mona-vtk examples. 
 
 Then we can build the mona-vtk the cmake command like this:
 
 ```
-cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_DIR=$SCRATCH/build_paraview_matthieu_release/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_matthieu_release/ -DBUILD_SHARED_LIBS=ON 
+cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_DIR=$SCRATCH/build_paraview_patch_release/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_patch_release/ -DBUILD_SHARED_LIBS=ON 
 ```
 
 ## Scale evaluation
 
-The scripts of scale examples are located at the `example/MandelbulbColza/testScripts` and `./example/GrayScottColza/testScripts` separately.
+The scripts for scale examples are located at the `example/MandelbulbColza/testScripts` and `./example/GrayScottColza/testScripts` separately.
 
 For example, we can set the build and src dir properly at the beginning of the scripts, such as
 
@@ -87,7 +87,7 @@ export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
 ``` 
  
-and then execute:
+and then use sbatch to submit jobs with specific node configurations as needed:
 
 ```
 sbatch ~/cworkspace/src/mona-vtk/example/MandelbulbColza/testScripts/strongscale/cori_strongscale_mona_4.scripts
@@ -97,8 +97,8 @@ or
 ```
 sbatch ~/cworkspace/src/mona-vtk/example/GrayScottColza/testScripts/strongscale/cori_gsstrongscale_mona_128_512.scripts
 ```
-
-### Other potential issues
+ 
+## Other potential issues
 
 We could also try to install osmesa by spack manaully:
 
