@@ -8,7 +8,7 @@
 
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
-
+cd $BUILDDIR
 # run this in the build dir of the monavtk
 # maybe get the data length by env?
 BLOCKNUM=4096
