@@ -32,7 +32,16 @@ The repo of the spack used by the mochi project: https://xgitlab.cels.anl.gov/sd
 
 **Building ParaView patch version**
 
-The source code of ParaView patch is located at this repo: https://gitlab.kitware.com/mdorier/paraview/-/tree/dev-icet-integration, it needs the osmesa to support the capability of in-situ rendering. We use the osmesa installed by the spack on the cori system:
+The source code of ParaView patch is located at this repo: https://gitlab.kitware.com/mdorier/paraview/-/tree/dev-icet-integration.
+
+```
+git clone https://gitlab.kitware.com/mdorier/paraview.git
+cd paraview
+git checkout ecb0a075f459c9db78bdd57bf83d715a99f0fe55
+git submodule update --init --recursive
+```
+
+The ParaView needs the osmesa to support the capability of in-situ rendering. We use the osmesa installed by the spack on the cori system:
 
 ```
 module load spack
@@ -63,7 +72,7 @@ cmake ~/cworkspace/src/ParaView_patch/paraview -DPARAVIEW_USE_QT=OFF -DPARAVIEW_
 This command will install the mochi-colza and other related mochi softwares
 
 ```
-spack install mochi-colza@main+drc+examples
+spack install mochi-colza@main+drc+examples%gcc@9.3.0
 ```
 
 **Building all examples**
@@ -101,6 +110,10 @@ sbatch ~/cworkspace/src/mona-vtk/example/GrayScottColza/testScripts/strongscale/
 We can check the corresponding server and log file to get the particular data put and analysing time.
 
 For example, the `mbclient_mona_4_512.log` records the client information when there are 4 staging processes and 512 client pracesses.
+
+For the `MandelbulbColza` example, we can set the size of the data block by updating the `WIDTH`, `HEIGHT` and `DEPTH` in the `mb.hpp` file.
+
+For the `GrayScottColza` example, we can set the size of the data block by updating the `L` value at the client configuration file. For example, at the `client_settings_monaback_408.json`, we set the `L` as 408, which means there are `408*408*408` cells for each data block.
 
 ## Other potential issues
 

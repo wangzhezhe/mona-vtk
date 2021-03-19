@@ -34,7 +34,6 @@ extern "C"
   } while (0)
 #endif
 
-const std::string credFileName = "global_cred_conf";
 namespace tl = thallium;
 
 static std::string g_address;
@@ -72,18 +71,11 @@ int main(int argc, char** argv)
   char drc_key_str[256] = { 0 };
   struct hg_init_info hii;
   memset(&hii, 0, sizeof(hii));
-  uint32_t drc_credential_id;
-  if (rank == 0)
-  {
-    std::ifstream infile(credFileName);
-    std::string cred_id;
-    std::getline(infile, cred_id);
-    std::cout << "load cred_id: " << cred_id << std::endl;
-    drc_credential_id = (uint32_t)atoi(cred_id.c_str());
-  }
-  MPI_Bcast(&drc_credential_id, 1, MPI_UINT32_T, 0, MPI_COMM_WORLD);
+  int64_t drc_credential_id;
 
-  /*
+  // get the cred id by ssg
+  int num_addrs = SSG_ALL_MEMBERS;
+  ssg_group_id_t g_id;
   int ret = ssg_group_id_load(g_ssg_file.c_str(), &num_addrs, &g_id);
   DIE_IF(ret != SSG_SUCCESS, "ssg_group_id_load");
   if (rank == 0)
@@ -91,24 +83,32 @@ int main(int argc, char** argv)
     std::cout << "get num_addrs: " << num_addrs << std::endl;
   }
 
-  int64_t ssg_cred = ssg_group_id_get_cred(g_id);
-  DIE_IF(ssg_cred == -1, "ssg_group_id_get_cred");
-  */
-
-  int ret;
+  drc_credential_id = ssg_group_id_get_cred(g_id);
+  DIE_IF(drc_credential_id == -1, "ssg_group_id_get_cred");
+  // if (rank == 0)
+  //{
+  std::cout << "get drc_credential_id: " << drc_credential_id << std::endl;
+  //}
   /* access credential and covert to string for use by mercury */
   ret = drc_access(drc_credential_id, 0, &drc_credential_info);
   DIE_IF(ret != DRC_SUCCESS, "drc_access %u %ld", drc_credential_id);
   drc_cookie = drc_get_first_cookie(drc_credential_info);
+  spdlog::trace("get drc_cookie");
+
   sprintf(drc_key_str, "%u", drc_cookie);
   hii.na_init_info.auth_key = drc_key_str;
 
-  margo_instance_id mid = margo_init_opt(g_address.c_str(), MARGO_CLIENT_MODE, &hii, true, 2);
-  tl::engine engine(mid);
+  if (g_address != "gni")
+  {
+    throw std::runtime_error("the gni should be used");
+  }
+
+  tl::engine engine("ofi+gni", THALLIUM_CLIENT_MODE, true, 2, &hii);
+  spdlog::trace("start thallium engine");
 
 #else
   // Initialize the thallium server
-  tl::engine engine(g_address, THALLIUM_SERVER_MODE);
+  tl::engine engine(g_address, THALLIUM_CLIENT_MODE);
 
 #endif
 
@@ -189,9 +189,8 @@ int main(int argc, char** argv)
           int2size_t(*(extents + 3)) + 1, int2size_t(*(extents + 5)) + 1 };
         std::vector<int64_t> offsets = { 0, 0, MandelbulbList[i].GetZoffset() };
 
-        //TODO test
-        //output the data to detect data offline
-
+        // TODO test
+        // output the data to detect data offline
 
         auto type = colza::Type::INT32;
         pipeline.stage(
