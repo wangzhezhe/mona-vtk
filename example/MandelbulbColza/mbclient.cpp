@@ -85,10 +85,10 @@ int main(int argc, char** argv)
 
   drc_credential_id = ssg_group_id_get_cred(g_id);
   DIE_IF(drc_credential_id == -1, "ssg_group_id_get_cred");
-  // if (rank == 0)
-  //{
-  std::cout << "get drc_credential_id: " << drc_credential_id << std::endl;
-  //}
+  if (rank == 0)
+  {
+    std::cout << "get drc_credential_id: " << drc_credential_id << std::endl;
+  }
   /* access credential and covert to string for use by mercury */
   ret = drc_access(drc_credential_id, 0, &drc_credential_info);
   DIE_IF(ret != DRC_SUCCESS, "drc_access %u %ld", drc_credential_id);

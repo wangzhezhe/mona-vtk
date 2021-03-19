@@ -72,4 +72,5 @@ add_executable (testssg ${CMAKE_CURRENT_SOURCE_DIR}/testssg.cpp)
 target_link_libraries (testssg colza-client MPI::MPI_C ${DRC_LIBRARIES})
 
 
-# for the pipilines about the gray scott example
+#install
+install (TARGETS mbadmin mbserver mbclient mpibackend-pipeline monabackend-pipeline DESTINATION bin/example/MandelbulbColza/)

@@ -20,10 +20,11 @@ SSGFILE=ssgfile
 BACKEND=$BUILDDIR/example/MandelbulbColza/libmonabackend-pipeline.so
 CONFIG=$SRCDIR/example/MandelbulbColza/pipeline/monaconfig.json
 
+SWIMPERIOD=5000
 rm $SSGFILE global_cred_conf
 
 # 1 nodes for server (16*4=64=2*32)
-srun -C haswell -N 2 -n 16 -c 8 --cpu_bind=cores --time=20:00 ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 &> mbserver_mona_16.log &
+srun -C haswell -N 2 -n 16 -c 8 --cpu_bind=cores --time=20:00 ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD &> mbserver_mona_16.log &
 
 #make sure the server load the pipeline
 result=0

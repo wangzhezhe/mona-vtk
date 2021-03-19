@@ -18,11 +18,11 @@ PROTOCOL=gni
 SSGFILE=ssgfile
 BACKEND=$BUILDDIR/example/MandelbulbColza/libmpibackend-pipeline.so
 CONFIG=$SRCDIR/example/MandelbulbColza/pipeline/mpiconfig.json
-
+SWIMPERIOD=5000
 rm $SSGFILE global_cred_conf
 
 # 1 nodes for server (16*4=64=2*32)
-srun -C haswell -N 2 -n 8 -c 16 --cpu_bind=cores ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 &> mbserver_mpi_8.log &
+srun -C haswell -N 2 -n 8 -c 16 --cpu_bind=cores ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD &> mbserver_mpi_8.log &
 
 #make sure the server load the pipeline
 result=0

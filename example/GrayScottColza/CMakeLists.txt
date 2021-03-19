@@ -71,3 +71,5 @@ add_executable (gsserver gsserver.cpp)
 target_link_libraries (gsserver colza-server MPI::MPI_C ${DRC_LIBRARIES})
 
 
+# install 
+install (TARGETS gsserver gsclient gsmpibackend-pipeline gsmonabackend-pipeline DESTINATION bin/example/GrayScottColza/)
