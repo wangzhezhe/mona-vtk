@@ -13,7 +13,7 @@ cd $BUILDDIR
 BLOCKNUM=2048
 #server get the blocknum from env
 export BLOCKNUM=2048
-STEP=20
+STEP=6
 PROTOCOL=gni
 SSGFILE=ssgfile
 BACKEND=$BUILDDIR/example/MandelbulbColza/libmonabackend-pipeline.so
@@ -35,5 +35,3 @@ done
 
 # 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
 srun -C haswell -N 16 -n 512 -c 2 --cpu_bind=cores ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p monabackend -b $BLOCKNUM -t $STEP > mbclient_mona_32_512.log
-
-wait
