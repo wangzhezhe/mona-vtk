@@ -73,4 +73,5 @@ target_link_libraries (testssg colza-client MPI::MPI_C ${DRC_LIBRARIES})
 
 
 #install
-install (TARGETS mbadmin mbserver mbclient mpibackend-pipeline monabackend-pipeline DESTINATION bin/example/MandelbulbColza/)
+install (TARGETS mbadmin mbserver mbclient DESTINATION bin/example/MandelbulbColza/)
+install (TARGETS mpibackend-pipeline monabackend-pipeline DESTINATION lib)
