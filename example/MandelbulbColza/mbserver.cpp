@@ -3,14 +3,22 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#include <colza/Provider.hpp>
-#include <fstream>
-#include <iostream>
 #include <mpi.h>
 #include <spdlog/spdlog.h>
 #include <ssg-mpi.h>
 #include <tclap/CmdLine.h>
+
+#include <colza/Provider.hpp>
+#include <fstream>
+#include <iostream>
 #include <vector>
+
+#ifdef USE_GNI
+extern "C"
+{
+#include <rdmacred.h>
+}
+#endif
 
 namespace tl = thallium;
 
@@ -21,25 +29,6 @@ static std::string g_ssg_file = "";
 static std::string g_config_file = "";
 static bool g_join = false;
 static unsigned g_swim_period_ms = 1000;
-
-#ifdef USE_GNI
-extern "C"
-{
-#include <rdmacred.h>
-}
-#include <margo.h>
-#include <mercury.h>
-#define DIE_IF(cond_expr, err_fmt, ...)                                                            \
-  do                                                                                               \
-  {                                                                                                \
-    if (cond_expr)                                                                                 \
-    {                                                                                              \
-      fprintf(stderr, "ERROR at %s:%d (" #cond_expr "): " err_fmt "\n", __FILE__, __LINE__,        \
-        ##__VA_ARGS__);                                                                            \
-      exit(EXIT_FAILURE);                                                                          \
-    }                                                                                              \
-  } while (0)
-#endif
 
 static void parse_command_line(int argc, char** argv);
 static int64_t setup_credentials();
@@ -200,6 +189,8 @@ int main(int argc, char** argv)
   spdlog::trace("MoNA finalized");
 
   MPI_Finalize();
+
+  return 0;
 }
 
 void parse_command_line(int argc, char** argv)
@@ -216,7 +207,8 @@ void parse_command_line(int argc, char** argv)
     TCLAP::ValueArg<std::string> ssgFile("s", "ssg-file", "SSG file name", false, "", "string");
     TCLAP::ValueArg<std::string> configFile("c", "config", "config file name", false, "", "string");
     TCLAP::SwitchArg joinGroup("j", "join", "Join an existing group rather than create it", false);
-    TCLAP::ValueArg<unsigned> swimPeriod("p","swim-period-length", "Length of the SWIM period in milliseconds", false, 1000, "int");
+    TCLAP::ValueArg<unsigned> swimPeriod(
+      "p", "swim-period-length", "Length of the SWIM period in milliseconds", false, 1000, "int");
     cmd.add(addressArg);
     cmd.add(numThreads);
     cmd.add(logLevel);
@@ -232,10 +224,6 @@ void parse_command_line(int argc, char** argv)
     g_config_file = configFile.getValue();
     g_join = joinGroup.getValue();
     g_swim_period_ms = swimPeriod.getValue();
-    if (g_num_threads != 1)
-    {
-      throw std::runtime_error("set the thread number to 1 to avoid the VTK multithread issue");
-    }
   }
   catch (TCLAP::ArgException& e)
   {
@@ -244,71 +232,81 @@ void parse_command_line(int argc, char** argv)
   }
 }
 
-void update_group_file(void* group_data, ssg_member_id_t, ssg_member_update_type_t) {
-    ssg_group_id_t gid = reinterpret_cast<ssg_group_id_t>(group_data);
-    int r = ssg_get_group_self_rank(gid);
-    if(r != 0) return;
-    int ret = ssg_group_id_store(g_ssg_file.c_str(), gid, SSG_ALL_MEMBERS);
-    if(ret != SSG_SUCCESS) {
-        spdlog::error("Could not store updated SSG file {}", g_ssg_file);
-    }
+void update_group_file(void* group_data, ssg_member_id_t, ssg_member_update_type_t)
+{
+  ssg_group_id_t gid = reinterpret_cast<ssg_group_id_t>(group_data);
+  int r = ssg_get_group_self_rank(gid);
+  if (r != 0)
+    return;
+  int ret = ssg_group_id_store(g_ssg_file.c_str(), gid, SSG_ALL_MEMBERS);
+  if (ret != SSG_SUCCESS)
+  {
+    spdlog::error("Could not store updated SSG file {}", g_ssg_file);
+  }
 }
 
-int64_t setup_credentials() {
-    uint32_t drc_credential_id = -1;
+int64_t setup_credentials()
+{
+  uint32_t drc_credential_id = -1;
 #ifdef USE_GNI
-    if(g_address.find("gni") == std::string::npos)
-        return -1;
+  if (g_address.find("gni") == std::string::npos)
+    return -1;
 
-    int      rank;
-    int      ret;
+  int rank;
+  int ret;
 
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if(rank == 0) {
-        ret = drc_acquire(&drc_credential_id, DRC_FLAGS_FLEX_CREDENTIAL);
-        if(ret != DRC_SUCCESS) {
-            spdlog::critical("drc_acquire failed (ret = {})", ret);
-            exit(-1);
-        }
+  if (rank == 0)
+  {
+    ret = drc_acquire(&drc_credential_id, DRC_FLAGS_FLEX_CREDENTIAL);
+    if (ret != DRC_SUCCESS)
+    {
+      spdlog::critical("drc_acquire failed (ret = {})", ret);
+      exit(-1);
     }
+  }
 
-    MPI_Bcast(&drc_credential_id, 1, MPI_UINT32_T, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&drc_credential_id, 1, MPI_UINT32_T, 0, MPI_COMM_WORLD);
 
-    if(rank == 0) {
-        ret = drc_grant(drc_credential_id, drc_get_wlm_id(), DRC_FLAGS_TARGET_WLM);
-        if(ret != DRC_SUCCESS) {
-            spdlog::critical("drc_grant failed (ret = {})", ret);
-            exit(-1);
-        }
-        spdlog::info("DRC credential id: {}", drc_credential_id);
+  if (rank == 0)
+  {
+    ret = drc_grant(drc_credential_id, drc_get_wlm_id(), DRC_FLAGS_TARGET_WLM);
+    if (ret != DRC_SUCCESS)
+    {
+      spdlog::critical("drc_grant failed (ret = {})", ret);
+      exit(-1);
     }
+    spdlog::info("DRC credential id: {}", drc_credential_id);
+  }
 
 #endif
-    return drc_credential_id;
+  return drc_credential_id;
 }
 
-uint32_t get_credential_cookie(int64_t credential_id) {
-    uint32_t          drc_cookie = 0;
+uint32_t get_credential_cookie(int64_t credential_id)
+{
+  uint32_t drc_cookie = 0;
 
-    if(credential_id < 0)
-        return drc_cookie;
-    if(g_address.find("gni") == std::string::npos)
-        return drc_cookie;
-
-#ifdef USE_GNI
-
-    drc_info_handle_t drc_credential_info;
-    int               ret;
-
-    ret = drc_access(credential_id, 0, &drc_credential_info);
-    if(ret != DRC_SUCCESS) {
-        spdlog::critical("drc_access failed (ret = {})", ret);
-        exit(-1);
-    }
-
-    drc_cookie = drc_get_first_cookie(drc_credential_info);
-
-#endif
+  if (credential_id < 0)
     return drc_cookie;
+  if (g_address.find("gni") == std::string::npos)
+    return drc_cookie;
+
+#ifdef USE_GNI
+
+  drc_info_handle_t drc_credential_info;
+  int ret;
+
+  ret = drc_access(credential_id, 0, &drc_credential_info);
+  if (ret != DRC_SUCCESS)
+  {
+    spdlog::critical("drc_access failed (ret = {})", ret);
+    exit(-1);
+  }
+
+  drc_cookie = drc_get_first_cookie(drc_credential_info);
+
+#endif
+  return drc_cookie;
 }

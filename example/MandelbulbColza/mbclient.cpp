@@ -178,6 +178,7 @@ int main(int argc, char** argv)
 
       for (int i = 0; i < MandelbulbList.size(); i++)
       {
+
         // stage the data at current iteration
         blockid = blockid_base + i;
         int32_t result;
