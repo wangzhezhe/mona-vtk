@@ -8,6 +8,7 @@
 
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+export SCRIPTPATH=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
 
 cd $BUILDDIR
 

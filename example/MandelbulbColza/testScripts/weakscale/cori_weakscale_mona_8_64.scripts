@@ -8,6 +8,8 @@
 
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+export SCRIPTPATH=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
+
 cd $BUILDDIR
 # run this in the build dir of the monavtk
 # maybe get the data length by env?
@@ -39,4 +41,4 @@ done
 # 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
 srun -C haswell -N 2 -n 64 -c 2 -l --cpu_bind=cores --time=20:00 ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p monabackend -b $BLOCKNUM -t $STEP > mbclient_mona_8_64.log
 
-wait
+

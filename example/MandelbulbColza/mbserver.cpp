@@ -83,8 +83,9 @@ int main(int argc, char** argv)
   std::string cookie_str = std::to_string(cookie);
   if (credential_id != -1)
     hii.na_init_info.auth_key = cookie_str.c_str();
-
-  tl::engine engine(g_address, THALLIUM_SERVER_MODE, false, 0, &hii);
+  //Be Careful!!!
+  //there are issues if we set the parameters as false 0, try to use separate pool here
+  tl::engine engine(g_address, THALLIUM_SERVER_MODE, true, g_num_threads, &hii);
   engine.enable_remote_shutdown();
 
   if (!g_join)

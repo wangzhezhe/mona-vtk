@@ -198,7 +198,6 @@ void* icetFactoryMona(vtkMultiProcessController* controller, void* args)
   return icetCreateMonaCommunicator(m_comm);
 }
 
-
 void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
 {
   DEBUG("InSituAdaptor Initialize Start ");
@@ -217,6 +216,7 @@ void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
   // refer to this commit to check how to use different communicator for MPI example
   // https://gitlab.kitware.com/paraview/paraview/-/merge_requests/4361
   vtkIceTContext::RegisterIceTCommunicatorFactory("MonaCommunicator", icetFactoryMona, controller);
+  DEBUG("RegisterIceTCommunicatorFactory ok");
 
   /* to make sure no mpi barrier is used here*/
   /* this part may contains some operations that hangs the current mona logic*/
@@ -227,6 +227,8 @@ void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
     // the global controller is acquired during the Initialize
     // we want the mona to be used, so we set the controller before the init
     Processor->Initialize("./");
+    DEBUG("Processor Initialize ok");
+
     // It is important to set the controller again to make sure to use the mochi
     // controller, the controller might be replaced during the init process
     // the processor new will set the mpi controller
@@ -238,6 +240,8 @@ void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
 
   vtkNew<vtkCPPythonScriptPipeline> pipeline;
   pipeline->Initialize(script.c_str());
+  DEBUG("pipeline Initialize ok");
+
   Processor->AddPipeline(pipeline.GetPointer());
   DEBUG("InSituAdaptor Initialize Finish ");
 }
@@ -264,14 +268,14 @@ void MonaUpdateController(mona_comm_t mona_comm)
     // the global communicator is updated every time
     // reset the communicator if it is not null
     MonaCommunicatorOpaqueComm opaqueComm(mona_comm);
-    //this is a wrapper for the new communicator, it is ok to be an stack object
-    //MonaCommunicatorOpaqueComm* opaqueComm = new MonaCommunicatorOpaqueComm(mona_comm);
+    // this is a wrapper for the new communicator, it is ok to be an stack object
+    // MonaCommunicatorOpaqueComm* opaqueComm = new MonaCommunicatorOpaqueComm(mona_comm);
     // the communicator will be deleted automatically if we use vtkNew
     //  vtkNew<MonaCommunicator> monaCommunicator;
     // old one is freed when execute set communicator
     MonaCommunicator* monaCommunicator = MonaCommunicator::New();
     monaCommunicator->InitializeExternal(&opaqueComm);
-    //get the address of the global controller
+    // get the address of the global controller
     if (auto controller =
           MonaController::SafeDownCast(vtkMultiProcessController::GetGlobalController()))
     {
@@ -285,12 +289,12 @@ void MonaUpdateController(mona_comm_t mona_comm)
   }
 }
 
-//the controller is supposed to be updated when executing this function
+// the controller is supposed to be updated when executing this function
 void MonaCoProcessDynamic(
   std::vector<Mandelbulb>& mandelbulbList, int global_nblocks, double time, unsigned int timeStep)
 {
   DEBUG("---execute MonaCoProcessDynamic");
-  
+
   // actual execution of the coprocess
   vtkNew<vtkCPDataDescription> dataDescription;
   dataDescription->AddInput("input");
