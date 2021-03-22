@@ -85,6 +85,7 @@ int main(int argc, char** argv)
     hii.na_init_info.auth_key = cookie_str.c_str();
   //Be Careful!!!
   //there are issues if we set the parameters as false 0, try to use separate pool here
+  //the true, g_num_threads also works
   tl::engine engine(g_address, THALLIUM_SERVER_MODE, true, g_num_threads, &hii);
   engine.enable_remote_shutdown();
 

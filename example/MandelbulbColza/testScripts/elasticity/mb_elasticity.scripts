@@ -1,0 +1,58 @@
+#!/bin/bash
+#SBATCH --job-name=ColzaMandelbulb
+#SBATCH --qos=debug
+#SBATCH --time=00:30:00
+#SBATCH --nodes=10
+#SBATCH --constraint=haswell
+#SBATCH --output="mbelasticity-%j.out"
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+export SCRIPTPATH=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
+
+cd $BUILDDIR
+# run this in the build dir of the monavtk
+# maybe get the data length by env?
+BLOCKNUM=256
+#server get the blocknum from env
+export BLOCKNUM=256
+STEP=10000
+PROTOCOL=gni
+SSGFILE=ssgfile
+BACKEND=$BUILDDIR/example/MandelbulbColza/libmonabackend-pipeline.so
+CONFIG=$SRCDIR/example/MandelbulbColza/pipeline/monaconfig.json
+# try to avoid the server start issue for loading the pipeline
+SWIMPERIOD=1000
+
+#elasticity
+INITPROCESS=2
+INCREASE=1
+
+rm mbserver_elasticity* mbclient_elasticity*
+# init processes
+srun -C haswell -N 1 -n $INITPROCESS -c 2 -l --cpu_bind=cores  ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD &> mbserver_elasticity_mona_init.log &
+
+#make sure the server load the pipeline
+result=0
+while [ $result -ne $INITPROCESS ]
+do
+    result=$(cat mbserver_elasticity_mona_init.log | grep "Server running at" | wc -l)
+    echo "$result server loaded backend"
+    sleep 1  
+done
+
+# 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
+srun -C haswell -N 2 -n 64 -c 2 -l --cpu_bind=cores --time=20:00 ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p monabackend -b $BLOCKNUM -t $STEP &> mbclient_elasticity_mona_64.log &
+
+#increase process every 30 seconds
+num=0
+while [ $num -le 5 ]
+do
+# the debug qos is unshared computing nodes
+sleep 10
+srun -C haswell -N 1 -n $INCREASE -c 2 -l --cpu_bind=cores  ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD &> mbserver_elasticity_mona_join_$num.log &
+let num++
+done
+
+wait
+
