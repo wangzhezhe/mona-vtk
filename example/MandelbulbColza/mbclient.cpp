@@ -124,14 +124,16 @@ int main(int argc, char** argv)
 
       // the join and leave may happens here
       // this should be called after the compute process
-      pipeline.start(step);
 
-      // generate the datablock and put the data
-      spdlog::trace("Calling stage {}", step);
+      spdlog::trace("prepare start {}", step);
+
+      pipeline.start(step);
 
       // make sure the pipeline start is called by every process
       // before the stage call
       MPI_Barrier(MPI_COMM_WORLD);
+      // generate the datablock and put the data
+      spdlog::trace("start finish, prepare to call stage {}", step);
 
       uint64_t blockid;
       // use another iteration to do the stage
@@ -191,8 +193,19 @@ int main(int argc, char** argv)
       // clean up the data for every time step?
       // cleanup the pipeline
       // the clean up operation is decided by the backend
+      double cleanupStart = tl::timer::wtime();
+
       pipeline.cleanup(step);
-      
+
+      MPI_Barrier(MPI_COMM_WORLD);
+      double cleanupEnd = tl::timer::wtime();
+
+      if (rank == 0)
+      {
+        // only care about the rank0
+        std::cout << "rank " << rank << " cleanup time " << cleanupEnd - cleanupStart << std::endl;
+      }
+
       sleep(2);
     }
 

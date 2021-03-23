@@ -6,12 +6,16 @@
 #include "MonaBackend.hpp"
 #include "../MonaInSituAdaptor.hpp"
 #include "../mb.hpp"
+#include <cstdlib>
 #include <iostream>
+#include <unistd.h>
 
 // this is only for testing
 int totalBlock = 0;
 
 COLZA_REGISTER_BACKEND(monabackend, MonaBackendPipeline);
+
+#define MONA_BACKEND_BARRIER_TAG 2021
 
 // this function is called by colza framework when the pipeline is created
 // this function is also called when there is join or leave of the processes
@@ -25,11 +29,14 @@ void MonaBackendPipeline::updateMonaAddresses(
 
   // create the mona communicator
   // there are seg fault here if we create themm multiple times without the condition of
-  na_return_t ret =
-    mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
-  if (ret != 0)
   {
-    throw std::runtime_error("failed to init mona");
+    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+    na_return_t ret =
+      mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
+    if (ret != 0)
+    {
+      throw std::runtime_error("failed to init mona");
+    }
   }
 
   int procSize;
@@ -42,7 +49,7 @@ void MonaBackendPipeline::updateMonaAddresses(
 
 colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 {
-  std::cerr << "Iteration " << iteration << " starting" << std::endl;
+  std::cout << "Iteration " << iteration << " starting" << std::endl;
   colza::RequestResult<int32_t> result;
   result.success() = true;
   result.value() = 0;
@@ -51,53 +58,63 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 
 void MonaBackendPipeline::abort(uint64_t iteration)
 {
-  std::cerr << "Client aborted iteration " << iteration << std::endl;
+  std::cout << "Client aborted iteration " << iteration << std::endl;
 }
 
 // update the data, try to add the visulization operations
 colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
 {
-
+  std::cout << "debug execute iteration " << iteration << std::endl;
   // when the mona is updated, init and reset
   // otherwise, do not reset
   // it might need some time for the fir step
-  if (this->m_first_init)
-  {
-    // init the mochi communicator and register the pipeline
-    // this is supposed to be called once
-    std::string SCRIPTPATH = getenv("SCRIPTPATH");
-    if (SCRIPTPATH == "")
-    {
-      throw std::runtime_error("SCRIPTPATH should not be empty");
-    }
-    std::string scriptname = SCRIPTPATH;
 
-    InSitu::MonaInitialize(scriptname, this->m_mona_comm);
+  {
+    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+    if (this->m_first_init)
+    {
+      std::cout << "debug m_first_init " << iteration << std::endl;
+
+      // init the mochi communicator and register the pipeline
+      // this is supposed to be called once
+      std::string SCRIPTPATH = getenv("SCRIPTPATH");
+      if (SCRIPTPATH == "")
+      {
+        throw std::runtime_error("SCRIPTPATH should not be empty");
+      }
+      std::string scriptname = SCRIPTPATH;
+
+      InSitu::MonaInitialize(scriptname, this->m_mona_comm);
+    }
     this->m_first_init = false;
 
     // check the env to load the BLOCKNUM
     std::string blocNum = getenv("BLOCKNUM");
     totalBlock = std::stoi(blocNum);
-  }
-  else
-  {
+
+    // make sure all servers do same things
+    mona_comm_barrier(this->m_mona_comm, MONA_BACKEND_BARRIER_TAG);
+
     if (this->m_need_reset)
     {
+      std::cout << "debug m_need_reset " << iteration << std::endl;
+
       // when communicator is updated after the first initilization
       // the global communicator will be replaced
       // there are still some issues here
       // icet contect is updated automatically in paraveiw patch
-      InSitu::MonaUpdateController(this->m_mona_comm);
       this->m_need_reset = false;
+      int procSize, procRank;
+      mona_comm_size(this->m_mona_comm, &procSize);
+      mona_comm_rank(this->m_mona_comm, &procRank);
+      std::cout << "MonaUpdateController procRank " << procRank << " procSize " << procSize
+                << " iteration " << iteration << std::endl;
+
+      InSitu::MonaUpdateController(this->m_mona_comm);
     }
   }
-
   // redistribute the process
   // get the suitable workload (mandelbulb instance list) based on current data staging services
-  int procSize;
-  int procRank;
-  mona_comm_size(this->m_mona_comm, &procSize);
-  mona_comm_rank(this->m_mona_comm, &procRank);
 
   // output all key in current map
   // extract data list from current map
@@ -105,6 +122,9 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // get the total block number
   // the largest key+1 is the total block number
   // it might be convenient to get the info by API
+
+  std::cout << "debug MonaUpdateController start update data "
+            << " iteration " << iteration << std::endl;
   size_t maxID = 0;
   std::vector<Mandelbulb> MandelbulbList;
 
@@ -123,14 +143,22 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     }
     // std::cout << std::endl;
   }
+  std::cout << "debug MonaUpdateController ok update data"
+            << " iteration " << iteration << std::endl;
 
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
-  InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
+  //{
+  //  std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+  //  InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
+  //}
+  sleep(1);
 
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
+  std::cout << "debug MonaUpdateController return"
+            << " iteration " << iteration << std::endl;
   return result;
 }
 

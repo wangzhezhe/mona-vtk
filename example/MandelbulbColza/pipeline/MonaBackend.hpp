@@ -15,10 +15,9 @@
 using json = nlohmann::json;
 namespace tl = thallium;
 
-
 struct DataBlock
 {
-  //this is a generalized buffer 
+  // this is a generalized buffer
   std::vector<char> data;
   std::vector<size_t> dimensions;
   std::vector<int64_t> offsets;
@@ -154,10 +153,12 @@ public:
    *
    */
   mona_comm_t m_mona_comm;
-  
-  //these two varibles are not accessed by multi-thread
+  // do not update comm when it is used by the in-situ part
+  tl::mutex m_mona_comm_mtx;
+
+  // these two varibles are not accessed by multi-thread
   bool m_first_init = true;
-  bool m_need_reset = true;
+  bool m_need_reset = false;
 };
 
 #endif
