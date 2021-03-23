@@ -44,8 +44,8 @@ static int g_total_block_number;
 static int g_total_step;
 
 static void parse_command_line(int argc, char** argv);
+static uint32_t get_credentials_from_ssg_file();
 
-// refer to https://stackoverflow.com/questions/27490762/how-can-i-convert-to-size-t-from-int-safely
 size_t int2size_t(int val)
 {
   return (val < 0) ? __SIZE_MAX__ : (size_t)((unsigned)val);
@@ -64,53 +64,16 @@ int main(int argc, char** argv)
   int rank = comm.rank();
   int nprocs = comm.size();
 
-#ifdef USE_GNI
+  uint32_t cookie = get_credentials_from_ssg_file();
 
-  drc_info_handle_t drc_credential_info;
-  uint32_t drc_cookie;
-  char drc_key_str[256] = { 0 };
-  struct hg_init_info hii;
+  hg_init_info hii;
   memset(&hii, 0, sizeof(hii));
-  int64_t drc_credential_id;
+  std::string cookie_str = std::to_string(cookie);
+  if (cookie != 0)
+    hii.na_init_info.auth_key = cookie_str.c_str();
 
-  // get the cred id by ssg
-  int num_addrs = SSG_ALL_MEMBERS;
-  ssg_group_id_t g_id;
-  int ret = ssg_group_id_load(g_ssg_file.c_str(), &num_addrs, &g_id);
-  DIE_IF(ret != SSG_SUCCESS, "ssg_group_id_load");
-  if (rank == 0)
-  {
-    std::cout << "get num_addrs: " << num_addrs << std::endl;
-  }
-
-  drc_credential_id = ssg_group_id_get_cred(g_id);
-  DIE_IF(drc_credential_id == -1, "ssg_group_id_get_cred");
-  if (rank == 0)
-  {
-    std::cout << "get drc_credential_id: " << drc_credential_id << std::endl;
-  }
-  /* access credential and covert to string for use by mercury */
-  ret = drc_access(drc_credential_id, 0, &drc_credential_info);
-  DIE_IF(ret != DRC_SUCCESS, "drc_access %u %ld", drc_credential_id);
-  drc_cookie = drc_get_first_cookie(drc_credential_info);
-  spdlog::trace("get drc_cookie");
-
-  sprintf(drc_key_str, "%u", drc_cookie);
-  hii.na_init_info.auth_key = drc_key_str;
-
-  if (g_address != "gni")
-  {
-    throw std::runtime_error("the gni should be used");
-  }
-
-  tl::engine engine("ofi+gni", THALLIUM_CLIENT_MODE, true, 2, &hii);
-  spdlog::trace("start thallium engine");
-
-#else
   // Initialize the thallium server
-  tl::engine engine(g_address, THALLIUM_CLIENT_MODE);
-
-#endif
+  tl::engine engine(g_address, THALLIUM_SERVER_MODE, false, 0, &hii);
 
   // create the mandelbulb list
   if (g_total_step == 0 || g_total_block_number == 0)
@@ -229,6 +192,8 @@ int main(int argc, char** argv)
       // cleanup the pipeline
       // the clean up operation is decided by the backend
       pipeline.cleanup(step);
+      
+      sleep(2);
     }
 
     spdlog::trace("Done");
@@ -286,4 +251,35 @@ void parse_command_line(int argc, char** argv)
     std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl;
     exit(-1);
   }
+}
+
+uint32_t get_credentials_from_ssg_file()
+{
+  uint32_t cookie = 0;
+#ifdef USE_GNI
+  int num_addrs = 1;
+  ssg_group_id_t gid;
+  int ret = ssg_group_id_load(g_ssg_file.c_str(), &num_addrs, &gid);
+  if (ret != SSG_SUCCESS)
+  {
+    spdlog::critical("Could not load group id from file");
+    exit(-1);
+  }
+  int64_t credential_id = ssg_group_id_get_cred(gid);
+  if (credential_id == -1)
+    return cookie;
+  // ssg_group_destroy(gid);
+
+  drc_info_handle_t drc_credential_info;
+
+  ret = drc_access(credential_id, 0, &drc_credential_info);
+  if (ret != DRC_SUCCESS)
+  {
+    spdlog::critical("drc_access failed (ret = {})", ret);
+    exit(-1);
+  }
+
+  cookie = drc_get_first_cookie(drc_credential_info);
+#endif
+  return cookie;
 }

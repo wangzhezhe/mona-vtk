@@ -157,7 +157,7 @@ public:
   
   //these two varibles are not accessed by multi-thread
   bool m_first_init = true;
-  bool m_need_reset = false;
+  bool m_need_reset = true;
 };
 
 #endif
