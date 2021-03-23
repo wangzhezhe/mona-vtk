@@ -30,7 +30,7 @@ INCREASE=1
 
 rm mbserver_elasticity* mbclient_elasticity*
 # init processes
-srun -C haswell -N 1 -n $INITPROCESS -c 2 -l --cpu_bind=cores  ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD -v trace &> mbserver_elasticity_mona_init.log &
+srun -C haswell -N 1 -n $INITPROCESS -c 2 -l --cpu_bind=cores  ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD  &> mbserver_elasticity_mona_init.log &
 
 #make sure the server load the pipeline
 result=0
@@ -50,8 +50,9 @@ while [ $num -le 6 ]
 do
 let num++
 # the debug qos is unshared computing nodes
+# set enough time to make sure client starts
 sleep 20
-srun -C haswell -N 1 -n $INCREASE -c 2 -l --cpu_bind=cores  ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD -j -v trace &> mbserver_elasticity_mona_join_$num.log &
+srun -C haswell -N 1 -n $INCREASE -c 2 -l --cpu_bind=cores  ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD -j  &> mbserver_elasticity_mona_join_$num.log &
 
 done
 

@@ -306,10 +306,12 @@ void MonaController::Finalize(int finalizedExternally)
   DEBUG( "monaContorller call function: " << __FUNCTION__ );
   if (MonaController::Initialized)
   {
-    MonaController::WorldRMICommunicator->Delete();
-    MonaController::WorldRMICommunicator = 0;
+    //MonaController::WorldRMICommunicator->Delete();
+    //MonaController::WorldRMICommunicator = 0;
+    if(MonaCommunicator::WorldCommunicator!=0){
     MonaCommunicator::WorldCommunicator->Delete();
     MonaCommunicator::WorldCommunicator = 0;
+    }
     this->SetCommunicator(0);
     if (this->RMICommunicator)
     {

@@ -70,30 +70,45 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // it might need some time for the fir step
 
   {
+    int procSize, procRank;
+    mona_comm_size(this->m_mona_comm, &procSize);
+    mona_comm_rank(this->m_mona_comm, &procRank);
+    std::cout << "debug execute procRank " << procRank << " procSize " << procSize << " iteration "
+              << iteration << std::endl;
+
     std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+    if (!this->m_first_init)
+    {
+      std::cout << "debug finalize " << iteration << std::endl;
+      InSitu::Finalize();
+    }
     if (this->m_first_init)
     {
-      std::cout << "debug m_first_init " << iteration << std::endl;
-
-      // init the mochi communicator and register the pipeline
-      // this is supposed to be called once
-      std::string SCRIPTPATH = getenv("SCRIPTPATH");
-      if (SCRIPTPATH == "")
-      {
-        throw std::runtime_error("SCRIPTPATH should not be empty");
-      }
-      std::string scriptname = SCRIPTPATH;
-
-      InSitu::MonaInitialize(scriptname, this->m_mona_comm);
+      this->m_first_init = false;
     }
-    this->m_first_init = false;
+
+    // init the mochi communicator and register the pipeline
+    // this is supposed to be called once
+    std::string SCRIPTPATH = getenv("SCRIPTPATH");
+    if (SCRIPTPATH == "")
+    {
+      throw std::runtime_error("SCRIPTPATH should not be empty");
+    }
+    std::string scriptname = SCRIPTPATH;
+
+    std::cout << "debug MonaInitialize " << iteration << std::endl;
+
+    InSitu::MonaInitialize(scriptname, this->m_mona_comm);
 
     // check the env to load the BLOCKNUM
     std::string blocNum = getenv("BLOCKNUM");
     totalBlock = std::stoi(blocNum);
 
     // make sure all servers do same things
-    mona_comm_barrier(this->m_mona_comm, MONA_BACKEND_BARRIER_TAG);
+
+    std::cout << "debug m_need_reset " << iteration << std::endl;
+
+    // mona_comm_barrier(this->m_mona_comm, MONA_BACKEND_BARRIER_TAG);
 
     if (this->m_need_reset)
     {
@@ -104,12 +119,6 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
       // there are still some issues here
       // icet contect is updated automatically in paraveiw patch
       this->m_need_reset = false;
-      int procSize, procRank;
-      mona_comm_size(this->m_mona_comm, &procSize);
-      mona_comm_rank(this->m_mona_comm, &procRank);
-      std::cout << "MonaUpdateController procRank " << procRank << " procSize " << procSize
-                << " iteration " << iteration << std::endl;
-
       InSitu::MonaUpdateController(this->m_mona_comm);
     }
   }
