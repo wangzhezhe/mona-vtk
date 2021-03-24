@@ -207,7 +207,7 @@ int main(int argc, char** argv)
     colza_xstreams.clear();
   });
   // use dedicated colza pool for the provider
-  colza::Provider provider(engine, gid, mona, 0, config, colza_pool);
+  colza::Provider provider(engine, gid, g_join, mona, 0, config, colza_pool);
 
   spdlog::info("Server running at address {}", (std::string)engine.self());
   engine.wait_for_finalize();

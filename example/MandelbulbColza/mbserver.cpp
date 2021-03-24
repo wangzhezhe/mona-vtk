@@ -86,7 +86,7 @@ int main(int argc, char** argv)
   //Be Careful!!!
   //there are issues if we set the parameters as false 0, try to use separate pool here
   //the true, g_num_threads also works
-  tl::engine engine(g_address, THALLIUM_SERVER_MODE, true, g_num_threads, &hii);
+  tl::engine engine(g_address, THALLIUM_SERVER_MODE, false, g_num_threads, &hii);
   engine.enable_remote_shutdown();
 
   if (!g_join)
@@ -94,7 +94,7 @@ int main(int argc, char** argv)
     // Create SSG group using MPI
     ssg_group_config_t group_config = SSG_GROUP_CONFIG_INITIALIZER;
     group_config.swim_period_length_ms = g_swim_period_ms;
-    group_config.swim_suspect_timeout_periods = 5;
+    group_config.swim_suspect_timeout_periods = 3;
     group_config.swim_subgroup_member_count = 1;
     group_config.ssg_credential = credential_id;
     gid = ssg_group_create_mpi(
@@ -102,12 +102,7 @@ int main(int argc, char** argv)
   }
   else
   {
-    ret = ssg_group_join(engine.get_margo_instance(), gid, nullptr, nullptr);
-    if (ret != SSG_SUCCESS)
-    {
-      spdlog::critical("Could not join SSG group");
-      exit(-1);
-    }
+    // ssg_group_join will be called in the provider constructor
   }
   engine.push_prefinalize_callback([]() {
     spdlog::trace("Finalizing SSG...");
@@ -178,7 +173,7 @@ int main(int argc, char** argv)
     spdlog::trace("Colza xstreams joined");
   });
 
-  colza::Provider provider(engine, gid, mona, 0, config, colza_pool);
+  colza::Provider provider(engine, gid, g_join, mona, 0, config, colza_pool);
 
   // Add a callback to rewrite the SSG file when the group membership changes
   ssg_group_add_membership_update_callback(gid, update_group_file, reinterpret_cast<void*>(gid));
