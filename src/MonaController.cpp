@@ -248,12 +248,12 @@ void MonaController::Initialize(int* argc, char*** argv, int initializedExternal
 {
   DEBUG( "replaced, monaContorller call function: " << __FUNCTION__ );
   
-  //this may initilized multiple times
-  if (MonaController::Initialized)
-  {
-    vtkWarningMacro("Already initialized.");
-    return;
-  }
+  //this may initilized multiple times, with new comm
+  //if (MonaController::Initialized)
+  //{
+  //  vtkWarningMacro("Already initialized.");
+  // return;
+  //}
 
   // Can be done once in the program.
   MonaController::Initialized = 1;

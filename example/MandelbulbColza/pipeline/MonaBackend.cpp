@@ -10,6 +10,15 @@
 #include <iostream>
 #include <unistd.h>
 
+#ifdef DEBUG_BUILD
+#define DEBUG(x) std::cout << x << std::endl;
+#else
+#define DEBUG(x)                                                                                   \
+  do                                                                                               \
+  {                                                                                                \
+  } while (0)
+#endif
+
 // this is only for testing
 int totalBlock = 0;
 
@@ -25,7 +34,6 @@ void MonaBackendPipeline::updateMonaAddresses(
   // this function is called when server is started first time
   // or when there is process join and leave
   std::cout << "updateMonaAddresses is called" << std::endl;
-  this->m_need_reset = true;
 
   // create the mona communicator
   // there are seg fault here if we create themm multiple times without the condition of
@@ -37,6 +45,7 @@ void MonaBackendPipeline::updateMonaAddresses(
     {
       throw std::runtime_error("failed to init mona");
     }
+    this->m_need_reset = true;
   }
 
   int procSize;
@@ -70,22 +79,24 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // it might need some time for the fir step
 
   {
+    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
     int procSize, procRank;
     mona_comm_size(this->m_mona_comm, &procSize);
     mona_comm_rank(this->m_mona_comm, &procRank);
     std::cout << "debug execute procRank " << procRank << " procSize " << procSize << " iteration "
               << iteration << std::endl;
 
-    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
-    if (!this->m_first_init)
-    {
-      std::cout << "debug finalize " << iteration << std::endl;
-      InSitu::Finalize();
-    }
-    if (this->m_first_init)
-    {
-      this->m_first_init = false;
-    }
+    // if (!this->m_first_init)
+    //{
+    //  std::cout << "debug finalize " << iteration << std::endl;
+    // remove exsting thing based one old comm
+    InSitu::Finalize();
+    //}
+
+    // if (this->m_first_init)
+    //{
+    //  this->m_first_init = false;
+    //}
 
     // init the mochi communicator and register the pipeline
     // this is supposed to be called once
@@ -97,7 +108,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     std::string scriptname = SCRIPTPATH;
 
     std::cout << "debug MonaInitialize " << iteration << std::endl;
-
+    // this may takes long time for first step
     InSitu::MonaInitialize(scriptname, this->m_mona_comm);
 
     // check the env to load the BLOCKNUM
@@ -105,64 +116,58 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     totalBlock = std::stoi(blocNum);
 
     // make sure all servers do same things
+    mona_comm_barrier(this->m_mona_comm, MONA_BACKEND_BARRIER_TAG);
 
-    std::cout << "debug m_need_reset " << iteration << std::endl;
+    // if (this->m_need_reset)
+    //{
+    // std::cout << "debug m_need_reset " << iteration << std::endl;
+
+    // when communicator is updated after the first initilization
+    // the global communicator will be replaced
+    // there are still some issues here
+    // icet contect is updated automatically in paraveiw patch
+    // this->m_need_reset = false;
+    // InSitu::MonaUpdateController(this->m_mona_comm);
+    //}
 
     // mona_comm_barrier(this->m_mona_comm, MONA_BACKEND_BARRIER_TAG);
+    // redistribute the process
+    // get the suitable workload (mandelbulb instance list) based on current data staging services
 
-    if (this->m_need_reset)
+    // output all key in current map
+    // extract data list from current map
+
+    // get the total block number
+    // the largest key+1 is the total block number
+    // it might be convenient to get the info by API
+
+    std::cout << "debug MonaUpdateController start update data "
+              << " iteration " << iteration << std::endl;
+    size_t maxID = 0;
+    std::vector<Mandelbulb> MandelbulbList;
+
     {
-      std::cout << "debug m_need_reset " << iteration << std::endl;
-
-      // when communicator is updated after the first initilization
-      // the global communicator will be replaced
-      // there are still some issues here
-      // icet contect is updated automatically in paraveiw patch
-      this->m_need_reset = false;
-      InSitu::MonaUpdateController(this->m_mona_comm);
+      std::lock_guard<tl::mutex> g(m_datasets_mtx);
+      // std::cout << "iteration " << iteration << " procRank " << procRank << " key ";
+      for (auto& t : m_datasets[iteration]["mydata"])
+      {
+        size_t blockID = t.first;
+        // std::cout << blockID << ",";
+        size_t blockOffset = blockID * DEPTH;
+        // reconstruct the MandelbulbList
+        Mandelbulb mb(WIDTH, HEIGHT, DEPTH, blockOffset, 1.2, totalBlock);
+        mb.SetData(t.second.data);
+        MandelbulbList.push_back(mb);
+      }
+      // std::cout << std::endl;
     }
+    std::cout << "debug MonaUpdateController ok update data iteration " << iteration << std::endl;
+
+    // process the insitu function for the MandelbulbList
+    // the controller is updated in the MonaUpdateController
+     //InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
+    sleep(1);
   }
-  // redistribute the process
-  // get the suitable workload (mandelbulb instance list) based on current data staging services
-
-  // output all key in current map
-  // extract data list from current map
-
-  // get the total block number
-  // the largest key+1 is the total block number
-  // it might be convenient to get the info by API
-
-  std::cout << "debug MonaUpdateController start update data "
-            << " iteration " << iteration << std::endl;
-  size_t maxID = 0;
-  std::vector<Mandelbulb> MandelbulbList;
-
-  {
-    std::lock_guard<tl::mutex> g(m_datasets_mtx);
-    // std::cout << "iteration " << iteration << " procRank " << procRank << " key ";
-    for (auto& t : m_datasets[iteration]["mydata"])
-    {
-      size_t blockID = t.first;
-      // std::cout << blockID << ",";
-      size_t blockOffset = blockID * DEPTH;
-      // reconstruct the MandelbulbList
-      Mandelbulb mb(WIDTH, HEIGHT, DEPTH, blockOffset, 1.2, totalBlock);
-      mb.SetData(t.second.data);
-      MandelbulbList.push_back(mb);
-    }
-    // std::cout << std::endl;
-  }
-  std::cout << "debug MonaUpdateController ok update data"
-            << " iteration " << iteration << std::endl;
-
-  // process the insitu function for the MandelbulbList
-  // the controller is updated in the MonaUpdateController
-  //{
-  //  std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
-  //  InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
-  //}
-  sleep(1);
-
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;

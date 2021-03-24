@@ -220,6 +220,7 @@ void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
 
   /* to make sure no mpi barrier is used here*/
   /* this part may contains some operations that hangs the current mona logic*/
+  // issue, when delete, the processor is new one?
   if (Processor == NULL)
   {
     vtkMultiProcessController::SetGlobalController(controller);

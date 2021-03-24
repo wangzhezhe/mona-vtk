@@ -61,7 +61,7 @@ configure_file ("mona-vtk.pc.in" "mona-vtk.pc" @ONLY)
 #
 # "make install" rules
 #
-install (TARGETS mona-vtk mona-vtk-icet EXPORT mona-vtk-targets
+install (TARGETS mona-vtk EXPORT mona-vtk-targets
          ARCHIVE DESTINATION lib
          LIBRARY DESTINATION lib)
 install (EXPORT mona-vtk-targets

@@ -2,7 +2,7 @@
 #SBATCH --job-name=ColzaMandelbulb
 #SBATCH --qos=debug
 #SBATCH --time=00:30:00
-#SBATCH --nodes=10
+#SBATCH --nodes=6
 #SBATCH --constraint=haswell
 #SBATCH --output="mbelasticity-%j.out"
 
@@ -46,7 +46,7 @@ srun -C haswell -N 2 -n 64 -c 2 -l --cpu_bind=cores --time=20:00 ./example/Mande
 
 #increase process every 30 seconds
 num=0
-while [ $num -le 6 ]
+while [ $num -le 2 ]
 do
 let num++
 # the debug qos is unshared computing nodes
