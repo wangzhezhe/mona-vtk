@@ -15,7 +15,7 @@ int totalBlock = 0;
 
 COLZA_REGISTER_BACKEND(monabackend, MonaBackendPipeline);
 
-#define MONA_BACKEND_BARRIER_TAG 2050
+#define MONA_BACKEND_BARRIER_TAG 2051
 
 // this function is called by colza framework when the pipeline is created
 // this function is also called when there is join or leave of the processes
@@ -34,6 +34,7 @@ void MonaBackendPipeline::updateMonaAddresses(
       mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
     if (ret != 0)
     {
+      std::cout << "error, mona_comm_create ret code is " << ret << std::endl;
       throw std::runtime_error("failed to init mona");
     }
     this->m_need_reset = true;
@@ -54,10 +55,10 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
   // TODO create the copy of the comm and use the copy
   // to make sure that the comm is not updated between the start and the execution
   // the comm should not be changed during the execution
-  {
-    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
-    mona_comm_dup(this->m_mona_comm, &(this->m_mona_comm_cpy));
-  }
+
+  std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+  mona_comm_dup(this->m_mona_comm, &(this->m_mona_comm_cpy));
+
   colza::RequestResult<int32_t> result;
   result.success() = true;
   result.value() = 0;
@@ -68,7 +69,11 @@ void MonaBackendPipeline::abort(uint64_t iteration)
 {
   std::cout << "Client aborted iteration " << iteration << std::endl;
   // free the copy comm
-  mona_comm_free(this->m_mona_comm_cpy);
+  // use same mutex
+  {
+    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+    mona_comm_free(this->m_mona_comm_cpy);
+  }
 }
 
 // update the data, try to add the visulization operations
@@ -89,7 +94,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   //{
   //  std::cout << "debug finalize " << iteration << std::endl;
   // remove exsting thing based one old comm
-  InSitu::Finalize();
+  // InSitu::Finalize();
   //}
 
   // if (this->m_first_init)
@@ -106,16 +111,16 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   }
   std::string scriptname = SCRIPTPATH;
 
-  std::cout << "debug MonaInitialize " << iteration << std::endl;
+  std::cout << "debug synthetic MonaInitialize start" << iteration << std::endl;
   // this may takes long time for first step
-  InSitu::MonaInitialize(scriptname, this->m_mona_comm_cpy);
+  // InSitu::MonaInitialize(scriptname, this->m_mona_comm_cpy);
+  // make sure all servers do same things
+  mona_comm_barrier(this->m_mona_comm_cpy, MONA_BACKEND_BARRIER_TAG);
+  std::cout << "debug synthetic MonaInitialize ok" << iteration << std::endl;
 
   // check the env to load the BLOCKNUM
   std::string blocNum = getenv("BLOCKNUM");
   totalBlock = std::stoi(blocNum);
-
-  // make sure all servers do same things
-  // mona_comm_barrier(this->m_mona_comm_cpy, MONA_BACKEND_BARRIER_TAG);
 
   // if (this->m_need_reset)
   //{
@@ -140,8 +145,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // the largest key+1 is the total block number
   // it might be convenient to get the info by API
 
-  std::cout << "debug MonaUpdateController start update data "
-            << " iteration " << iteration << std::endl;
+  std::cout << "debug MonaUpdateController start update data iteration " << iteration << std::endl;
   size_t maxID = 0;
   std::vector<Mandelbulb> MandelbulbList;
 
@@ -176,12 +180,16 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
 
 colza::RequestResult<int32_t> MonaBackendPipeline::cleanup(uint64_t iteration)
 {
+
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     m_datasets.erase(iteration);
   }
-  // free the copy comm
-  mona_comm_free(this->m_mona_comm_cpy);
+  // free the copy comm use same mutex
+  {
+    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+    mona_comm_free(this->m_mona_comm_cpy);
+  }
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
   return result;
