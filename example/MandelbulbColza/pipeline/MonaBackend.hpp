@@ -153,6 +153,9 @@ public:
    *
    */
   mona_comm_t m_mona_comm;
+
+  mona_comm_t m_mona_comm_cpy;
+
   // do not update comm when it is used by the in-situ part
   tl::mutex m_mona_comm_mtx;
 

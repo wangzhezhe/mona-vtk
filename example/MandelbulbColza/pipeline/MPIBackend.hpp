@@ -154,6 +154,7 @@ public:
    */
   MPI_Comm m_mpi_comm;
   
+  
   //these two varibles are not accessed by multi-thread
   bool m_first_init = true;
 };

@@ -205,6 +205,7 @@ int main(int argc, char** argv)
         // only care about the rank0
         std::cout << "rank " << rank << " cleanup time " << cleanupEnd - cleanupStart << std::endl;
       }
+      sleep(2);
     }
 
     spdlog::trace("Done");
