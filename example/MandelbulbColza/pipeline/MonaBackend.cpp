@@ -26,10 +26,10 @@ void MonaBackendPipeline::updateMonaAddresses(
   // or when there is process join and leave
   // std::cout << "updateMonaAddresses is called" << std::endl;
 
-  // create the mona communicator
-  // there are seg fault here if we create themm multiple times without the condition of
   {
     std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+    m_member_addrs = addresses;
+#if 0
     na_return_t ret =
       mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
     if (ret != 0)
@@ -37,15 +37,18 @@ void MonaBackendPipeline::updateMonaAddresses(
       std::cout << "error, mona_comm_create ret code is " << ret << std::endl;
       throw std::runtime_error("failed to init mona");
     }
-    this->m_need_reset = true;
+#endif
+    m_need_reset = true;
   }
-
+#if 0
   int procSize;
   int procRank;
   mona_comm_size(this->m_mona_comm, &procSize);
   mona_comm_rank(this->m_mona_comm, &procRank);
   std::cout << "Init mona, mona addresses have been updated, size is " << procSize << " rank is "
             << procRank << std::endl;
+#endif
+  std::cout << "updateMonaAddresses called with " << addresses.size() << " addresses" << std::endl;
 }
 
 colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
@@ -56,8 +59,14 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
   // to make sure that the comm is not updated between the start and the execution
   // the comm should not be changed during the execution
 
-  std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
-  mona_comm_dup(this->m_mona_comm, &(this->m_mona_comm_cpy));
+  std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
+  na_return_t ret =
+      mona_comm_create(mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
+  if (ret != 0)
+  {
+      std::cout << "error, mona_comm_create ret code is " << ret << std::endl;
+      throw std::runtime_error("failed to init mona communicator");
+  }
 
   colza::RequestResult<int32_t> result;
   result.success() = true;
@@ -68,11 +77,11 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 void MonaBackendPipeline::abort(uint64_t iteration)
 {
   std::cout << "Client aborted iteration " << iteration << std::endl;
-  // free the copy comm
-  // use same mutex
+  // free the communicator
   {
-    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
-    mona_comm_free(this->m_mona_comm_cpy);
+    std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
+    mona_comm_free(m_mona_comm);
+    m_mona_comm = MONA_COMM_NULL;
   }
 }
 
@@ -85,8 +94,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // it might need some time for the fir step
 
   int procSize, procRank;
-  mona_comm_size(this->m_mona_comm_cpy, &procSize);
-  mona_comm_rank(this->m_mona_comm_cpy, &procRank);
+  mona_comm_size(m_mona_comm, &procSize);
+  mona_comm_rank(m_mona_comm, &procRank);
   std::cout << "debug execute procRank " << procRank << " procSize " << procSize << " iteration "
             << iteration << std::endl;
 
@@ -115,7 +124,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // this may takes long time for first step
   // InSitu::MonaInitialize(scriptname, this->m_mona_comm_cpy);
   // make sure all servers do same things
-  mona_comm_barrier(this->m_mona_comm_cpy, MONA_BACKEND_BARRIER_TAG);
+  mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
   std::cout << "debug synthetic MonaInitialize ok" << iteration << std::endl;
 
   // check the env to load the BLOCKNUM
@@ -185,10 +194,11 @@ colza::RequestResult<int32_t> MonaBackendPipeline::cleanup(uint64_t iteration)
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     m_datasets.erase(iteration);
   }
-  // free the copy comm use same mutex
+  // free the communicator
   {
-    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
-    mona_comm_free(this->m_mona_comm_cpy);
+    std::lock_guard<tl::mutex> guard(m_mona_comm_mtx);
+    mona_comm_free(m_mona_comm);
+    m_mona_comm = MONA_COMM_NULL;
   }
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
