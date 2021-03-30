@@ -38,6 +38,10 @@ add_library(mona-vtk-icet ${mona-icet-src})
 # use the icet that is build by the paraview
 target_link_libraries (mona-vtk-icet mona ParaView::icet)
 
+set_target_properties (mona-vtk-icet
+    PROPERTIES VERSION ${MOCHIVTK_VERSION}
+    SOVERSION ${MOCHIVTK_VERSION_MAJOR})
+
 # for shared libs, establish the lib version
 #set_target_properties (mona-vtk-icet
 #    PROPERTIES VERSION ${MOCHIVTK_VERSION}
@@ -61,7 +65,7 @@ configure_file ("mona-vtk.pc.in" "mona-vtk.pc" @ONLY)
 #
 # "make install" rules
 #
-install (TARGETS mona-vtk EXPORT mona-vtk-targets
+install (TARGETS mona-vtk mona-vtk-icet EXPORT mona-vtk-targets
          ARCHIVE DESTINATION lib
          LIBRARY DESTINATION lib)
 install (EXPORT mona-vtk-targets
