@@ -152,7 +152,8 @@ public:
    * @brief the mona communicator associated with current pipeline
    *
    */
-  mona_comm_t            m_mona_comm = MONA_COMM_NULL; // MoNA communicator built in start()
+  mona_instance_t        m_mona = nullptr;
+  mona_comm_t            m_mona_comm = nullptr; // MoNA communicator built in start()
   std::vector<na_addr_t> m_member_addrs; // latest known member addresses
 
   // do not update comm when it is used by the in-situ part

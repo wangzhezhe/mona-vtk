@@ -28,6 +28,7 @@ void MonaBackendPipeline::updateMonaAddresses(
 
   {
     std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+    m_mona = mona;
     m_member_addrs = addresses;
 #if 0
     na_return_t ret =
@@ -61,7 +62,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 
   std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
   na_return_t ret =
-      mona_comm_create(mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
+      mona_comm_create(m_mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
   if (ret != 0)
   {
       std::cout << "error, mona_comm_create ret code is " << ret << std::endl;
@@ -81,7 +82,7 @@ void MonaBackendPipeline::abort(uint64_t iteration)
   {
     std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
     mona_comm_free(m_mona_comm);
-    m_mona_comm = MONA_COMM_NULL;
+    m_mona_comm = nullptr;
   }
 }
 
@@ -198,7 +199,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::cleanup(uint64_t iteration)
   {
     std::lock_guard<tl::mutex> guard(m_mona_comm_mtx);
     mona_comm_free(m_mona_comm);
-    m_mona_comm = MONA_COMM_NULL;
+    m_mona_comm = nullptr;
   }
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
