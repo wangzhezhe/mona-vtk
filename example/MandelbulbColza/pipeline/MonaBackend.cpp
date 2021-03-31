@@ -30,35 +30,14 @@ void MonaBackendPipeline::updateMonaAddresses(
     std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
     m_mona = mona;
     m_member_addrs = addresses;
-#if 0
-    na_return_t ret =
-      mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
-    if (ret != 0)
-    {
-      std::cout << "error, mona_comm_create ret code is " << ret << std::endl;
-      throw std::runtime_error("failed to init mona");
-    }
-#endif
     m_need_reset = true;
   }
-#if 0
-  int procSize;
-  int procRank;
-  mona_comm_size(this->m_mona_comm, &procSize);
-  mona_comm_rank(this->m_mona_comm, &procRank);
-  std::cout << "Init mona, mona addresses have been updated, size is " << procSize << " rank is "
-            << procRank << std::endl;
-#endif
   std::cout << "updateMonaAddresses called with " << addresses.size() << " addresses" << std::endl;
 }
 
 colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 {
   std::cout << "Iteration " << iteration << " starting" << std::endl;
-
-  // TODO create the copy of the comm and use the copy
-  // to make sure that the comm is not updated between the start and the execution
-  // the comm should not be changed during the execution
 
   std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
   na_return_t ret =
@@ -100,51 +79,37 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   std::cout << "debug execute procRank " << procRank << " procSize " << procSize << " iteration "
             << iteration << std::endl;
 
-  // if (!this->m_first_init)
-  //{
-  //  std::cout << "debug finalize " << iteration << std::endl;
-  // remove exsting thing based one old comm
-  // InSitu::Finalize();
-  //}
-
-  // if (this->m_first_init)
-  //{
-  //  this->m_first_init = false;
-  //}
-
   // init the mochi communicator and register the pipeline
   // this is supposed to be called once
-  std::string SCRIPTPATH = getenv("SCRIPTPATH");
-  if (SCRIPTPATH == "")
+  const char* script_path_env = getenv("SCRIPTPATH");
+  std::string script_name = script_path_env ? script_path_env : "";
+  if (script_name == "")
   {
     throw std::runtime_error("SCRIPTPATH should not be empty");
   }
-  std::string scriptname = SCRIPTPATH;
 
-  std::cout << "debug synthetic MonaInitialize start" << iteration << std::endl;
   // this may takes long time for first step
-  // InSitu::MonaInitialize(scriptname, this->m_mona_comm_cpy);
   // make sure all servers do same things
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
   std::cout << "debug synthetic MonaInitialize ok" << iteration << std::endl;
+  if (m_need_reset) {
+    std::cout << "debug Pipeline needs to be reset, finalizing VTK" << std::endl;
+    InSitu::Finalize();
+    std::cout << "debug InSitu::Finalize completed" << std::endl;
+  }
+  if (m_first_init || m_need_reset) {
+    std::cout << "debug Pipeline initializing VTK" << std::endl;
+    InSitu::MonaInitialize(script_name, m_mona_comm);
+    std::cout << "debug InSitu::MonaInitialize completed" << std::endl;
+  }
+
+  m_need_reset = false;
+  m_first_init = false;
 
   // check the env to load the BLOCKNUM
-  std::string blocNum = getenv("BLOCKNUM");
-  totalBlock = std::stoi(blocNum);
+  const char* block_num_env = getenv("BLOCKNUM");
+  totalBlock = block_num_env ? 0 : atoi(block_num_env);
 
-  // if (this->m_need_reset)
-  //{
-  // std::cout << "debug m_need_reset " << iteration << std::endl;
-
-  // when communicator is updated after the first initilization
-  // the global communicator will be replaced
-  // there are still some issues here
-  // icet contect is updated automatically in paraveiw patch
-  // this->m_need_reset = false;
-  // InSitu::MonaUpdateController(this->m_mona_comm);
-  //}
-
-  // mona_comm_barrier(this->m_mona_comm, MONA_BACKEND_BARRIER_TAG);
   // redistribute the process
   // get the suitable workload (mandelbulb instance list) based on current data staging services
 
@@ -178,8 +143,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
 
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
-  // InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
-  sleep(1);
+  InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
 
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
