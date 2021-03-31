@@ -40,12 +40,17 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
   std::cout << "Iteration " << iteration << " starting" << std::endl;
 
   std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
-  na_return_t ret =
-      mona_comm_create(m_mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
-  if (ret != 0)
-  {
-      std::cout << "error, mona_comm_create ret code is " << ret << std::endl;
-      throw std::runtime_error("failed to init mona communicator");
+  if(m_need_reset || (m_mona_comm == nullptr)) {
+      if(m_mona_comm) {
+        mona_comm_free(m_mona_comm);
+      }
+      na_return_t ret =
+          mona_comm_create(m_mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
+      if (ret != 0)
+      {
+          std::cout << "error, mona_comm_create ret code is " << ret << std::endl;
+          throw std::runtime_error("failed to init mona communicator");
+      }
   }
 
   colza::RequestResult<int32_t> result;
@@ -62,6 +67,7 @@ void MonaBackendPipeline::abort(uint64_t iteration)
     std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
     mona_comm_free(m_mona_comm);
     m_mona_comm = nullptr;
+    m_need_reset = true;
   }
 }
 
@@ -120,7 +126,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // the largest key+1 is the total block number
   // it might be convenient to get the info by API
 
-  std::cout << "debug MonaUpdateController start update data iteration " << iteration << std::endl;
+  std::cout << "debug start update data iteration " << iteration << std::endl;
   size_t maxID = 0;
   std::vector<Mandelbulb> MandelbulbList;
 
@@ -139,7 +145,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     }
     // std::cout << std::endl;
   }
-  std::cout << "debug MonaUpdateController ok update data iteration " << iteration << std::endl;
+  std::cout << "debug ok update data iteration " << iteration << std::endl;
 
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
@@ -148,7 +154,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
-  std::cout << "debug MonaUpdateController return iteration " << iteration << std::endl;
+  std::cout << "debug return iteration " << iteration << std::endl;
   return result;
 }
 
@@ -158,12 +164,6 @@ colza::RequestResult<int32_t> MonaBackendPipeline::cleanup(uint64_t iteration)
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     m_datasets.erase(iteration);
-  }
-  // free the communicator
-  {
-    std::lock_guard<tl::mutex> guard(m_mona_comm_mtx);
-    mona_comm_free(m_mona_comm);
-    m_mona_comm = nullptr;
   }
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
