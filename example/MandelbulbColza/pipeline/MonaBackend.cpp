@@ -10,12 +10,10 @@
 #include <iostream>
 #include <unistd.h>
 
-// this is only for testing
-int totalBlock = 0;
-
 COLZA_REGISTER_BACKEND(monabackend, MonaBackendPipeline);
 
 #define MONA_BACKEND_BARRIER_TAG 2051
+#define MONA_BACKEND_ALLREDUCE_TAG 2052
 
 // this function is called by colza framework when the pipeline is created
 // this function is also called when there is join or leave of the processes
@@ -79,12 +77,14 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // otherwise, do not reset
   // it might need some time for the fir step
 
+  int totalBlock = 0;
   int procSize, procRank;
   mona_comm_size(m_mona_comm, &procSize);
   mona_comm_rank(m_mona_comm, &procRank);
   std::cout << "debug execute procRank " << procRank << " procSize " << procSize << " iteration "
             << iteration << std::endl;
 
+#if 0
   // init the mochi communicator and register the pipeline
   // this is supposed to be called once
   const char* script_path_env = getenv("SCRIPTPATH");
@@ -92,6 +92,10 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   if (script_name == "")
   {
     throw std::runtime_error("SCRIPTPATH should not be empty");
+  }
+#endif
+  if(m_script_name == "") {
+    throw std::runtime_error("Empty script name");
   }
 
   // this may takes long time for first step
@@ -105,16 +109,19 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   }
   if (m_first_init || m_need_reset) {
     std::cout << "debug Pipeline initializing VTK" << std::endl;
-    InSitu::MonaInitialize(script_name, m_mona_comm);
+    InSitu::MonaInitialize(m_script_name, m_mona_comm);
     std::cout << "debug InSitu::MonaInitialize completed" << std::endl;
   }
 
   m_need_reset = false;
   m_first_init = false;
 
+#if 0
   // check the env to load the BLOCKNUM
   const char* block_num_env = getenv("BLOCKNUM");
-  totalBlock = block_num_env ? 0 : atoi(block_num_env);
+  totalBlock = block_num_env ? atoi(block_num_env) : 0;
+  std::cout << "debug BLOCKNUM = " << totalBlock << std::endl;
+#endif
 
   // redistribute the process
   // get the suitable workload (mandelbulb instance list) based on current data staging services
@@ -130,16 +137,30 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   size_t maxID = 0;
   std::vector<Mandelbulb> MandelbulbList;
 
+  std::cout << "debug sharing size of number of blocks via Mona..." << std::endl;
+  int localBlocks = m_datasets[iteration]["mydata"].size();
+  std::cout << "local blocks is " << localBlocks << std::endl;
+  mona_comm_allreduce(m_mona_comm, &localBlocks, &totalBlock, sizeof(int), 1,
+          [](const void* in, void* out, na_size_t, na_size_t, void*) {
+                const int* a = static_cast<const int*>(in);
+                int* b = static_cast<int*>(out);
+                *b += *a;
+          }, nullptr, MONA_BACKEND_ALLREDUCE_TAG);
+  std::cout << "debug totalBlock is " << totalBlock << std::endl;
+
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     // std::cout << "iteration " << iteration << " procRank " << procRank << " key ";
     for (auto& t : m_datasets[iteration]["mydata"])
     {
       size_t blockID = t.first;
+      auto width = t.second.dimensions[0]-1;
+      auto height = t.second.dimensions[1];
+      auto depth = t.second.dimensions[2];
       // std::cout << blockID << ",";
-      size_t blockOffset = blockID * DEPTH;
+      size_t blockOffset = blockID * depth;
       // reconstruct the MandelbulbList
-      Mandelbulb mb(WIDTH, HEIGHT, DEPTH, blockOffset, 1.2, totalBlock);
+      Mandelbulb mb(width, height, depth, blockOffset, 1.2, totalBlock);
       mb.SetData(t.second.data);
       MandelbulbList.push_back(mb);
     }
@@ -147,6 +168,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   }
   std::cout << "debug ok update data iteration " << iteration << std::endl;
 
+  std::cout << "debug Calling MonaCoProcessDynamic with " << MandelbulbList.size() << " blocks "
+      << "( total blocks is " << totalBlock << " )" << std::endl;
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
   InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
