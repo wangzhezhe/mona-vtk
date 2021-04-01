@@ -177,7 +177,7 @@ void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
   // controller->SetCommunicator(communicator);
   // the initilize operation will also init the communicator
   // there are segfault to call the setCommunicator then call the Init
-  controller->Initialize(nullptr, nullptr, 1, mona_comm);
+  controller->Initialize(mona_comm);
   Controller = controller;
 
   // register the icet communicator into the paraview

@@ -8,7 +8,6 @@
 class MonaController;
 class vtkProcessGroup;
 
-class MPICommunicatorOpaqueComm;
 class MonaCommunicatorOpaqueComm;
 class MonaCommunicatorOpaqueRequest;
 class MonaCommunicatorReceiveDataInfo;
@@ -40,10 +39,10 @@ public:
 
   /**
    * Returns the singleton which behaves as the global
-   * communicator (MPI_COMM_WORLD)
+   * communicator
    */
   static MonaCommunicator* GetWorldCommunicator();
-  
+
   static MonaCommunicator* GetWorldCommunicatorByMona(mona_comm_t mona_comm);
 
   /**
@@ -231,11 +230,6 @@ public:
 
   friend class MonaController;
 
-  MPICommunicatorOpaqueComm *GetMPIComm()
-  {
-    return this->MPIComm;
-  }
-
   MonaCommunicatorOpaqueComm *GetMonaComm()
   {
     return this->MonaComm;
@@ -318,8 +312,7 @@ protected:
     mona_comm_t monacomm, int useCopy, int &senderId);
 
 
-    MPICommunicatorOpaqueComm* MPIComm;
-    MonaCommunicatorOpaqueComm* MonaComm;
+  MonaCommunicatorOpaqueComm* MonaComm;
 
   int Initialized;
   int KeepHandle;

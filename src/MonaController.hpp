@@ -36,22 +36,24 @@ public:
   }
 
   virtual void Initialize(int *vtkNotUsed(argc), char ***vtkNotUsed(argv),
-                          int initializedExternally) override;
-  
-  void Initialize(int* argc, char*** argv, int initializedExternally, mona_comm_t mona_comm);
+                          int vtkNotUsed(initializedExternally)) override;
+
+  void Initialize(mona_comm_t mona_comm);
   /**
    * Same as Initialize(0, 0, 1). Mainly for calling from wrapped languages.
    */
-  virtual void Initialize();
+  virtual void Initialize() {
+      Initialize(0, 0, 1);
+  }
 
   /**
    * This method is for cleaning up and has to be called before
    * the end of the program if MPI was initialized with
    * Initialize()
    */
-  virtual void Finalize() override { this->Finalize(0); }
+  virtual void Finalize() override;
 
-  virtual void Finalize(int finalizedExternally) override;
+  virtual void Finalize(int) override { Finalize(); }
 
   /**
    * Execute the SingleMethod (as define by SetSingleMethod) using

@@ -84,16 +84,6 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   std::cout << "debug execute procRank " << procRank << " procSize " << procSize << " iteration "
             << iteration << std::endl;
 
-#if 0
-  // init the mochi communicator and register the pipeline
-  // this is supposed to be called once
-  const char* script_path_env = getenv("SCRIPTPATH");
-  std::string script_name = script_path_env ? script_path_env : "";
-  if (script_name == "")
-  {
-    throw std::runtime_error("SCRIPTPATH should not be empty");
-  }
-#endif
   if(m_script_name == "") {
     throw std::runtime_error("Empty script name");
   }
@@ -102,7 +92,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // make sure all servers do same things
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
   std::cout << "debug synthetic MonaInitialize ok" << iteration << std::endl;
-  if (m_need_reset) {
+#if 0
+  if (m_need_reset && !m_first_init) {
     std::cout << "debug Pipeline needs to be reset, finalizing VTK" << std::endl;
     InSitu::Finalize();
     std::cout << "debug InSitu::Finalize completed" << std::endl;
@@ -112,16 +103,15 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     InSitu::MonaInitialize(m_script_name, m_mona_comm);
     std::cout << "debug InSitu::MonaInitialize completed" << std::endl;
   }
+#endif
+  if (m_first_init) {
+    InSitu::MonaInitialize(m_script_name, m_mona_comm);
+  } else if (m_need_reset) {
+    InSitu::MonaUpdateController(m_mona_comm);
+  }
 
   m_need_reset = false;
   m_first_init = false;
-
-#if 0
-  // check the env to load the BLOCKNUM
-  const char* block_num_env = getenv("BLOCKNUM");
-  totalBlock = block_num_env ? atoi(block_num_env) : 0;
-  std::cout << "debug BLOCKNUM = " << totalBlock << std::endl;
-#endif
 
   // redistribute the process
   // get the suitable workload (mandelbulb instance list) based on current data staging services
