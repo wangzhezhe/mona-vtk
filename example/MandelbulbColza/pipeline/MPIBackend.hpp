@@ -8,16 +8,15 @@
 
 //#include "../InSituAdaptor.hpp"
 #include <colza/Backend.hpp>
-#include <thallium.hpp>
 #include <mpi.h>
+#include <thallium.hpp>
 
 using json = nlohmann::json;
 namespace tl = thallium;
 
-
 struct DataBlock
 {
-  //this is a generalized buffer 
+  // this is a generalized buffer
   std::vector<char> data;
   std::vector<size_t> dimensions;
   std::vector<int64_t> offsets;
@@ -56,7 +55,12 @@ public:
     : m_engine(args.engine)
     , m_gid(args.gid)
     , m_config(args.config)
-  {}
+  {
+    if (auto it = m_config.find("script") != m_config.end())
+    {
+      m_script_name = m_config["script"];
+    }
+  }
 
   /**
    * @brief Move-constructor.
@@ -153,10 +157,11 @@ public:
    *
    */
   MPI_Comm m_mpi_comm;
-  
-  
-  //these two varibles are not accessed by multi-thread
+
+  // these two varibles are not accessed by multi-thread
   bool m_first_init = true;
+
+  std::string m_script_name = "";
 };
 
 #endif

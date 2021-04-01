@@ -1,9 +1,11 @@
 {
-    "pipelines" : {
-        "mpibackend" : {
-            "library" : "./example/MandelbulbColza/libmpibackend-pipeline.so",
-            "type" : "mpibackend",
-            "config" : {}
-        }
-    }
+	"pipelines": {
+		"mpibackend": {
+			"library": "./example/MandelbulbColza/libmpibackend-pipeline.so",
+			"type": "mpibackend",
+			"config": {
+				"script": "./mbrender_64_iso.py"
+			}
+		}
+	}
 }

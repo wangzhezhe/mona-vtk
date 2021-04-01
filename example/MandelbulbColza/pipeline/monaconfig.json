@@ -1,9 +1,11 @@
 {
-    "pipelines" : {
-        "monabackend" : {
-            "library" : "./example/MandelbulbColza/libmonabackend-pipeline.so",
-            "type" : "monabackend",
-            "config" : {}
-        }
-    }
+	"pipelines": {
+		"monabackend": {
+			"library": "./example/MandelbulbColza/libmonabackend-pipeline.so",
+			"type": "monabackend",
+			"config": {
+				"script": "./mbrender_64_iso.py"
+			}
+		}
+	}
 }
