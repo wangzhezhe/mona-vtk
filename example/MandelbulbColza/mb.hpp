@@ -11,9 +11,6 @@
 namespace tl = thallium;
 
 // the camara view need to be reset to get better picture of the rendered results
-static unsigned WIDTH = 64;
-static unsigned HEIGHT = 64;
-static unsigned DEPTH = 64;
 static unsigned Globalpid = 0;
 
 #define MANDELBULB_ALLGATHER_TAG 2001

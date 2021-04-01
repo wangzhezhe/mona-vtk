@@ -42,6 +42,9 @@ static std::string g_log_level = "info";
 static std::string g_ssg_file;
 static int g_total_block_number;
 static int g_total_step;
+static int g_block_width;
+static int g_block_depth;
+static int g_block_height;
 
 static void parse_command_line(int argc, char** argv);
 static uint32_t get_credentials_from_ssg_file();
@@ -63,6 +66,19 @@ int main(int argc, char** argv)
   colza::MPIClientCommunicator comm(MPI_COMM_WORLD);
   int rank = comm.rank();
   int nprocs = comm.size();
+
+  if (rank == 0)
+  {
+    std::cout << "-------key varaibles--------" << std::endl;
+    std::cout << "g_total_block_number:" << g_total_block_number << std::endl;
+    std::cout << "g_total_step:" << g_total_step << std::endl;
+    std::cout << "g_block_width:" << g_block_width << std::endl;
+    std::cout << "g_block_depth:" << g_block_depth << std::endl;
+    std::cout << "g_block_height:" << g_block_height << std::endl;
+    std::cout << "g_pipeline:" << g_pipeline << std::endl;
+    std::cout << "g_address:" << g_address << std::endl;
+    std::cout << "----------------------------" << std::endl;
+  }
 
   uint32_t cookie = get_credentials_from_ssg_file();
 
@@ -97,10 +113,10 @@ int main(int argc, char** argv)
   for (int i = 0; i < nblocks_per_proc; i++)
   {
     int blockid = blockid_base + i;
-    int block_offset = blockid * DEPTH;
+    int block_offset = blockid * g_block_depth;
     // std::cout << "push blockid " << blockid << std::endl;
     MandelbulbList.push_back(
-      Mandelbulb(WIDTH, HEIGHT, DEPTH, block_offset, 1.2, g_total_block_number));
+      Mandelbulb(g_block_width, g_block_height, g_block_depth, block_offset, 1.2, g_total_block_number));
   }
 
   try
@@ -242,6 +258,9 @@ void parse_command_line(int argc, char** argv)
     TCLAP::ValueArg<int> totalBlockNumArg(
       "b", "total-block-number", "Total block number", true, 0, "int");
     TCLAP::ValueArg<int> totalStepArg("t", "total-time-step", "Total time step", true, 0, "int");
+    TCLAP::ValueArg<int> widthArg("w", "width", "Width of data block", true, 64, "int");
+    TCLAP::ValueArg<int> depthArg("d", "depth", "Depth of data block", true, 64, "int");
+    TCLAP::ValueArg<int> heightArg("e", "height", "Height of data block", true, 64, "int");
 
     cmd.add(addressArg);
     cmd.add(pipelineArg);
@@ -249,6 +268,9 @@ void parse_command_line(int argc, char** argv)
     cmd.add(ssgFileArg);
     cmd.add(totalBlockNumArg);
     cmd.add(totalStepArg);
+    cmd.add(widthArg);
+    cmd.add(depthArg);
+    cmd.add(heightArg);
 
     cmd.parse(argc, argv);
     g_address = addressArg.getValue();
@@ -257,6 +279,9 @@ void parse_command_line(int argc, char** argv)
     g_ssg_file = ssgFileArg.getValue();
     g_total_block_number = totalBlockNumArg.getValue();
     g_total_step = totalStepArg.getValue();
+    g_block_width = widthArg.getValue();
+    g_block_depth = depthArg.getValue();
+    g_block_height = heightArg.getValue();
   }
   catch (TCLAP::ArgException& e)
   {

@@ -9,7 +9,6 @@
 #include <iostream>
 
 // this is only for testing
-int totalBlock = 0;
 int global_rank = 0;
 int global_proc = 0;
 
@@ -29,21 +28,6 @@ void MPIBackendPipeline::updateMonaAddresses(
     this->m_mpi_comm = MPI_COMM_WORLD;
     MPI_Comm_rank(this->m_mpi_comm, &global_rank);
     MPI_Comm_size(this->m_mpi_comm, &global_proc);
-    // check the env to load the BLOCKNUM
-    try
-    {
-      std::string blocNum = getenv("BLOCKNUM");
-      totalBlock = std::stoi(blocNum);
-      if (global_rank == 0)
-      {
-        std::cout << "get the totalBlock number: " << totalBlock << std::endl;
-      }
-    }
-    catch (std::exception& e)
-    {
-      std::cout << "failed to get env: " << std::string(e.what()) << std::endl;
-      exit(-1);
-    }
   }
   else
   {
@@ -84,14 +68,12 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
     // init the mochi communicator and register the pipeline
     // this is supposed to be called once
     // TODO set this from the client or server parameters?
-    std::string SCRIPTPATH = getenv("SCRIPTPATH");
-    if (SCRIPTPATH == "")
+    if (m_script_name == "")
     {
-      throw std::runtime_error("SCRIPTPATH should not be empty");
+      throw std::runtime_error("Empty script name");
     }
-    std::string scriptname = SCRIPTPATH;
 
-    InSitu::MPIInitialize(scriptname);
+    InSitu::MPIInitialize(m_script_name);
     this->m_first_init = false;
   }
 
@@ -103,10 +85,12 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
   // it might be convenient to get the info by API
   size_t maxID = 0;
   std::vector<Mandelbulb> MandelbulbList;
-  if (totalBlock == 0)
-  {
-    throw std::runtime_error("failed to init the totalBlock, the env BLOCKNUM should be set");
-  }
+  int totalBlock = 0;
+  // get block num by collective operation
+  int localBlocks = m_datasets[iteration]["mydata"].size();
+  MPI_Allreduce(&localBlocks, &totalBlock, 1, MPI_INT, MPI_SUM, this->m_mpi_comm);
+  std::cout << "debug totalBlock is " << totalBlock << std::endl;
+
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     // std::cout << "iteration " << iteration << " procRank " << procRank << " key ";
@@ -114,9 +98,13 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
     {
       size_t blockID = t.first;
       // std::cout << blockID << ",";
-      size_t blockOffset = blockID * DEPTH;
+      auto width = t.second.dimensions[0] - 1;
+      auto height = t.second.dimensions[1];
+      auto depth = t.second.dimensions[2];
+
+      size_t blockOffset = blockID * depth;
       // reconstruct the MandelbulbList
-      Mandelbulb mb(WIDTH, HEIGHT, DEPTH, blockOffset, 1.2, totalBlock);
+      Mandelbulb mb(width, height, depth, blockOffset, 1.2, totalBlock);
       mb.SetData(t.second.data);
       MandelbulbList.push_back(mb);
     }
