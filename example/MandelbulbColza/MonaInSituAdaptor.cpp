@@ -24,12 +24,13 @@
 
 #include "mb.hpp"
 #include <MonaController.hpp>
+#include <spdlog/spdlog.h>
 #include <iostream>
 
 #ifdef DEBUG_BUILD
-#define DEBUG(x) std::cout << x << std::endl;
+#define DEBUG(...) spdlog::debug(__VA_ARGS__)
 #else
-#define DEBUG(x)                                                                                   \
+#define DEBUG(...)                                                                                 \
   do                                                                                               \
   {                                                                                                \
   } while (0)
@@ -38,8 +39,8 @@
 namespace
 {
 vtkMultiProcessController* Controller = nullptr;
-vtkCPProcessor* Processor = nullptr;
-vtkMultiBlockDataSet* VTKGrid;
+vtkCPProcessor*            Processor = nullptr;
+vtkMultiBlockDataSet*      VTKGrid = nullptr;
 
 // one process generates one data object
 void BuildVTKGrid(Mandelbulb& grid, int nprocs, int rank)
@@ -95,7 +96,6 @@ void UpdateVTKAttributes(Mandelbulb& mandelbulb, int rank, vtkCPInputDataDescrip
     vtkDataSet* dataSet = vtkDataSet::SafeDownCast(multiPiece->GetPiece(rank));
     if (dataSet->GetPointData()->GetNumberOfArrays() == 0)
     {
-      // pressure array
       vtkNew<vtkIntArray> data;
       data->SetName("mandelbulb");
       data->SetNumberOfComponents(1);
@@ -164,16 +164,11 @@ void BuildVTKDataStructuresList(
   // if there is memory leak here
   if (VTKGrid != NULL)
   {
-    // The grid structure isn't changing so we only build it
-    // the first time it's needed. If we needed the memory
-    // we could delete it and rebuild as necessary.
-    // delete VTKGrid;
-    // refer to https://vtk.org/Wiki/VTK/Tutorials/SmartPointers
     VTKGrid->Delete();
   }
 
-  // reset the grid each time, since the block number may change for different steps, block offset
-  // may also change
+  // reset the grid each time, since the block number may change for different steps,
+  // block offset may also change
   VTKGrid = vtkMultiBlockDataSet::New();
   BuildVTKGridList(mandelbulbList, global_nblocks);
 
@@ -188,11 +183,11 @@ namespace InSitu
 void* icetFactoryMona(vtkMultiProcessController* controller, void* args)
 {
   // return the icet communicator based on colza
-  DEBUG("---icetFactoryMona is called to create the icet comm");
+  DEBUG("{}", __FUNCTION__);
   auto m_comm = ((MonaCommunicator*)(controller->GetCommunicator()))->GetMonaComm()->GetHandle();
   if (m_comm == nullptr)
   {
-    std::cerr << "failed to get the colza communicator by icetFactoryMona" << std::endl;
+    spdlog::error("Failed to extract MonaCommunicator in {}", __FUNCTION__);
     return nullptr;
   }
   return icetCreateMonaCommunicator(m_comm);
@@ -200,12 +195,13 @@ void* icetFactoryMona(vtkMultiProcessController* controller, void* args)
 
 void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
 {
-  DEBUG("InSituAdaptor Initialize Start ");
-  MonaCommunicator* communicator = MonaCommunicator::New();
+  DEBUG("{}: script={}, comm={}", __FUNCTION__, script, (void*)mona_comm);
   MonaController* controller = MonaController::New();
+  // MonaCommunicator* communicator = MonaCommunicator::New();
   // controller->SetCommunicator(communicator);
-  // the initilize operation will also init the communicator
-  // there are segfault to call the setCommunicator then call the Init
+  // NOTE: no need for the above; the initilize operation will also init
+  // the communicator internally.
+  // There are segfault to call the setCommunicator then call the Init
   controller->Initialize(mona_comm);
   Controller = controller;
 
@@ -216,19 +212,21 @@ void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
   // refer to this commit to check how to use different communicator for MPI example
   // https://gitlab.kitware.com/paraview/paraview/-/merge_requests/4361
   vtkIceTContext::RegisterIceTCommunicatorFactory("MonaCommunicator", icetFactoryMona, controller);
-  DEBUG("RegisterIceTCommunicatorFactory ok");
 
   /* to make sure no mpi barrier is used here*/
   /* this part may contains some operations that hangs the current mona logic*/
   // issue, when delete, the processor is new one?
   if (Processor == NULL)
   {
+    DEBUG("{}: Setting Global Controller", __FUNCTION__);
     vtkMultiProcessController::SetGlobalController(controller);
+    DEBUG("{}: Creating new vtkCPProcessor", __FUNCTION__);
     Processor = vtkCPProcessor::New();
     // the global controller is acquired during the Initialize
     // we want the mona to be used, so we set the controller before the init
+    DEBUG("{}: Initializing the Processor", __FUNCTION__);
     Processor->Initialize("./");
-    DEBUG("Processor Initialize ok");
+    DEBUG("{}: Done initializing Processor", __FUNCTION__);
 
     // It is important to set the controller again to make sure to use the mochi
     // controller, the controller might be replaced during the init process
@@ -236,26 +234,32 @@ void MonaInitialize(const std::string& script, mona_comm_t mona_comm)
   }
   else
   {
+    DEBUG("{}: Processor already initialized, removing all pipelines", __FUNCTION__);
     Processor->RemoveAllPipelines();
+    DEBUG("{}: Done removing all the pipelines", __FUNCTION__);
   }
 
+  DEBUG("{}: Initializing pipeline", __FUNCTION__);
   vtkNew<vtkCPPythonScriptPipeline> pipeline;
   pipeline->Initialize(script.c_str());
-  DEBUG("pipeline Initialize ok");
+  DEBUG("{}: Done initializing pipeline", __FUNCTION__);
 
   Processor->AddPipeline(pipeline.GetPointer());
-  DEBUG("InSituAdaptor Initialize Finish ");
+  DEBUG("{}: Done adding pipeline to processor", __FUNCTION__);
 }
 
 void Finalize()
 {
+  DEBUG("{}: Finalizing", __FUNCTION__);
   if (Processor)
   {
+    DEBUG("{}: Deleting Processor", __FUNCTION__);
     Processor->Delete();
     Processor = NULL;
   }
   if (VTKGrid)
   {
+    DEBUG("{}: Deleting VTKGrid", __FUNCTION__);
     VTKGrid->Delete();
     VTKGrid = NULL;
   }
@@ -263,7 +267,7 @@ void Finalize()
 
 void MonaUpdateController(mona_comm_t mona_comm)
 {
-  DEBUG("---execute MonaUpdateController");
+  DEBUG("{}: comm={}", __FUNCTION__, (void*)mona_comm);
   if (mona_comm != NULL)
   {
     // the global communicator is updated every time
@@ -287,6 +291,9 @@ void MonaUpdateController(mona_comm_t mona_comm)
       throw std::runtime_error(
         "Cannot change communicator since existing global controller is not a MonaController.");
     }
+  } else {
+    throw std::runtime_error(
+            "Cannot set null communicator");
   }
 }
 
@@ -294,7 +301,8 @@ void MonaUpdateController(mona_comm_t mona_comm)
 void MonaCoProcessDynamic(
   std::vector<Mandelbulb>& mandelbulbList, int global_nblocks, double time, unsigned int timeStep)
 {
-  DEBUG("---execute MonaCoProcessDynamic");
+  DEBUG("{}: local_nblocks={}, total_nblocks={}, time={}, timestep={}", __FUNCTION__,
+        mandelbulbList.size(), global_nblocks, time, timeStep);
 
   // actual execution of the coprocess
   vtkNew<vtkCPDataDescription> dataDescription;
@@ -303,6 +311,7 @@ void MonaCoProcessDynamic(
 
   if (Processor->RequestDataDescription(dataDescription.GetPointer()) != 0)
   {
+    DEBUG("{}: Processor->RequestDataDescription return 1", __FUNCTION__);
     // TODO use the blocknumber and blockid
     // std::cout << "debug list size " << mandelbulbList.size() << " for rank " << rank <<
     // std::endl;
@@ -311,26 +320,28 @@ void MonaCoProcessDynamic(
     idd->SetGrid(VTKGrid);
     Processor->CoProcess(dataDescription.GetPointer());
   } else {
-    DEBUG("ERROR: Processor->RequestDataDescription(dataDescription.GetPointer()) failed");
+    DEBUG("{}: Processor->RequestDataDescription(dataDescription.GetPointer()) returned 0", __FUNCTION__);
   }
 
+  DEBUG("{}: MonaCoProcessDynamic completed", __FUNCTION__);
   return;
 }
 
 void MonaCoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, unsigned int timeStep)
 {
-  DEBUG("InSituAdaptor MonaCoProcess Start ");
+  DEBUG("{}: nprocs={}, rank={}, time={}, timestep={}", __FUNCTION__, nprocs, rank, time, timeStep);
   vtkNew<vtkCPDataDescription> dataDescription;
   dataDescription->AddInput("input");
   dataDescription->SetTimeData(time, timeStep);
   if (Processor->RequestDataDescription(dataDescription.GetPointer()) != 0)
   {
+    DEBUG("{}: Processor->RequestDataDescription returned 1", __FUNCTION__);
     vtkCPInputDataDescription* idd = dataDescription->GetInputDescriptionByName("input");
     BuildVTKDataStructures(mandelbulb, nprocs, rank, idd);
     idd->SetGrid(VTKGrid);
     Processor->CoProcess(dataDescription.GetPointer());
   }
-  DEBUG("InSituAdaptor MonaCoProcess Finish ");
+  DEBUG("{}: MonaCoProcess completed", __FUNCTION__);
 }
 
 } // namespace InSitu

@@ -49,7 +49,7 @@ void Printf(MonaController* comm, const char* format, ...)
 void SynchronizedPrintf(MonaController* comm, const char* format, ...)
 {
   // Sanity checks
-  assert("pre: MPI controller is nullptr!" && (comm != nullptr) );
+  assert("pre: MoNA controller is nullptr!" && (comm != nullptr) );
   assert("pre: format argument is nullptr!" && (format != nullptr) );
 
   int rank     = comm->GetLocalProcessId();

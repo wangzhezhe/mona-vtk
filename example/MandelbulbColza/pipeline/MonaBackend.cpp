@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <unistd.h>
+#include <spdlog/spdlog.h>
 
 COLZA_REGISTER_BACKEND(monabackend, MonaBackendPipeline);
 
@@ -24,21 +25,23 @@ void MonaBackendPipeline::updateMonaAddresses(
   // or when there is process join and leave
   // std::cout << "updateMonaAddresses is called" << std::endl;
 
+  spdlog::trace("{}: called", __FUNCTION__);
   {
     std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
     m_mona = mona;
     m_member_addrs = addresses;
     m_need_reset = true;
   }
-  std::cout << "updateMonaAddresses called with " << addresses.size() << " addresses" << std::endl;
+  spdlog::trace("{}: number of addresses is now {}", __FUNCTION__, addresses.size());
 }
 
 colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 {
-  std::cout << "Iteration " << iteration << " starting" << std::endl;
+  spdlog::trace("{}: Starting iteration {}", __FUNCTION__, iteration);
 
   std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
   if(m_need_reset || (m_mona_comm == nullptr)) {
+      spdlog::trace("{}: Need to create a MoNA communicator", __FUNCTION__);
       if(m_mona_comm) {
         mona_comm_free(m_mona_comm);
       }
@@ -46,10 +49,13 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
           mona_comm_create(m_mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
       if (ret != 0)
       {
-          std::cout << "error, mona_comm_create ret code is " << ret << std::endl;
+          spdlog::trace("{}: MoNA communicator creation failed", __FUNCTION__);
           throw std::runtime_error("failed to init mona communicator");
       }
+      spdlog::trace("{}: MoNA communicator creation succeeded", __FUNCTION__);
   }
+
+  spdlog::trace("{}: Start complete", __FUNCTION__);
 
   colza::RequestResult<int32_t> result;
   result.success() = true;
@@ -59,7 +65,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 
 void MonaBackendPipeline::abort(uint64_t iteration)
 {
-  std::cout << "Client aborted iteration " << iteration << std::endl;
+  spdlog::trace("{}: Abort call for iteration {}", __FUNCTION__, iteration);
   // free the communicator
   {
     std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
@@ -67,12 +73,13 @@ void MonaBackendPipeline::abort(uint64_t iteration)
     m_mona_comm = nullptr;
     m_need_reset = true;
   }
+  spdlog::trace("{}: Abort complete", __FUNCTION__);
 }
 
 // update the data, try to add the visulization operations
 colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
 {
-  std::cout << "debug execute iteration " << iteration << std::endl;
+  spdlog::trace("{}: Executing iteration {}", __FUNCTION__, iteration);
   // when the mona is updated, init and reset
   // otherwise, do not reset
   // it might need some time for the fir step
@@ -81,8 +88,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   int procSize, procRank;
   mona_comm_size(m_mona_comm, &procSize);
   mona_comm_rank(m_mona_comm, &procRank);
-  std::cout << "debug execute procRank " << procRank << " procSize " << procSize << " iteration "
-            << iteration << std::endl;
+  spdlog::trace("{}: rank={}, size={}", __FUNCTION__, procRank, procSize);
 
   if(m_script_name == "") {
     throw std::runtime_error("Empty script name");
@@ -91,24 +97,29 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // this may takes long time for first step
   // make sure all servers do same things
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
-  std::cout << "debug synthetic MonaInitialize ok" << iteration << std::endl;
-#if 0
+  spdlog::trace("{}: After barrier", __FUNCTION__);
+
   if (m_need_reset && !m_first_init) {
-    std::cout << "debug Pipeline needs to be reset, finalizing VTK" << std::endl;
+    spdlog::trace("{}: Need to reset,finalizing InSitu first", __FUNCTION__);
     InSitu::Finalize();
-    std::cout << "debug InSitu::Finalize completed" << std::endl;
+    spdlog::trace("{}: Done finalizing InSitu for reset", __FUNCTION__);
   }
   if (m_first_init || m_need_reset) {
-    std::cout << "debug Pipeline initializing VTK" << std::endl;
+    spdlog::trace("{}: first_init={}, need_reset={}, calling MonaInitialize",
+            __FUNCTION__, m_first_init, m_need_reset);
     InSitu::MonaInitialize(m_script_name, m_mona_comm);
-    std::cout << "debug InSitu::MonaInitialize completed" << std::endl;
+    spdlog::trace("{}: Done initializing");
   }
-#endif
+#if 0
   if (m_first_init) {
+    spdlog::trace("{}: First time, calling InSitu::MonaInitialize", __FUNCTION__);
     InSitu::MonaInitialize(m_script_name, m_mona_comm);
+    spdlog::trace("{}: Done calling InSitu::MonaInitialize", __FUNCTION__);
   } else if (m_need_reset) {
+
     InSitu::MonaUpdateController(m_mona_comm);
   }
+#endif
 
   m_need_reset = false;
   m_first_init = false;
@@ -123,11 +134,10 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // the largest key+1 is the total block number
   // it might be convenient to get the info by API
 
-  std::cout << "debug start update data iteration " << iteration << std::endl;
+  spdlog::trace("{}: Updating data for iteration {}", __FUNCTION__, iteration);
   size_t maxID = 0;
   std::vector<Mandelbulb> MandelbulbList;
 
-  std::cout << "debug sharing size of number of blocks via Mona..." << std::endl;
   int localBlocks = m_datasets[iteration]["mydata"].size();
   std::cout << "local blocks is " << localBlocks << std::endl;
   mona_comm_allreduce(m_mona_comm, &localBlocks, &totalBlock, sizeof(int), 1,
@@ -136,7 +146,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
                 int* b = static_cast<int*>(out);
                 *b += *a;
           }, nullptr, MONA_BACKEND_ALLREDUCE_TAG);
-  std::cout << "debug totalBlock is " << totalBlock << std::endl;
+  spdlog::trace("{}: After AllReduce, localBlocks={}, totalBlocks={}",
+          __FUNCTION__, localBlocks, totalBlock);
 
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
@@ -156,30 +167,29 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     }
     // std::cout << std::endl;
   }
-  std::cout << "debug ok update data iteration " << iteration << std::endl;
-
-  std::cout << "debug Calling MonaCoProcessDynamic with " << MandelbulbList.size() << " blocks "
-      << "( total blocks is " << totalBlock << " )" << std::endl;
+  spdlog::trace("{}: About to call InSitu::MonaCoProcessDynamic with iteration={}", iteration);
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
   InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
 
+  spdlog::trace("{}: Done with InSitu::MonaCoProcessDynamic");
+
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
-  std::cout << "debug return iteration " << iteration << std::endl;
   return result;
 }
 
 colza::RequestResult<int32_t> MonaBackendPipeline::cleanup(uint64_t iteration)
 {
-
+  spdlog::trace("{}: Calling cleanup for iteration {}", __FUNCTION__, iteration);
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     m_datasets.erase(iteration);
   }
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
+  spdlog::trace("{}: Done cleaning up iteration {}", __FUNCTION__, iteration);
   return result;
 }
 

@@ -18,15 +18,6 @@ static unsigned Globalpid = 0;
 #define MANDELBULB_BCAST_TAG 2003
 #define MONA_UNDEFINED -1
 
-#ifdef DEBUG_BUILD
-#define DEBUG(x) std::cout << x << std::endl;
-#else
-#define DEBUG(x)                                                                                   \
-  do                                                                                               \
-  {                                                                                                \
-  } while (0)
-#endif
-
 class Mandelbulb
 {
 
