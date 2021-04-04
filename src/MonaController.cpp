@@ -235,7 +235,7 @@ void MonaController::Finalize()
 void MonaController::InitializeCommunicator(MonaCommunicator* comm)
 {
   DEBUG("{}: comm={}, mona_comm={}",
-          __FUNCTION__, (void*)comm, (void*)comm->MonaComm->GetHandle());
+          __FUNCTION__, (void*)comm, (void*)(comm ? comm->MonaComm->GetHandle() : nullptr));
   if (this->Communicator != comm)
   {
     if (this->Communicator != 0)
@@ -272,7 +272,11 @@ void MonaController::InitializeRMICommunicator()
 
 void MonaController::SetCommunicator(MonaCommunicator* comm)
 {
-  DEBUG("{}: comm={} mona_comm={}",  __FUNCTION__, (void*)comm, (void*)comm->MonaComm->GetHandle());
+    if(comm) {
+        DEBUG("{}: comm={} mona_comm={}",  __FUNCTION__, (void*)comm, (void*)comm->MonaComm->GetHandle());
+    } else {
+        DEBUG("{}: comm=null", __FUNCTION__);
+    }
   //TODO free the old communicator
   this->InitializeCommunicator(comm);
   //TODO consider RMI communication in future
