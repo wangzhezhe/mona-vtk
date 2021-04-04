@@ -158,6 +158,7 @@ public:
    */
   mona_instance_t        m_mona = nullptr;
   mona_comm_t            m_mona_comm = nullptr; // MoNA communicator built in start()
+  mona_comm_t            m_mona_comm_self = nullptr; // MoNA communicator with only this process
   std::vector<na_addr_t> m_member_addrs; // latest known member addresses
 
   // do not update comm when it is used by the in-situ part

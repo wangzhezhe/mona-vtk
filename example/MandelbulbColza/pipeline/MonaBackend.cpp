@@ -31,6 +31,21 @@ void MonaBackendPipeline::updateMonaAddresses(
     m_mona = mona;
     m_member_addrs = addresses;
     m_need_reset = true;
+
+    if(m_mona_comm_self == nullptr) {
+        na_addr_t self_addr = NA_ADDR_NULL;
+        na_return_t ret = mona_addr_self(m_mona, &self_addr);
+        if(ret != NA_SUCCESS) {
+            spdlog::critical("{}: mona_addr_self returned {}", __FUNCTION__, ret);
+            throw std::runtime_error("mona_addr_self failed");
+        }
+        ret = mona_comm_create(m_mona, 1, &self_addr, &m_mona_comm_self);
+        if(ret != NA_SUCCESS) {
+            spdlog::critical("{}: mona_comm_create returned {}", __FUNCTION__, ret);
+            throw std::runtime_error("mona_comm_create failed");
+        }
+        mona_addr_free(m_mona, self_addr);
+    }
   }
   spdlog::trace("{}: number of addresses is now {}", __FUNCTION__, addresses.size());
 }
@@ -99,27 +114,17 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
   spdlog::trace("{}: After barrier", __FUNCTION__);
 
-  if (m_need_reset && !m_first_init) {
-    spdlog::trace("{}: Need to reset,finalizing InSitu first", __FUNCTION__);
-    InSitu::Finalize();
-    spdlog::trace("{}: Done finalizing InSitu for reset", __FUNCTION__);
-  }
-  if (m_first_init || m_need_reset) {
-    spdlog::trace("{}: first_init={}, need_reset={}, calling MonaInitialize",
-            __FUNCTION__, m_first_init, m_need_reset);
-    InSitu::MonaInitialize(m_script_name, m_mona_comm);
-    spdlog::trace("{}: Done initializing", __FUNCTION__);
-  }
-#if 0
   if (m_first_init) {
-    spdlog::trace("{}: First time, calling InSitu::MonaInitialize", __FUNCTION__);
-    InSitu::MonaInitialize(m_script_name, m_mona_comm);
-    spdlog::trace("{}: Done calling InSitu::MonaInitialize", __FUNCTION__);
-  } else if (m_need_reset) {
-
-    InSitu::MonaUpdateController(m_mona_comm);
+    spdlog::trace("{}: First init, requires initialization with mona_comm_self", __FUNCTION__);
+    InSitu::MonaInitialize(m_script_name, m_mona_comm_self);
+    spdlog::trace("{}: Done initializing with mona_comm_self", __FUNCTION__);
   }
-#endif
+
+  if (m_need_reset || m_first_init) {
+      spdlog::trace("{}: Updating MoNA controller", __FUNCTION__);
+      InSitu::MonaUpdateController(m_mona_comm);
+      spdlog::trace("{}: Done updating MoNA controller", __FUNCTION__);
+  }
 
   m_need_reset = false;
   m_first_init = false;
