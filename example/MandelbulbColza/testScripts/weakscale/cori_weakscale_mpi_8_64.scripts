@@ -12,7 +12,7 @@ SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
 SCRIPTPATH=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
 CONFIG=$SRCDIR/example/MandelbulbColza/pipeline/mpiconfig.json
 
-BLOCKNUM=256
+BLOCKNUM=32
 STEP=20
 PROTOCOL=gni
 SSGFILE=ssgfile

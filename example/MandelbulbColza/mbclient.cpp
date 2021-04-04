@@ -115,8 +115,8 @@ int main(int argc, char** argv)
     int blockid = blockid_base + i;
     int block_offset = blockid * g_block_depth;
     // std::cout << "push blockid " << blockid << std::endl;
-    MandelbulbList.push_back(
-      Mandelbulb(g_block_width, g_block_height, g_block_depth, block_offset, 1.2, g_total_block_number));
+    MandelbulbList.push_back(Mandelbulb(
+      g_block_width, g_block_height, g_block_depth, block_offset, 1.2, g_total_block_number));
   }
 
   try
@@ -167,6 +167,7 @@ int main(int argc, char** argv)
         int* extents = MandelbulbList[i].GetExtents();
         // the extends value is from 0 to 29
         // the dimension value should be extend value +1
+        // the sequence is depth, height, width
         std::vector<size_t> dimensions = { int2size_t(*(extents + 1)) + 1,
           int2size_t(*(extents + 3)) + 1, int2size_t(*(extents + 5)) + 1 };
         std::vector<int64_t> offsets = { 0, 0, MandelbulbList[i].GetZoffset() };
@@ -177,7 +178,12 @@ int main(int argc, char** argv)
         auto type = colza::Type::INT32;
         pipeline.stage(
           "mydata", step, blockid, dimensions, offsets, type, MandelbulbList[i].GetData(), &result);
-
+        /*
+        std::cout << "step " << step << " blockid " << blockid << " dimentions " << dimensions[0]
+                  << "," << dimensions[1] << "," << dimensions[2] << " offsets " << offsets[0]
+                  << "," << offsets[1] << "," << offsets[2] << " listvalueSize "
+                  << MandelbulbList[i].DataSize() << std::endl;
+        */
         if (result != 0)
         {
           throw std::runtime_error(

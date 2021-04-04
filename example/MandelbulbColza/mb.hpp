@@ -119,6 +119,8 @@ public:
 
   double* GetOrigin() const { return const_cast<double*>(m_origin.data()); }
 
+  int DataSize() const { return m_data.size(); }
+
   int* GetData() const { return const_cast<int*>(m_data.data()); }
 
   // copy it to data by memory operation
@@ -127,10 +129,11 @@ public:
     size_t byteSize = stageData.size();
     if (byteSize != this->m_data.size() * sizeof(int))
     {
-      throw std::runtime_error("wrong data length, bytesize " + std::to_string(byteSize) + " cell size " + std::to_string(this->m_data.size()) );
+      throw std::runtime_error("wrong data length, bytesize " + std::to_string(byteSize) +
+        " cell size " + std::to_string(this->m_data.size()));
     }
     int* array = static_cast<int*>((void*)stageData.data());
-    //replace current m_data
+    // replace current m_data
     memcpy(&(this->m_data[0]), array, byteSize);
   }
 
