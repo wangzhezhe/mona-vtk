@@ -108,7 +108,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     spdlog::trace("{}: first_init={}, need_reset={}, calling MonaInitialize",
             __FUNCTION__, m_first_init, m_need_reset);
     InSitu::MonaInitialize(m_script_name, m_mona_comm);
-    spdlog::trace("{}: Done initializing");
+    spdlog::trace("{}: Done initializing", __FUNCTION__);
   }
 #if 0
   if (m_first_init) {
@@ -167,12 +167,12 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     }
     // std::cout << std::endl;
   }
-  spdlog::trace("{}: About to call InSitu::MonaCoProcessDynamic with iteration={}", iteration);
+  spdlog::trace("{}: About to call InSitu::MonaCoProcessDynamic with iteration={}", __FUNCTION__, iteration);
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
   InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
 
-  spdlog::trace("{}: Done with InSitu::MonaCoProcessDynamic");
+  spdlog::trace("{}: Done with InSitu::MonaCoProcessDynamic", __FUNCTION__);
 
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
