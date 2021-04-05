@@ -158,21 +158,15 @@ void BuildVTKDataStructures(
 void BuildVTKDataStructuresList(
   std::vector<Mandelbulb>& mandelbulbList, int global_nblocks, vtkCPInputDataDescription* idd)
 {
-  // reset vtk grid for each call??
-  // if there is memory leak here
-  if (VTKGrid != NULL)
+
+  if (VTKGrid == NULL)
   {
     // The grid structure isn't changing so we only build it
     // the first time it's needed. If we needed the memory
     // we could delete it and rebuild as necessary.
-    // delete VTKGrid;
-    // refer to https://vtk.org/Wiki/VTK/Tutorials/SmartPointers
-    VTKGrid->Delete();
+    VTKGrid = vtkMultiBlockDataSet::New();
   }
-
-  // reset the grid each time, since the block number may change for different steps, block offset
-  // may also change
-  VTKGrid = vtkMultiBlockDataSet::New();
+  //if obj exist, just reset it
   BuildVTKGridList(mandelbulbList, global_nblocks);
 
   // fill in actual values

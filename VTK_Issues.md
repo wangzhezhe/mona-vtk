@@ -17,3 +17,6 @@ the key to Catalyst not hanging was to make sure the vtkIceTContext gets reiniti
 
 https://gitlab.kitware.com/mdorier/paraview/-/tree/dev-icet-integration
 
+### the pipeline part will call the collective operations
+
+there are some issues to do this if there is process join or leave during this oepration, we use self communicator in this case 

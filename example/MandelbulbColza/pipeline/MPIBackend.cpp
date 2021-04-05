@@ -59,9 +59,7 @@ void MPIBackendPipeline::abort(uint64_t iteration)
 // update the data, try to add the visulization operations
 colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
 {
-  
-  //Debug make iteration always 0
-  int dummyIteration=0;
+
   // when the mona is updated, init and reset
   // otherwise, do not reset
   // it might need some time for the fir step
@@ -89,14 +87,15 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
   std::vector<Mandelbulb> MandelbulbList;
   int totalBlock = 0;
   // get block num by collective operation
-  int localBlocks = m_datasets[dummyIteration]["mydata"].size();
-  MPI_Allreduce(&localBlocks, &totalBlock, 1, MPI_INT, MPI_SUM, this->m_mpi_comm);
-  std::cout << "debug totalBlock is " << totalBlock << std::endl;
-
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
+    int localBlocks = m_datasets[iteration]["mydata"].size();
+
+    MPI_Allreduce(&localBlocks, &totalBlock, 1, MPI_INT, MPI_SUM, this->m_mpi_comm);
+    std::cout << "debug totalBlock is " << totalBlock << std::endl;
+
     // std::cout << "iteration " << iteration << " procRank " << procRank << " key ";
-    for (auto& t : m_datasets[dummyIteration]["mydata"])
+    for (auto& t : m_datasets[iteration]["mydata"])
     {
       size_t blockID = t.first;
       // std::cout << blockID << ",";
@@ -106,13 +105,15 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
 
       size_t blockOffset = blockID * depth;
       // reconstruct the MandelbulbList
+      //std::cout << "debug parameters " << width << "," << height << "," << depth << ","
+      //          << blockOffset << std::endl;
       Mandelbulb mb(width, height, depth, blockOffset, 1.2, totalBlock);
       mb.SetData(t.second.data);
       MandelbulbList.push_back(mb);
     }
     std::cout << "iteration " << iteration << " size " << MandelbulbList.size() << std::endl;
   }
-  
+
   MPI_Barrier(this->m_mpi_comm);
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
@@ -127,7 +128,7 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
 colza::RequestResult<int32_t> MPIBackendPipeline::cleanup(uint64_t iteration)
 {
   std::lock_guard<tl::mutex> g(m_datasets_mtx);
-  //m_datasets.erase(iteration);
+  // m_datasets.erase(iteration);
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
   return result;
@@ -155,7 +156,7 @@ colza::RequestResult<int32_t> MPIBackendPipeline::stage(const std::string& sende
   block.offsets = offsets;
   block.type = type;
   block.data.resize(data.size());
-  
+
   /*
   std::cout << "iteration " << iteration << " block_id " << block_id << " dimensions "
             << dimensions[0] << "," << dimensions[1] << "," << dimensions[2] << "offsets "
