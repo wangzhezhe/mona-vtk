@@ -159,17 +159,14 @@ void BuildVTKDataStructuresList(
   std::vector<Mandelbulb>& mandelbulbList, int global_nblocks, vtkCPInputDataDescription* idd)
 {
 
+  // there is known issue if we delete VTKGrid every time
   if (VTKGrid == NULL)
   {
-    // The grid structure isn't changing so we only build it
-    // the first time it's needed. If we needed the memory
-    // we could delete it and rebuild as necessary.
     VTKGrid = vtkMultiBlockDataSet::New();
   }
-  //if obj exist, just reset it
-  BuildVTKGridList(mandelbulbList, global_nblocks);
 
   // fill in actual values
+  BuildVTKGridList(mandelbulbList, global_nblocks);
   UpdateVTKAttributesList(mandelbulbList, idd);
 }
 } // namespace

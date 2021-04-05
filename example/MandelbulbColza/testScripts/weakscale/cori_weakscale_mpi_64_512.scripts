@@ -1,42 +1,49 @@
 #!/bin/bash
 #SBATCH --qos=debug
 #SBATCH --nodes=24
-#SBATCH --tasks-per-node=32
-#SBATCH --time=20:00
+#SBATCH --time=10:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
 
-export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
-export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
-export SCRIPTPATH=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
+BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+SCRIPTPATH=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
+CONFIG=$SRCDIR/example/MandelbulbColza/pipeline/mpiconfig.json
 
-cd $BUILDDIR
-# run this in the build dir of the monavtk
-# maybe get the data length by env?
-BLOCKNUM=2048
-#server get the blocknum from env
-export BLOCKNUM=2048
-STEP=20
+
+STEP=6
 PROTOCOL=gni
 SSGFILE=ssgfile
-BACKEND=$BUILDDIR/example/MandelbulbColza/libmpibackend-pipeline.so
-CONFIG=$SRCDIR/example/MandelbulbColza/pipeline/mpiconfig.json
 SWIMPERIOD=5000
-rm $SSGFILE global_cred_conf
+BACKENDNAME=mpibackend
+BLOCKLENW=64
+BLOCKLENH=64
+BLOCKLEND=64
+BLOCKNUM=2048
+
+SERVERNODE=8
+SERVERPROCESS=64
+
+CLIENTNODE=16
+CLIENTPROCESS=512
+
+# run this in the build dir of the monavtk
+cd $BUILDDIR
+
+# copy script into current path
+cp $SCRIPTPATH .
 
 # 1 nodes for server (16*4=64=2*32)
-srun -C haswell -N 8 -n 64 -c 8 --cpu_bind=cores --time=20:00 ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD &> mbserver_mpi_64.log &
+srun -C haswell -N $SERVERNODE -n $SERVERPROCESS -c 8 -l --cpu_bind=cores --time=10:00 ./example/MandelbulbColza/mbserver -a $PROTOCOL -s $SSGFILE -c $CONFIG -t 1 -p $SWIMPERIOD &> mbserver_mpi_$SERVERPROCESS.log &
 
 #make sure the server load the pipeline
 result=0
-while [ $result -ne 64 ]
+while [ $result -ne $SERVERPROCESS ]
 do
-    result=$(cat mbserver_mpi_64.log | grep "Server running at" | wc -l)
+    result=$(cat mbserver_mpi_"$SERVERPROCESS".log | grep "Server running at" | wc -l)
     echo "$result server loaded backend"
     sleep 1  
 done
 
 # 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
-srun -C haswell -N 16 -n 512 -c 2 --cpu_bind=cores --time=20:00 ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p mpibackend -b $BLOCKNUM -t $STEP > mbclient_mpi_64_512.log
-
-
+srun -C haswell -N $CLIENTNODE -n $CLIENTPROCESS -c 2 -l --cpu_bind=cores --time=10:00 ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p $BACKENDNAME -b $BLOCKNUM -t $STEP -w $BLOCKLENW -d $BLOCKLEND -e $BLOCKLENH &> mbclient_mpi_${SERVERPROCESS}_${CLIENTPROCESS}.log

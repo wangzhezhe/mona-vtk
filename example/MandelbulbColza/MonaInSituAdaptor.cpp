@@ -24,8 +24,8 @@
 
 #include "mb.hpp"
 #include <MonaController.hpp>
-#include <spdlog/spdlog.h>
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 #ifdef DEBUG_BUILD
 #define DEBUG(...) spdlog::debug(__VA_ARGS__)
@@ -39,8 +39,8 @@
 namespace
 {
 vtkMultiProcessController* Controller = nullptr;
-vtkCPProcessor*            Processor = nullptr;
-vtkMultiBlockDataSet*      VTKGrid = nullptr;
+vtkCPProcessor* Processor = nullptr;
+vtkMultiBlockDataSet* VTKGrid = nullptr;
 
 // one process generates one data object
 void BuildVTKGrid(Mandelbulb& grid, int nprocs, int rank)
@@ -160,7 +160,7 @@ void BuildVTKDataStructures(
 void BuildVTKDataStructuresList(
   std::vector<Mandelbulb>& mandelbulbList, int global_nblocks, vtkCPInputDataDescription* idd)
 {
-  //there is known issue if we delete VTKGrid every time
+  // there is known issue if we delete VTKGrid every time
   if (VTKGrid == NULL)
   {
     VTKGrid = vtkMultiBlockDataSet::New();
@@ -170,6 +170,7 @@ void BuildVTKDataStructuresList(
   BuildVTKGridList(mandelbulbList, global_nblocks);
   UpdateVTKAttributesList(mandelbulbList, idd);
 }
+
 } // namespace
 
 namespace InSitu
@@ -286,9 +287,10 @@ void MonaUpdateController(mona_comm_t mona_comm)
       throw std::runtime_error(
         "Cannot change communicator since existing global controller is not a MonaController.");
     }
-  } else {
-    throw std::runtime_error(
-            "Cannot set null communicator");
+  }
+  else
+  {
+    throw std::runtime_error("Cannot set null communicator");
   }
 }
 
@@ -297,7 +299,7 @@ void MonaCoProcessDynamic(
   std::vector<Mandelbulb>& mandelbulbList, int global_nblocks, double time, unsigned int timeStep)
 {
   DEBUG("{}: local_nblocks={}, total_nblocks={}, time={}, timestep={}", __FUNCTION__,
-        mandelbulbList.size(), global_nblocks, time, timeStep);
+    mandelbulbList.size(), global_nblocks, time, timeStep);
 
   // actual execution of the coprocess
   vtkNew<vtkCPDataDescription> dataDescription;
@@ -314,8 +316,11 @@ void MonaCoProcessDynamic(
     BuildVTKDataStructuresList(mandelbulbList, global_nblocks, idd);
     idd->SetGrid(VTKGrid);
     Processor->CoProcess(dataDescription.GetPointer());
-  } else {
-    DEBUG("{}: Processor->RequestDataDescription(dataDescription.GetPointer()) returned 0", __FUNCTION__);
+  }
+  else
+  {
+    DEBUG("{}: Processor->RequestDataDescription(dataDescription.GetPointer()) returned 0",
+      __FUNCTION__);
   }
 
   DEBUG("{}: MonaCoProcessDynamic completed", __FUNCTION__);

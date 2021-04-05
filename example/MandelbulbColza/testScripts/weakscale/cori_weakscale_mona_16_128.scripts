@@ -11,12 +11,14 @@ SCRIPTPATH=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
 CONFIG=$SRCDIR/example/MandelbulbColza/pipeline/monaconfig.json
 
 
-STEP=20
+STEP=6
 PROTOCOL=gni
 SSGFILE=ssgfile
 SWIMPERIOD=5000
 BACKENDNAME=monabackend
-BLOCKLEN=64
+BLOCKLENW=64
+BLOCKLENH=64
+BLOCKLEND=64
 
 BLOCKNUM=512
 
@@ -45,5 +47,5 @@ do
 done
 
 # 16 nodes for client, 16*32=512, 512*8=4096 (maybe get this from the env, 2 hyperthread for one physical core)
-srun -C haswell -N $CLIENTNODE -n $CLIENTPROCESS -c 2 -l --cpu_bind=cores --time=10:00 ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p $BACKENDNAME -b $BLOCKNUM -t $STEP -w $BLOCKLEN -d $BLOCKLEN -e $BLOCKLEN &> mbclient_mona_${SERVERPROCESS}_${CLIENTPROCESS}.log
+srun -C haswell -N $CLIENTNODE -n $CLIENTPROCESS -c 2 -l --cpu_bind=cores --time=10:00 ./example/MandelbulbColza/mbclient -a $PROTOCOL -s $SSGFILE -p $BACKENDNAME -b $BLOCKNUM -t $STEP -w $BLOCKLENW -d $BLOCKLEND -e $BLOCKLENH &> mbclient_mona_${SERVERPROCESS}_${CLIENTPROCESS}.log
 

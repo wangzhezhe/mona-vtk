@@ -128,7 +128,7 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
 colza::RequestResult<int32_t> MPIBackendPipeline::cleanup(uint64_t iteration)
 {
   std::lock_guard<tl::mutex> g(m_datasets_mtx);
-  // m_datasets.erase(iteration);
+  m_datasets.erase(iteration);
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
   return result;

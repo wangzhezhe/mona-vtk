@@ -160,9 +160,9 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     for (auto& t : m_datasets[iteration]["mydata"])
     {
       size_t blockID = t.first;
-      auto width = t.second.dimensions[0]-1;
+      auto depth = t.second.dimensions[0] - 1;
       auto height = t.second.dimensions[1];
-      auto depth = t.second.dimensions[2];
+      auto width = t.second.dimensions[2];
       // std::cout << blockID << ",";
       size_t blockOffset = blockID * depth;
       // reconstruct the MandelbulbList
@@ -175,6 +175,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   spdlog::trace("{}: About to call InSitu::MonaCoProcessDynamic with iteration={}", __FUNCTION__, iteration);
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
+  mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
   InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
 
   spdlog::trace("{}: Done with InSitu::MonaCoProcessDynamic", __FUNCTION__);
