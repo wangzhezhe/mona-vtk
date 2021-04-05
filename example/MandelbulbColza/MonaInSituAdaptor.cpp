@@ -162,17 +162,13 @@ void BuildVTKDataStructuresList(
 {
   // reset vtk grid for each call??
   // if there is memory leak here
-  if (VTKGrid != NULL)
+  if (VTKGrid == NULL)
   {
-    VTKGrid->Delete();
+      VTKGrid = vtkMultiBlockDataSet::New();
   }
 
-  // reset the grid each time, since the block number may change for different steps,
-  // block offset may also change
-  VTKGrid = vtkMultiBlockDataSet::New();
-  BuildVTKGridList(mandelbulbList, global_nblocks);
-
   // fill in actual values
+  BuildVTKGridList(mandelbulbList, global_nblocks);
   UpdateVTKAttributesList(mandelbulbList, idd);
 }
 } // namespace
