@@ -92,8 +92,7 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
     int localBlocks = m_datasets[iteration]["mydata"].size();
 
     MPI_Allreduce(&localBlocks, &totalBlock, 1, MPI_INT, MPI_SUM, this->m_mpi_comm);
-    std::cout << "debug totalBlock is " << totalBlock << std::endl;
-
+    // std::cout << "debug totalBlock is " << totalBlock << std::endl;
     // std::cout << "iteration " << iteration << " procRank " << procRank << " key ";
     for (auto& t : m_datasets[iteration]["mydata"])
     {
@@ -105,7 +104,7 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
 
       size_t blockOffset = blockID * depth;
       // reconstruct the MandelbulbList
-      //std::cout << "debug parameters " << width << "," << height << "," << depth << ","
+      // std::cout << "debug parameters " << width << "," << height << "," << depth << ","
       //          << blockOffset << std::endl;
       Mandelbulb mb(width, height, depth, blockOffset, 1.2, totalBlock);
       mb.SetData(t.second.data);

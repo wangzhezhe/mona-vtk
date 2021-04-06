@@ -159,6 +159,7 @@ int main(int argc, char** argv)
 
       for (int i = 0; i < MandelbulbList.size(); i++)
       {
+        double innerstageStart = tl::timer::wtime();
 
         // stage the data at current iteration
         blockid = blockid_base + i;
@@ -189,6 +190,9 @@ int main(int argc, char** argv)
           throw std::runtime_error(
             "failed to stage " + std::to_string(step) + " return status " + std::to_string(result));
         }
+        double innerstageEnd = tl::timer::wtime();
+        std::cout << "rank " << rank << " blockid " << i << " step " << step << " inner stage time "
+                  << innerstageEnd - innerstageStart << std::endl;
       }
       double stageEnd = tl::timer::wtime();
       if (rank == 0)

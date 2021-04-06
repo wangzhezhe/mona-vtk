@@ -8,8 +8,8 @@
 #include "../mb.hpp"
 #include <cstdlib>
 #include <iostream>
-#include <unistd.h>
 #include <spdlog/spdlog.h>
+#include <unistd.h>
 
 COLZA_REGISTER_BACKEND(monabackend, MonaBackendPipeline);
 
@@ -32,19 +32,22 @@ void MonaBackendPipeline::updateMonaAddresses(
     m_member_addrs = addresses;
     m_need_reset = true;
 
-    if(m_mona_comm_self == nullptr) {
-        na_addr_t self_addr = NA_ADDR_NULL;
-        na_return_t ret = mona_addr_self(m_mona, &self_addr);
-        if(ret != NA_SUCCESS) {
-            spdlog::critical("{}: mona_addr_self returned {}", __FUNCTION__, ret);
-            throw std::runtime_error("mona_addr_self failed");
-        }
-        ret = mona_comm_create(m_mona, 1, &self_addr, &m_mona_comm_self);
-        if(ret != NA_SUCCESS) {
-            spdlog::critical("{}: mona_comm_create returned {}", __FUNCTION__, ret);
-            throw std::runtime_error("mona_comm_create failed");
-        }
-        mona_addr_free(m_mona, self_addr);
+    if (m_mona_comm_self == nullptr)
+    {
+      na_addr_t self_addr = NA_ADDR_NULL;
+      na_return_t ret = mona_addr_self(m_mona, &self_addr);
+      if (ret != NA_SUCCESS)
+      {
+        spdlog::critical("{}: mona_addr_self returned {}", __FUNCTION__, ret);
+        throw std::runtime_error("mona_addr_self failed");
+      }
+      ret = mona_comm_create(m_mona, 1, &self_addr, &m_mona_comm_self);
+      if (ret != NA_SUCCESS)
+      {
+        spdlog::critical("{}: mona_comm_create returned {}", __FUNCTION__, ret);
+        throw std::runtime_error("mona_comm_create failed");
+      }
+      mona_addr_free(m_mona, self_addr);
     }
   }
   spdlog::trace("{}: number of addresses is now {}", __FUNCTION__, addresses.size());
@@ -55,19 +58,21 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
   spdlog::trace("{}: Starting iteration {}", __FUNCTION__, iteration);
 
   std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
-  if(m_need_reset || (m_mona_comm == nullptr)) {
-      spdlog::trace("{}: Need to create a MoNA communicator", __FUNCTION__);
-      if(m_mona_comm) {
-        mona_comm_free(m_mona_comm);
-      }
-      na_return_t ret =
-          mona_comm_create(m_mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
-      if (ret != 0)
-      {
-          spdlog::trace("{}: MoNA communicator creation failed", __FUNCTION__);
-          throw std::runtime_error("failed to init mona communicator");
-      }
-      spdlog::trace("{}: MoNA communicator creation succeeded", __FUNCTION__);
+  if (m_need_reset || (m_mona_comm == nullptr))
+  {
+    spdlog::trace("{}: Need to create a MoNA communicator", __FUNCTION__);
+    if (m_mona_comm)
+    {
+      mona_comm_free(m_mona_comm);
+    }
+    na_return_t ret =
+      mona_comm_create(m_mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
+    if (ret != 0)
+    {
+      spdlog::trace("{}: MoNA communicator creation failed", __FUNCTION__);
+      throw std::runtime_error("failed to init mona communicator");
+    }
+    spdlog::trace("{}: MoNA communicator creation succeeded", __FUNCTION__);
   }
 
   spdlog::trace("{}: Start complete", __FUNCTION__);
@@ -105,7 +110,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   mona_comm_rank(m_mona_comm, &procRank);
   spdlog::trace("{}: rank={}, size={}", __FUNCTION__, procRank, procSize);
 
-  if(m_script_name == "") {
+  if (m_script_name == "")
+  {
     throw std::runtime_error("Empty script name");
   }
 
@@ -114,16 +120,18 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
   spdlog::trace("{}: After barrier", __FUNCTION__);
 
-  if (m_first_init) {
+  if (m_first_init)
+  {
     spdlog::trace("{}: First init, requires initialization with mona_comm_self", __FUNCTION__);
     InSitu::MonaInitialize(m_script_name, m_mona_comm_self);
     spdlog::trace("{}: Done initializing with mona_comm_self", __FUNCTION__);
   }
 
-  if (m_need_reset || m_first_init) {
-      spdlog::trace("{}: Updating MoNA controller", __FUNCTION__);
-      InSitu::MonaUpdateController(m_mona_comm);
-      spdlog::trace("{}: Done updating MoNA controller", __FUNCTION__);
+  if (m_need_reset || m_first_init)
+  {
+    spdlog::trace("{}: Updating MoNA controller", __FUNCTION__);
+    InSitu::MonaUpdateController(m_mona_comm);
+    spdlog::trace("{}: Done updating MoNA controller", __FUNCTION__);
   }
 
   m_need_reset = false;
@@ -144,15 +152,17 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   std::vector<Mandelbulb> MandelbulbList;
 
   int localBlocks = m_datasets[iteration]["mydata"].size();
-  std::cout << "local blocks is " << localBlocks << std::endl;
-  mona_comm_allreduce(m_mona_comm, &localBlocks, &totalBlock, sizeof(int), 1,
-          [](const void* in, void* out, na_size_t, na_size_t, void*) {
-                const int* a = static_cast<const int*>(in);
-                int* b = static_cast<int*>(out);
-                *b += *a;
-          }, nullptr, MONA_BACKEND_ALLREDUCE_TAG);
-  spdlog::trace("{}: After AllReduce, localBlocks={}, totalBlocks={}",
-          __FUNCTION__, localBlocks, totalBlock);
+  // std::cout << "local blocks is " << localBlocks << std::endl;
+  mona_comm_allreduce(
+    m_mona_comm, &localBlocks, &totalBlock, sizeof(int), 1,
+    [](const void* in, void* out, na_size_t, na_size_t, void*) {
+      const int* a = static_cast<const int*>(in);
+      int* b = static_cast<int*>(out);
+      *b += *a;
+    },
+    nullptr, MONA_BACKEND_ALLREDUCE_TAG);
+  spdlog::trace(
+    "{}: After AllReduce, localBlocks={}, totalBlocks={}", __FUNCTION__, localBlocks, totalBlock);
 
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
@@ -172,7 +182,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     }
     // std::cout << std::endl;
   }
-  spdlog::trace("{}: About to call InSitu::MonaCoProcessDynamic with iteration={}", __FUNCTION__, iteration);
+  spdlog::trace(
+    "{}: About to call InSitu::MonaCoProcessDynamic with iteration={}", __FUNCTION__, iteration);
   // process the insitu function for the MandelbulbList
   // the controller is updated in the MonaUpdateController
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
@@ -204,6 +215,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::stage(const std::string& send
   const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets,
   const colza::Type& type, const thallium::bulk& data)
 {
+  double serverStage1 = tl::timer::wtime();
+
   colza::RequestResult<int32_t> result;
   result.value() = 0;
   {
@@ -222,6 +235,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::stage(const std::string& send
   block.type = type;
   block.data.resize(data.size());
 
+  double serverStage2 = tl::timer::wtime();
+
   try
   {
     std::vector<std::pair<void*, size_t> > segments = { std::make_pair<void*, size_t>(
@@ -235,12 +250,19 @@ colza::RequestResult<int32_t> MonaBackendPipeline::stage(const std::string& send
     result.success() = false;
     result.error() = ex.what();
   }
+  double serverStage3 = tl::timer::wtime();
 
   if (result.success())
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     m_datasets[iteration][dataset_name][block_id] = std::move(block);
   }
+  double serverStage4 = tl::timer::wtime();
+
+  std::cout << "iteration " << iteration << " server stage1 " << serverStage2 - serverStage1
+            << " stage2 " << serverStage3 - serverStage2 << " stage3 "
+            << serverStage4 - serverStage3 << std::endl;
+
   return result;
 }
 
