@@ -52,13 +52,13 @@ def CreateCoProcessor():
       renderView1 = CreateView('RenderView')
       renderView1.ViewSize = [1358, 1170]
       renderView1.AxesGrid = 'GridAxes3DActor'
-      renderView1.CenterOfRotation = [31.4997501373291, 31.49983787536621, 31.49990749359131]
+      renderView1.CenterOfRotation = [31.5, 31.5, 31.5]
       renderView1.StereoType = 'Crystal Eyes'
-      renderView1.CameraPosition = [1270.4155540694771, -313.82546834513647, 1172.5096136525563]
-      renderView1.CameraFocalPoint = [31.499750137329144, 31.499837875366246, 31.499907493591348]
-      renderView1.CameraViewUp = [0.6000215147795589, 0.6602750751525195, -0.4516757763418119]
+      renderView1.CameraPosition = [734.6407991434337, -700.1610574332983, 1022.1939960923457]
+      renderView1.CameraFocalPoint = [31.50000000000002, 31.500000000000057, 31.499999999999986]
+      renderView1.CameraViewUp = [0.6467743172859446, 0.7561743370484042, 0.09941506167933858]
       renderView1.CameraFocalDisk = 1.0
-      renderView1.CameraParallelScale = 14.39516213868521
+      renderView1.CameraParallelScale = 54.559600438419636
       renderView1.BackEnd = 'OSPRay raycaster'
       renderView1.OSPRayMaterialLibrary = materialLibrary1
 
@@ -95,21 +95,8 @@ def CreateCoProcessor():
       # create a new 'Contour'
       contour1 = Contour(Input=input)
       contour1.ContourBy = ['POINTS', 'grayscottu']
-      contour1.Isosurfaces = [0.8, 1.0, 0.6]
+      contour1.Isosurfaces = [0.8]
       contour1.PointMergeMethod = 'Uniform Binning'
-
-      # create a new 'Clip'
-      clip1 = Clip(Input=contour1)
-      clip1.ClipType = 'Plane'
-      clip1.HyperTreeGridClipper = 'Plane'
-      clip1.Scalars = ['POINTS', 'grayscottu']
-      clip1.Value = 0.9000000059604645
-
-      # init the 'Plane' selected for 'ClipType'
-      clip1.ClipType.Origin = [208.02759535031478, 31.5, 31.5]
-
-      # init the 'Plane' selected for 'HyperTreeGridClipper'
-      clip1.HyperTreeGridClipper.Origin = [31.5, 31.5, 31.5]
 
       # ----------------------------------------------------------------
       # setup the visualization in view 'renderView1'
@@ -148,42 +135,6 @@ def CreateCoProcessor():
       # init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
       contour1Display.OpacityTransferFunction.Points = [0.6188899278640747, 0.0, 0.5, 0.0, 0.6190119981765747, 1.0, 0.5, 0.0]
 
-      # show data from clip1
-      clip1Display = Show(clip1, renderView1, 'UnstructuredGridRepresentation')
-
-      # get opacity transfer function/opacity map for 'grayscottu'
-      grayscottuPWF = GetOpacityTransferFunction('grayscottu')
-      grayscottuPWF.Points = [0.22777995149045788, 0.0, 0.5, 0.0, 1.0099999341430244, 1.0, 0.5, 0.0]
-      grayscottuPWF.ScalarRangeInitialized = 1
-
-      # trace defaults for the display properties.
-      clip1Display.Representation = 'Surface'
-      clip1Display.ColorArrayName = ['POINTS', 'grayscottu']
-      clip1Display.LookupTable = grayscottuLUT
-      clip1Display.OSPRayScaleArray = 'grayscottu'
-      clip1Display.OSPRayScaleFunction = 'PiecewiseFunction'
-      clip1Display.SelectOrientationVectors = 'None'
-      clip1Display.ScaleFactor = 6.300000000000001
-      clip1Display.SelectScaleArray = 'grayscottu'
-      clip1Display.GlyphType = 'Arrow'
-      clip1Display.GlyphTableIndexArray = 'grayscottu'
-      clip1Display.GaussianRadius = 0.315
-      clip1Display.SetScaleArray = ['POINTS', 'grayscottu']
-      clip1Display.ScaleTransferFunction = 'PiecewiseFunction'
-      clip1Display.OpacityArray = ['POINTS', 'grayscottu']
-      clip1Display.OpacityTransferFunction = 'PiecewiseFunction'
-      clip1Display.DataAxesGrid = 'GridAxesRepresentation'
-      clip1Display.PolarAxes = 'PolarAxesRepresentation'
-      clip1Display.ScalarOpacityFunction = grayscottuPWF
-      clip1Display.ScalarOpacityUnitDistance = 1.1827280227870618
-      clip1Display.ExtractedBlockIndex = 1
-
-      # init the 'PiecewiseFunction' selected for 'ScaleTransferFunction'
-      clip1Display.ScaleTransferFunction.Points = [0.800000011920929, 0.0, 0.5, 0.0, 1.0, 1.0, 0.5, 0.0]
-
-      # init the 'PiecewiseFunction' selected for 'OpacityTransferFunction'
-      clip1Display.OpacityTransferFunction.Points = [0.800000011920929, 0.0, 0.5, 0.0, 1.0, 1.0, 0.5, 0.0]
-
       # setup the color legend parameters for each legend in this view
 
       # get color legend/bar for grayscottuLUT in view renderView1
@@ -197,17 +148,19 @@ def CreateCoProcessor():
       # show color legend
       contour1Display.SetScalarBarVisibility(renderView1, True)
 
-      # show color legend
-      clip1Display.SetScalarBarVisibility(renderView1, True)
-
       # ----------------------------------------------------------------
       # setup color maps and opacity mapes used in the visualization
       # note: the Get..() functions create a new object, if needed
       # ----------------------------------------------------------------
 
+      # get opacity transfer function/opacity map for 'grayscottu'
+      grayscottuPWF = GetOpacityTransferFunction('grayscottu')
+      grayscottuPWF.Points = [0.22777995149045788, 0.0, 0.5, 0.0, 1.0099999341430244, 1.0, 0.5, 0.0]
+      grayscottuPWF.ScalarRangeInitialized = 1
+
       # ----------------------------------------------------------------
       # finally, restore active source
-      SetActiveSource(clip1)
+      SetActiveSource(contour1)
       # ----------------------------------------------------------------
     return Pipeline()
 

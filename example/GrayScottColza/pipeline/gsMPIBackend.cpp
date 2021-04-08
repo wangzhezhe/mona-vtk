@@ -61,14 +61,11 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
   // it might need some time for the fir step
   if (this->m_first_init)
   {
-    // init the mochi communicator and register the pipeline
-    // this is supposed to be called once
-    // TODO set this from the client or server parameters?
-    // std::string scriptname =
-    //  "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/render.py";
-    std::string SRCDIR = getenv("SRCDIR");
-    std::string scriptname = SRCDIR + "/example/GrayScottColza/pipeline/gsrender_multiclip.py";
-    InSitu::MPIInitialize(scriptname, this->m_mpi_comm);
+    if (m_script_name == "")
+    {
+      throw std::runtime_error("Empty script name");
+    }
+    InSitu::MPIInitialize(m_script_name, this->m_mpi_comm);
     this->m_first_init = false;
   }
   // add this for the test that require rescale

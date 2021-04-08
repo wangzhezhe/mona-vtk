@@ -21,6 +21,9 @@ CLIENTNODE=32
 SERVERNUM=128
 CLIENTNUM=1024
 
+# copy script to current dir
+cp $SRCDIR/example/GrayScottColza/pipeline/gsrender_multiclip.py .
+
 rm gsserver_mona_$SERVERNUM.log gsclient_mpi_${CLIENTNUM}_${SERVERNUM}.log
 
 # 1 nodes for server (16*4=64=2*32)

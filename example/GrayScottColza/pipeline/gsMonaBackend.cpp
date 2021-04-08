@@ -7,8 +7,12 @@
 #include "gsMonaInSituAdaptor.hpp"
 #include <iostream>
 #include <memory> // We need to include this for shared_ptr
+#include <spdlog/spdlog.h>
 
 COLZA_REGISTER_BACKEND(gsmonabackend, MonaBackendPipeline);
+
+#define MONA_BACKEND_BARRIER_TAG 2051
+#define MONA_BACKEND_ALLREDUCE_TAG 2052
 
 // this function is called by colza framework when the pipeline is created
 // this function is also called when there is join or leave of the processes
@@ -17,29 +21,60 @@ void MonaBackendPipeline::updateMonaAddresses(
 {
   // this function is called when server is started first time
   // or when there is process join and leave
-  std::cout << "updateMonaAddresses is called" << std::endl;
-  this->m_need_reset = true;
+  // std::cout << "updateMonaAddresses is called" << std::endl;
 
-  // create the mona communicator
-  // there are seg fault here if we create themm multiple times without the condition of
-  na_return_t ret =
-    mona_comm_create(mona, addresses.size(), addresses.data(), &(this->m_mona_comm));
-  if (ret != 0)
+  spdlog::trace("{}: called", __FUNCTION__);
   {
-    throw std::runtime_error("failed to init mona");
-  }
+    std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
+    m_mona = mona;
+    m_member_addrs = addresses;
+    m_need_reset = true;
 
-  int procSize;
-  int procRank;
-  mona_comm_size(this->m_mona_comm, &procSize);
-  mona_comm_rank(this->m_mona_comm, &procRank);
-  std::cout << "Init mona, mona addresses have been updated, size is " << procSize << " rank is "
-            << procRank << std::endl;
+    if (m_mona_comm_self == nullptr)
+    {
+      na_addr_t self_addr = NA_ADDR_NULL;
+      na_return_t ret = mona_addr_self(m_mona, &self_addr);
+      if (ret != NA_SUCCESS)
+      {
+        spdlog::critical("{}: mona_addr_self returned {}", __FUNCTION__, ret);
+        throw std::runtime_error("mona_addr_self failed");
+      }
+      ret = mona_comm_create(m_mona, 1, &self_addr, &m_mona_comm_self);
+      if (ret != NA_SUCCESS)
+      {
+        spdlog::critical("{}: mona_comm_create returned {}", __FUNCTION__, ret);
+        throw std::runtime_error("mona_comm_create failed");
+      }
+      mona_addr_free(m_mona, self_addr);
+    }
+  }
+  spdlog::trace("{}: number of addresses is now {}", __FUNCTION__, addresses.size());
 }
 
 colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 {
-  std::cerr << "Iteration " << iteration << " starting" << std::endl;
+  spdlog::trace("{}: Starting iteration {}", __FUNCTION__, iteration);
+
+  std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
+  if (m_need_reset || (m_mona_comm == nullptr))
+  {
+    spdlog::trace("{}: Need to create a MoNA communicator", __FUNCTION__);
+    if (m_mona_comm)
+    {
+      mona_comm_free(m_mona_comm);
+    }
+    na_return_t ret =
+      mona_comm_create(m_mona, m_member_addrs.size(), m_member_addrs.data(), &(m_mona_comm));
+    if (ret != 0)
+    {
+      spdlog::trace("{}: MoNA communicator creation failed", __FUNCTION__);
+      throw std::runtime_error("failed to init mona communicator");
+    }
+    spdlog::trace("{}: MoNA communicator creation succeeded", __FUNCTION__);
+  }
+
+  spdlog::trace("{}: Start complete", __FUNCTION__);
+
   colza::RequestResult<int32_t> result;
   result.success() = true;
   result.value() = 0;
@@ -48,49 +83,60 @@ colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 
 void MonaBackendPipeline::abort(uint64_t iteration)
 {
-  std::cerr << "Client aborted iteration " << iteration << std::endl;
+  spdlog::trace("{}: Abort call for iteration {}", __FUNCTION__, iteration);
+  // free the communicator
+  {
+    std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
+    mona_comm_free(m_mona_comm);
+    m_mona_comm = nullptr;
+    m_need_reset = true;
+  }
+  spdlog::trace("{}: Abort complete", __FUNCTION__);
 }
 
 // update the data, try to add the visulization operations
 colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
 {
-  std::cout << " gs pipeline execute iteration " << iteration << std::endl;
-
+  spdlog::trace("{}: Executing iteration {}", __FUNCTION__, iteration);
   // when the mona is updated, init and reset
   // otherwise, do not reset
   // it might need some time for the fir step
-  if (this->m_first_init)
-  {
-    // init the mochi communicator and register the pipeline
-    // this is supposed to be called once
-    // TODO set this from the client or server parameters?
-    // std::string scriptname =
-    //  "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/GrayScottColza/pipeline/render.py";
-    std::string SRCDIR = getenv("SRCDIR");
-    std::string scriptname = SRCDIR + "/example/GrayScottColza/pipeline/gsrender_multiclip.py";
 
-    InSitu::MonaInitialize(scriptname, this->m_mona_comm);
-    this->m_first_init = false;
-  }
-  else
+  int totalBlock = 0;
+  int procSize, procRank;
+  mona_comm_size(m_mona_comm, &procSize);
+  mona_comm_rank(m_mona_comm, &procRank);
+  spdlog::trace("{}: rank={}, size={}", __FUNCTION__, procRank, procSize);
+
+  if (m_script_name == "")
   {
-    if (this->m_need_reset)
-    {
-      // when communicator is updated after the first initilization
-      // the global communicator will be replaced
-      // there are still some issues here
-      // icet contect is updated automatically in paraveiw patch
-      InSitu::MonaUpdateController(this->m_mona_comm);
-      this->m_need_reset = false;
-    }
+    throw std::runtime_error("Empty script name");
   }
+
+  // this may takes long time for first step
+  // make sure all servers do same things
+  mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
+  spdlog::trace("{}: After barrier", __FUNCTION__);
+
+  if (m_first_init)
+  {
+    spdlog::trace("{}: First init, requires initialization with mona_comm_self", __FUNCTION__);
+    InSitu::MonaInitialize(m_script_name, m_mona_comm_self);
+    spdlog::trace("{}: Done initializing with mona_comm_self", __FUNCTION__);
+  }
+
+  if (m_need_reset || m_first_init)
+  {
+    spdlog::trace("{}: Updating MoNA controller", __FUNCTION__);
+    InSitu::MonaUpdateController(m_mona_comm);
+    spdlog::trace("{}: Done updating MoNA controller", __FUNCTION__);
+  }
+
+  m_need_reset = false;
+  m_first_init = false;
 
   // redistribute the process
   // get the suitable workload (mandelbulb instance list) based on current data staging services
-  int procSize;
-  int procRank;
-  mona_comm_size(this->m_mona_comm, &procSize);
-  mona_comm_rank(this->m_mona_comm, &procRank);
 
   // output all key in current map
   // extract data list from current map
@@ -133,10 +179,14 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
 
 colza::RequestResult<int32_t> MonaBackendPipeline::cleanup(uint64_t iteration)
 {
-  std::lock_guard<tl::mutex> g(m_datasets_mtx);
-  m_datasets.erase(iteration);
+  spdlog::trace("{}: Calling cleanup for iteration {}", __FUNCTION__, iteration);
+  {
+    std::lock_guard<tl::mutex> g(m_datasets_mtx);
+    m_datasets.erase(iteration);
+  }
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
+  spdlog::trace("{}: Done cleaning up iteration {}", __FUNCTION__, iteration);
   return result;
 }
 

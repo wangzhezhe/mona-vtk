@@ -56,7 +56,11 @@ public:
     : m_engine(args.engine)
     , m_gid(args.gid)
     , m_config(args.config)
-  {}
+  {
+      if(auto it = m_config.find("script") != m_config.end()) {
+          m_script_name = m_config["script"];
+      }
+  }
 
   /**
    * @brief Move-constructor.
@@ -152,11 +156,19 @@ public:
    * @brief the mona communicator associated with current pipeline
    *
    */
-  mona_comm_t m_mona_comm;
-  
-  //these two varibles are not accessed by multi-thread
+  mona_instance_t        m_mona = nullptr;
+  mona_comm_t            m_mona_comm = nullptr; // MoNA communicator built in start()
+  mona_comm_t            m_mona_comm_self = nullptr; // MoNA communicator with only this process
+  std::vector<na_addr_t> m_member_addrs; // latest known member addresses
+
+  // do not update comm when it is used by the in-situ part
+  tl::mutex m_mona_comm_mtx;
+
+  // these two varibles are not accessed by multi-thread
   bool m_first_init = true;
   bool m_need_reset = false;
+
+  std::string m_script_name = "";
 };
 
 #endif

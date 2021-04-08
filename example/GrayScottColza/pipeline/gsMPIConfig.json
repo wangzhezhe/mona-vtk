@@ -3,7 +3,9 @@
         "gsmpibackend" : {
             "library" : "./example/GrayScottColza/libgsmpibackend-pipeline.so",
             "type" : "gsmpibackend",
-            "config" : {}
+            "config" : {
+                "script": "./gsrender_multiclip.py"
+            }
         }
     }
 }

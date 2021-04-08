@@ -55,6 +55,10 @@ public:
     , m_gid(args.gid)
     , m_config(args.config)
   {
+    if (auto it = m_config.find("script") != m_config.end())
+    {
+      m_script_name = m_config["script"];
+    }
   }
 
   /**
@@ -159,6 +163,8 @@ public:
   // these two varibles are not accessed by multi-thread
   bool m_first_init = true;
   bool m_need_reset = false;
+
+  std::string m_script_name = "";
 };
 
 #endif

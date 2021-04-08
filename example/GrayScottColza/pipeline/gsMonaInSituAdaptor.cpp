@@ -36,11 +36,12 @@
 
 #include <MonaController.hpp>
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 #ifdef DEBUG_BUILD
-#define DEBUG(x) std::cout << x << std::endl;
+#define DEBUG(...) spdlog::debug(__VA_ARGS__)
 #else
-#define DEBUG(x)                                                                                   \
+#define DEBUG(...)                                                                                 \
   do                                                                                               \
   {                                                                                                \
   } while (0)
@@ -50,7 +51,7 @@ namespace
 {
 vtkMultiProcessController* Controller = nullptr;
 vtkCPProcessor* Processor = nullptr;
-vtkMultiBlockDataSet* VTKGrid;
+vtkMultiBlockDataSet* VTKGrid = nullptr;
 
 // one process generates one data object
 void BuildVTKGridList(std::vector<std::shared_ptr<DataBlock> >& dataBlockList)

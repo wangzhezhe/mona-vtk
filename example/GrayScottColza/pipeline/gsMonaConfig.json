@@ -3,7 +3,9 @@
         "gsmonabackend" : {
             "library" : "./example/GrayScottColza/libgsmonabackend-pipeline.so",
             "type" : "gsmonabackend",
-            "config" : {}
+            "config" : {
+                "script": "./gsrender_multiclip.py"
+            }
         }
     }
 }
