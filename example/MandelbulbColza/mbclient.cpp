@@ -142,8 +142,17 @@ int main(int argc, char** argv)
       // this should be called after the compute process
 
       spdlog::trace("prepare start {}", step);
+      MPI_Barrier(MPI_COMM_WORLD);
 
+      auto startStart = tl::timer::wtime();
       pipeline.start(step);
+      auto startEnd = tl::timer::wtime();
+
+      if (rank == 0)
+      {
+        // only care about the rank0
+        std::cout << "rank " << rank << " start time " << startEnd - startStart << std::endl;
+      }
 
       // make sure the pipeline start is called by every process
       // before the stage call
