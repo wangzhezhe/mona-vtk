@@ -92,8 +92,8 @@ The scripts for scale evaluation are located at the `example/MandelbulbColza/tes
 For example, we can set the build and src dir properly at the beginning of the scripts, such as
 
 ```
-export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
-export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
 ``` 
  
 and then use sbatch to submit jobs with specific node configurations as needed:
@@ -111,7 +111,7 @@ We can check the corresponding server and log file to get the particular data pu
 
 For example, the `mbclient_mona_4_512.log` records the client information when there are 4 staging processes and 512 client pracesses.
 
-For the `MandelbulbColza` example, we can set the size of the data block by updating the `WIDTH`, `HEIGHT` and `DEPTH` in the `mb.hpp` file.
+For the `MandelbulbColza` example, we can set the size of the data block by updating the `BLOCKLENW`, `BLOCKLENH` and `BLOCKLEND` in the associated script.
 
 For the `GrayScottColza` example, we can set the size of the data block by updating the `L` value at the client configuration file. For example, at the `client_settings_monaback_408.json`, we set the `L` as 408, which means there are `408*408*408` cells for each data block.
 

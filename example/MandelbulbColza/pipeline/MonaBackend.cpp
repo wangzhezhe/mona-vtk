@@ -215,7 +215,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::stage(const std::string& send
   const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets,
   const colza::Type& type, const thallium::bulk& data)
 {
-  double serverStage1 = tl::timer::wtime();
+  //double serverStage1 = tl::timer::wtime();
 
   colza::RequestResult<int32_t> result;
   result.value() = 0;
@@ -235,7 +235,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::stage(const std::string& send
   block.type = type;
   block.data.resize(data.size());
 
-  double serverStage2 = tl::timer::wtime();
+  //double serverStage2 = tl::timer::wtime();
 
   try
   {
@@ -250,18 +250,18 @@ colza::RequestResult<int32_t> MonaBackendPipeline::stage(const std::string& send
     result.success() = false;
     result.error() = ex.what();
   }
-  double serverStage3 = tl::timer::wtime();
+  //double serverStage3 = tl::timer::wtime();
 
   if (result.success())
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
     m_datasets[iteration][dataset_name][block_id] = std::move(block);
   }
-  double serverStage4 = tl::timer::wtime();
+  //double serverStage4 = tl::timer::wtime();
 
-  std::cout << "iteration " << iteration << " server stage1 " << serverStage2 - serverStage1
-            << " stage2 " << serverStage3 - serverStage2 << " stage3 "
-            << serverStage4 - serverStage3 << std::endl;
+  //std::cout << "iteration " << iteration << " server stage1 " << serverStage2 - serverStage1
+  //          << " stage2 " << serverStage3 - serverStage2 << " stage3 "
+  //          << serverStage4 - serverStage3 << std::endl;
 
   return result;
 }
