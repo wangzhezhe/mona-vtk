@@ -159,6 +159,8 @@ int main(int argc, char** argv)
 
 #endif
 
+  // vector for async request
+  std::vector<colza::AsyncRequest> requestList;
   try
   {
     colza::MPIClientCommunicator colzacomm(MPI_COMM_WORLD);
@@ -171,10 +173,20 @@ int main(int argc, char** argv)
 
     for (int step = 0; step < settings.steps; step++)
     {
+      double itertaionStart = tl::timer::wtime();
+
       // start iteration
       // compute stage
+      double computeStart = tl::timer::wtime();
       sim.iterate();
+      double computeEnd = tl::timer::wtime();
+      if (rank == 0)
+      {
+        std::cout << "step " << step << " computation time " << computeEnd - computeStart
+                  << std::endl;
+      }
 
+      double startStart = tl::timer::wtime();
       // the join and leave may happens here
       // this should be called after the compute process
       pipeline.start(step);
@@ -185,6 +197,12 @@ int main(int argc, char** argv)
       // make sure the pipeline start is called by every process
       // before the stage call
       MPI_Barrier(MPI_COMM_WORLD);
+      double startEnd = tl::timer::wtime();
+
+      if (rank == 0)
+      {
+        std::cout << "step " << step << " start time " << startEnd - startStart << std::endl;
+      }
 
       double stageStart = tl::timer::wtime();
 
@@ -216,40 +234,90 @@ int main(int argc, char** argv)
       double stageEnd = tl::timer::wtime();
       if (rank == 0)
       {
-        std::cout << "rank " << rank << " stage time " << stageEnd - stageStart << std::endl;
+        std::cout << "step " << step << " stage time " << stageEnd - stageStart << std::endl;
       }
       MPI_Barrier(MPI_COMM_WORLD);
 
       spdlog::trace("Calling execute {}", step);
 
       double exeStart = tl::timer::wtime();
-      // execute the pipeline
+
+      // execute the pipeline in an async way
       // TODO double check this part, if multiple clients call this, the execute function at the
       // server end is called only one time???
-      pipeline.execute(step);
+      colza::AsyncRequest req;
+      int32_t resutls;
+      // only the rank 0 process will trigger the execute rpc
+      bool autoCleanup = true;
+
+      pipeline.execute(step, &resutls, autoCleanup, &req);
+      requestList.push_back(req);
+
+      MPI_Barrier(MPI_COMM_WORLD);
       double exeEnd = tl::timer::wtime();
       if (rank == 0)
       {
-        // only care about the rank0
-        std::cout << "rank " << rank << " execution time " << exeEnd - exeStart << std::endl;
+        // only care about the rank 0
+        std::cout << "step " << step << " execution time " << exeEnd - exeStart << " results " << resutls << std::endl;
       }
-
-      MPI_Barrier(MPI_COMM_WORLD);
       spdlog::trace("Calling cleanup {}", step);
 
-      // clean up the data for every time step?
-      // cleanup the pipeline
-      // the clean up operation is decided by the backend
-      pipeline.cleanup(step);
+      // clean up staging data
+      // maybe use this as an async call which is triggered by event?
+      // or put it after wait operation?
+      // currently, the pipeline not start if we get ride of the cleanup
+      if (autoCleanup == false)
+      {
+        // clean up the data for every time step?
+        // cleanup the pipeline
+        // the clean up operation is decided by the backend
+        double cleanupStart = tl::timer::wtime();
+        // only call the clean up when the auto flag is false
+        pipeline.cleanup(step);
+        double cleanupEnd = tl::timer::wtime();
+        if (rank == 0)
+        {
+          std::cout << "step " << step << " cleanup take " << cleanupEnd - cleanupStart
+                    << std::endl;
+        }
+      }
+
+      double itertaionEnd = tl::timer::wtime();
+      if (rank == 0)
+      {
+
+        std::cout << "step " << step << " all operations take " << itertaionEnd - itertaionStart
+                  << std::endl;
+      }
     }
 
     spdlog::trace("Done");
+
+    double waitStart = tl::timer::wtime();
+    for (int i = 0; i < requestList.size(); i++)
+    {
+      requestList[i].wait();
+      if (rank == 0)
+      {
+        spdlog::info("Wait, step {} finish execution", i);
+      }
+      // clean up things only after current execution finish
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    double waitEnd = tl::timer::wtime();
+
+    if (rank == 0)
+    {
+      std::cout << "rank " << rank << " wait time " << waitEnd - waitStart << std::endl;
+    }
   }
   catch (const colza::Exception& ex)
   {
     std::cerr << ex.what() << std::endl;
     exit(-1);
   }
+
   spdlog::trace("Finalizing engine");
 
   engine.finalize();
