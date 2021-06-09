@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 
       for (int i = 0; i < MandelbulbList.size(); i++)
       {
-        //double innerstageStart = tl::timer::wtime();
+        // double innerstageStart = tl::timer::wtime();
 
         // stage the data at current iteration
         blockid = blockid_base + i;
@@ -199,8 +199,9 @@ int main(int argc, char** argv)
           throw std::runtime_error(
             "failed to stage " + std::to_string(step) + " return status " + std::to_string(result));
         }
-        //double innerstageEnd = tl::timer::wtime();
-        //std::cout << "rank " << rank << " blockid " << i << " step " << step << " inner stage time "
+        // double innerstageEnd = tl::timer::wtime();
+        // std::cout << "rank " << rank << " blockid " << i << " step " << step << " inner stage
+        // time "
         //          << innerstageEnd - innerstageStart << std::endl;
       }
       double stageEnd = tl::timer::wtime();
@@ -321,7 +322,8 @@ uint32_t get_credentials_from_ssg_file()
     spdlog::critical("Could not load group id from file");
     exit(-1);
   }
-  int64_t credential_id = ssg_group_id_get_cred(gid);
+  int64_t credential_id = -1;
+  ret = ssg_group_id_get_cred(gid, &credential_id);
   if (credential_id == -1)
     return cookie;
   // ssg_group_destroy(gid);

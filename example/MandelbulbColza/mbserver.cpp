@@ -72,7 +72,8 @@ int main(int argc, char** argv)
       spdlog::critical("Could not load group id from file");
       exit(-1);
     }
-    credential_id = ssg_group_id_get_cred(gid);
+    int64_t credential_id = -1;
+    ret = ssg_group_id_get_cred(gid, &credential_id);
     spdlog::trace("Credential id read from SSG file: {}", credential_id);
     if (credential_id != -1)
       cookie = get_credential_cookie(credential_id);
@@ -83,9 +84,9 @@ int main(int argc, char** argv)
   std::string cookie_str = std::to_string(cookie);
   if (credential_id != -1)
     hii.na_init_info.auth_key = cookie_str.c_str();
-  //Be Careful!!!
-  //there are issues if we set the parameters as false 0, try to use separate pool here
-  //the true, g_num_threads also works
+  // Be Careful!!!
+  // there are issues if we set the parameters as false 0, try to use separate pool here
+  // the true, g_num_threads also works
   tl::engine engine(g_address, THALLIUM_SERVER_MODE, true, g_num_threads, &hii);
   engine.enable_remote_shutdown();
 
@@ -97,8 +98,8 @@ int main(int argc, char** argv)
     group_config.swim_suspect_timeout_periods = 3;
     group_config.swim_subgroup_member_count = 1;
     group_config.ssg_credential = credential_id;
-    gid = ssg_group_create_mpi(
-      engine.get_margo_instance(), "mygroup", MPI_COMM_WORLD, &group_config, nullptr, nullptr);
+    gid = ssg_group_create_mpi(engine.get_margo_instance(), "mygroup", MPI_COMM_WORLD,
+      &group_config, nullptr, nullptr, &gid);
   }
   else
   {
@@ -232,7 +233,8 @@ void parse_command_line(int argc, char** argv)
 void update_group_file(void* group_data, ssg_member_id_t, ssg_member_update_type_t)
 {
   ssg_group_id_t gid = reinterpret_cast<ssg_group_id_t>(group_data);
-  int r = ssg_get_group_self_rank(gid);
+  int r = -1;
+  ssg_get_group_self_rank(gid, &r);
   if (r != 0)
     return;
   int ret = ssg_group_id_store(g_ssg_file.c_str(), gid, SSG_ALL_MEMBERS);

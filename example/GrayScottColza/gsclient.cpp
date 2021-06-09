@@ -129,7 +129,7 @@ int main(int argc, char** argv)
     std::cout << "get num_addrs: " << num_addrs << std::endl;
   }
 
-  drc_credential_id = ssg_group_id_get_cred(g_id);
+  ssg_group_id_get_cred(g_id, &drc_credential_id);
   DIE_IF(drc_credential_id == -1, "ssg_group_id_get_cred");
   if (rank == 0)
   {
@@ -187,8 +187,9 @@ int main(int argc, char** argv)
       MPI_Barrier(MPI_COMM_WORLD);
 
       double stageStart = tl::timer::wtime();
-      
-      // the sim.npx  sim.npy  sim.npz labels how many process at each dimention not the actual cell dims
+
+      // the sim.npx  sim.npy  sim.npz labels how many process at each dimention not the actual cell
+      // dims
       std::vector<size_t> dimensions = { sim.size_x, sim.size_y, sim.size_z };
 
       // the offset is used to label the current position in global domain
@@ -223,8 +224,8 @@ int main(int argc, char** argv)
 
       double exeStart = tl::timer::wtime();
       // execute the pipeline
-      // TODO double check this part, if multiple clients call this, the execute function at the server end
-      // is called only one time???
+      // TODO double check this part, if multiple clients call this, the execute function at the
+      // server end is called only one time???
       pipeline.execute(step);
       double exeEnd = tl::timer::wtime();
       if (rank == 0)

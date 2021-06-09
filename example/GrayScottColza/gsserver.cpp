@@ -130,8 +130,8 @@ int main(int argc, char** argv)
     group_config.ssg_credential = (int64_t)drc_credential_id; /* DRC credential for group */
 #endif
 
-    gid = ssg_group_create_mpi(
-      engine.get_margo_instance(), "mygroup", MPI_COMM_WORLD, &group_config, nullptr, nullptr);
+    ssg_group_create_mpi(
+      engine.get_margo_instance(), "mygroup", MPI_COMM_WORLD, &group_config, nullptr, nullptr, &gid);
   }
   else
   {

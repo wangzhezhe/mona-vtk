@@ -67,6 +67,15 @@ At the build direactory of the ParaView, we use cmake commands as follows (if we
 cmake ~/cworkspace/src/ParaView_patch/paraview -DPARAVIEW_USE_QT=OFF -DPARAVIEW_USE_PYTHON=ON -DPARAVIEW_USE_MPI=ON -DVTK_OPENGL_HAS_OSMESA:BOOL=TRUE -DVTK_USE_X:BOOL=FALSE -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_PYTHON_OPTIONAL_LINK=OFF -DCMAKE_BUILD_TYPE=Release
 ```
 
+with the gcc and openmpi
+
+```
+module unload cray-mpich/7.7.10
+module load cgpu cuda openmpi
+
+cmake ~/cworkspace/src/ParaView_matthieu/paraview/ -DPARAVIEW_USE_QT=OFF -DPARAVIEW_USE_PYTHON=ON -DPARAVIEW_USE_MPI=ON -DVTK_OPENGL_HAS_OSMESA:BOOL=TRUE -DVTK_USE_X:BOOL=FALSE -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc -DVTK_PYTHON_OPTIONAL_LINK=OFF -DCMAKE_BUILD_TYPE=Release
+```
+
 **Building and installing Colza**
 
 This command will install the mochi-colza and other related mochi softwares
@@ -82,7 +91,7 @@ We can load these depedencies if all packages are installed successfully. The sa
 Then we can build the mona-vtk the cmake command like this:
 
 ```
-cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_DIR=$SCRATCH/build_paraview_patch_release/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_patch_release/ -DBUILD_SHARED_LIBS=ON 
+cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_DIR=$SCRATCH/build_paraview_matthieu_release/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_matthieu_release/ -DBUILD_SHARED_LIBS=ON 
 ```
 
 ## Running

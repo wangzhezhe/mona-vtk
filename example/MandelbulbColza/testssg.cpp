@@ -98,7 +98,8 @@ int main(int argc, char** argv)
   if (ret != SSG_SUCCESS)
     throw std::runtime_error("Could not observe the SSG group from file");
   // get string addresses
-  int group_size = ssg_get_group_size(gid);
+  int group_size = -1;
+  ssg_get_group_size(gid, &group_size);
   std::cout << "group size: " << group_size << std::endl;
 
   // std::vector<char> packed_addresses(group_size * 256, 0);
@@ -109,7 +110,7 @@ int main(int argc, char** argv)
      if we do not add sleep, there is mercurey issue
       # na_ofi_addr_lookup(): Unrecognized provider type found from:
       unable to resolve address
-    
+
     // tl::thread::sleep(engine, 1000);
     ssg_member_id_t member_id = ssg_get_group_member_id_from_rank(gid, i);
     std::cout << "get member id " << member_id << std::endl;
