@@ -16,6 +16,7 @@ struct Settings {
     std::string loglevel;
     std::string protocol;
     std::string pipelinename;
+    std::string triggerCommand;
 
     Settings();
     static Settings from_json(const std::string &fname);

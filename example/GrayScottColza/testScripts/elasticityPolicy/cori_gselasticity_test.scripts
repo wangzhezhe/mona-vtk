@@ -1,0 +1,26 @@
+#SBATCH --qos=shared
+#SBATCH --nodes=1
+#SBATCH --time=10:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+# limit the mem and core per process
+srun -C haswell -n 1 -c 1 --mem=1G /bin/bash test_share.sh &> test_share_1.log & 
+
+sleep 1
+
+srun -C haswell -n 1 -c 1 --mem=1G /bin/bash test_share.sh &> test_share_2.log & 
+
+sleep 1
+
+srun -C haswell -n 1 -c 1 --mem=1G /bin/bash test_share.sh &> test_share_3.log & 
+
+sleep 1
+
+srun -C haswell -n 1 -c 1 --mem=1G /bin/bash test_share.sh &> test_share_4.log & 
+
+sleep 1
+
+srun -C haswell -n 1 -c 1 --mem=1G /bin/bash test_share.sh &> test_share_5.log & 
+
+wait 

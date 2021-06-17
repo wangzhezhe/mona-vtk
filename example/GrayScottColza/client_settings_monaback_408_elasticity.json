@@ -1,0 +1,16 @@
+{
+    "L": 408,
+    "Du": 0.6,
+    "Dv": 0.4,
+    "F": 0.02,
+    "k": 0.048,
+    "dt": 1.0,
+    "insitugap": 1,
+    "steps": 10,
+    "noise": 0.01,
+    "ssgfile":"ssgfile",
+    "loglevel":"info",
+    "protocol":"gni",
+    "pipelinename":"gsmonabackend",
+    "triggerCommand": "/bin/bash ./addserver.sh"
+}

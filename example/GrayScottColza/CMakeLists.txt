@@ -61,10 +61,16 @@ VTK::IOXML
 VTK::IOLegacy
 MPI::MPI_C)
 
+# controller
+set (rescalecontroller-src-files
+     ./RescaleController/Controller.cpp
+     ./RescaleController/Rescaler.cpp)
+add_library (rescalecontroller ${rescalecontroller-src-files})
+target_link_libraries(rescalecontroller colza-client MPI::MPI_C ${DRC_LIBRARIES})
 
 # client
 add_executable (gsclient gsclient.cpp gray-scott.cpp settings.cpp)
-target_link_libraries (gsclient colza-client MPI::MPI_C ${DRC_LIBRARIES})
+target_link_libraries (gsclient rescalecontroller colza-client MPI::MPI_C ${DRC_LIBRARIES})
 
 # server
 add_executable (gsserver gsserver.cpp)

@@ -4,6 +4,7 @@
  * See COPYRIGHT in top-level directory.
  */
 
+#include "RescaleController/Controller.hpp"
 #include "gray-scott.h"
 #include "settings.h"
 #include <colza/Client.hpp>
@@ -159,8 +160,11 @@ int main(int argc, char** argv)
 
 #endif
 
+  // create the controller
+  Controller controller(engine, settings.ssgfile, settings.triggerCommand);
+
   // vector for async request
-  std::vector<colza::AsyncRequest> requestList;
+  colza::AsyncRequest lastReq;
   try
   {
     colza::MPIClientCommunicator colzacomm(MPI_COMM_WORLD);
@@ -186,6 +190,33 @@ int main(int argc, char** argv)
                   << std::endl;
       }
 
+      // wait the finish of the last step
+      double waitLastStart = tl::timer::wtime();
+      lastReq.wait();
+      // we need the
+      double waitLastEnd = tl::timer::wtime();
+      MPI_Barrier(MPI_COMM_WORLD);
+
+      if (rank == 0)
+      {
+        std::cout << "step " << step << " wait time for last iteration finish  "
+                  << waitLastEnd - waitLastStart << std::endl;
+      }
+
+      // rescale
+      double rescaleStart = tl::timer::wtime();
+      if (rank == 0)
+      {
+        controller.naivePolicy(step);
+      }
+      MPI_Barrier(MPI_COMM_WORLD);
+      double rescaleEnd = tl::timer::wtime();
+      if (rank == 0)
+      {
+        std::cout << "step " << step << " rescale time " << rescaleEnd - rescaleStart << std::endl;
+      }
+
+      // start process to sync the view
       double startStart = tl::timer::wtime();
       // the join and leave may happens here
       // this should be called after the compute process
@@ -245,20 +276,19 @@ int main(int argc, char** argv)
       // execute the pipeline in an async way
       // TODO double check this part, if multiple clients call this, the execute function at the
       // server end is called only one time???
-      colza::AsyncRequest req;
       int32_t resutls;
       // only the rank 0 process will trigger the execute rpc
+
       bool autoCleanup = true;
 
-      pipeline.execute(step, &resutls, autoCleanup, &req);
-      requestList.push_back(req);
+      pipeline.execute(step, &resutls, autoCleanup, &lastReq);
 
       MPI_Barrier(MPI_COMM_WORLD);
       double exeEnd = tl::timer::wtime();
       if (rank == 0)
       {
         // only care about the rank 0
-        std::cout << "step " << step << " execution time " << exeEnd - exeStart << " results " << resutls << std::endl;
+        std::cout << "step " << step << " execution time " << exeEnd - exeStart << std::endl;
       }
       spdlog::trace("Calling cleanup {}", step);
 
@@ -294,22 +324,16 @@ int main(int argc, char** argv)
     spdlog::trace("Done");
 
     double waitStart = tl::timer::wtime();
-    for (int i = 0; i < requestList.size(); i++)
-    {
-      requestList[i].wait();
-      if (rank == 0)
-      {
-        spdlog::info("Wait, step {} finish execution", i);
-      }
-      // clean up things only after current execution finish
-    }
+    // wait for the last iteration
+    lastReq.wait();
     MPI_Barrier(MPI_COMM_WORLD);
+    // clean up things only after current execution finish
 
     double waitEnd = tl::timer::wtime();
 
     if (rank == 0)
     {
-      std::cout << "rank " << rank << " wait time " << waitEnd - waitStart << std::endl;
+      std::cout << "wait time for last iteration " << waitEnd - waitStart << std::endl;
     }
   }
   catch (const colza::Exception& ex)
