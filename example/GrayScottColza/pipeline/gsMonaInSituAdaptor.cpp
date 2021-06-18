@@ -244,6 +244,10 @@ void MonaUpdateController(mona_comm_t mona_comm)
         "Cannot change communicator since existing global controller is not a MonaController.");
     }
   }
+  else
+  {
+    throw std::runtime_error("Cannot set null communicator");
+  }
 }
 
 void MonaCoProcessList(

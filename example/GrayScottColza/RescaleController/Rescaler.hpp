@@ -6,14 +6,14 @@
 #ifndef __RESCALER_HPP_
 #define __RESCALER_HPP_
 
-#include <thallium.hpp>
 #include <spdlog/spdlog.h>
+#include <thallium.hpp>
 
 namespace tl = thallium;
 
-//the actual behaviours of rescaler at the client side is only issue the commands
-//such as send rpc to shut down the remote server
-//or execute the system call to start the data staging service
+// the actual behaviours of rescaler at the client side is only issue the commands
+// such as send rpc to shut down the remote server
+// or execute the system call to start the data staging service
 class Rescaler
 {
 
@@ -30,9 +30,12 @@ public:
   void shutdownServer(const std::string& ssg_file, const int& serverNum) const;
   void addNewServer(const int& serverNum, const std::string& startStagingCommand);
 
+  void makeServersLeave(
+    const std::string& ssg_file, const int& serverNum, uint16_t provider_id) const;
+
   ~Rescaler() {}
 
-  int m_addedServerID=0;
+  int m_addedServerID = 0;
 };
 
 #endif

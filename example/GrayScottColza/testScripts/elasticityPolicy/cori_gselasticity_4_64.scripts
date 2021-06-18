@@ -36,7 +36,8 @@ rm $SSGFILE
 
 # 1 nodes for server (16*4=64=2*32)
 # set -p 500 to avoid the ssg_apply_member_updates: Assertion `0' failed
-srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 8 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -p 500 -v info &> gsserver_monaelasticity_${SERVERNUM}.log &
+# if the -p is a large value such as 1000, it might be in consistent between servers?
+srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 8 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -p 500 -v trace &> gsserver_monaelasticity_${SERVERNUM}.log &
 
 #make sure the server load the pipeline
 result=0

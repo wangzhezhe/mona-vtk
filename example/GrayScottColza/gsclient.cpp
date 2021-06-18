@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 
       if (rank == 0)
       {
-        std::cout << "step " << step << " wait time for last iteration finish  "
+        std::cout << "step " << step << " wait time for previous iteration finish  "
                   << waitLastEnd - waitLastStart << std::endl;
       }
 
@@ -333,7 +333,7 @@ int main(int argc, char** argv)
 
     if (rank == 0)
     {
-      std::cout << "wait time for last iteration " << waitEnd - waitStart << std::endl;
+      std::cout << "wait time for last iteration of whole workflow: " << waitEnd - waitStart << std::endl;
     }
   }
   catch (const colza::Exception& ex)
