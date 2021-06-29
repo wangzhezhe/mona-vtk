@@ -17,7 +17,7 @@
         <variable name="mandelbulb" type="scalar" layout="mandelbulb_layout" />
     </data>
     <actions>
-        <event name="render" action="mandelbulb_render" library="libmbrender.so" scope="group"/>
+        <event name="render" action="mandelbulb_render" library="libmbrender_damaris.so" scope="group"/>
     </actions>
     <log FileName="log/damaris" RotationSize="5" LogFormat="[%TimeStamp%]: %Message%" LogLevel="info" />
 </simulation>

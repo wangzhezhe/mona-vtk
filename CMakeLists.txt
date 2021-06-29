@@ -26,6 +26,7 @@ set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 #SET(CMAKE_CXX_FLAGS  "-DDEBUG_BUILD")
 
 option(USE_GNI "use cray gni" ON)
+option(ENABLE_DAMARIS "Build the Damaris-based example (requires ENABLE_EXAMPLE=ON)" ON)
 
 if(USE_GNI)
   add_definitions(-DUSE_GNI)
