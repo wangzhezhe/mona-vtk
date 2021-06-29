@@ -17,7 +17,7 @@
 static std::string g_script;
 static std::string g_log_level = "info";
 static std::string g_damaris_config;
-static int g_total_block_number;
+static int g_block_number;
 static int g_total_step;
 static int g_block_width;
 static int g_block_depth;
@@ -38,7 +38,7 @@ int main(int argc, char** argv)
     spdlog::critical("damaris_initialize failed with error code {}", ret);
     exit(-1);
   }
-  spdlog::info("Damaris initialized");
+  spdlog::trace("Damaris initialized");
 
   int is_client;
   ret = damaris_start(&is_client);
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
     MPI_Finalize();
     exit(0);
   }
-  spdlog::info("Damaris client starting");
+  spdlog::trace("Damaris client starting");
 
   MPI_Comm MPI_COMM_CLIENTS;
   damaris_client_comm_get(&MPI_COMM_CLIENTS);
@@ -60,15 +60,15 @@ int main(int argc, char** argv)
   MPI_Comm_rank(MPI_COMM_CLIENTS, &rank);
   MPI_Comm_size(MPI_COMM_CLIENTS, &nprocs);
 
-  damaris_parameter_get("WIDTH",  &g_block_width,        sizeof(g_block_width));
-  damaris_parameter_get("HEIGHT", &g_block_height,       sizeof(g_block_height));
-  damaris_parameter_get("DEPTH",  &g_block_depth,        sizeof(g_block_depth));
-  damaris_parameter_get("BLOCKS", &g_total_block_number, sizeof(g_total_block_number));
+  damaris_parameter_get("WIDTH",  &g_block_width,  sizeof(g_block_width));
+  damaris_parameter_get("HEIGHT", &g_block_height, sizeof(g_block_height));
+  damaris_parameter_get("DEPTH",  &g_block_depth,  sizeof(g_block_depth));
+  damaris_parameter_get("BLOCKS", &g_block_number, sizeof(g_block_number));
 
   if (rank == 0)
   {
     std::cout << "-------key varaibles--------" << std::endl;
-    std::cout << "g_total_block_number:" << g_total_block_number << std::endl;
+    std::cout << "g_block_number:" << g_block_number << std::endl;
     std::cout << "g_total_step:" << g_total_step << std::endl;
     std::cout << "g_block_width:" << g_block_width << std::endl;
     std::cout << "g_block_depth:" << g_block_depth << std::endl;
@@ -76,31 +76,23 @@ int main(int argc, char** argv)
     std::cout << "----------------------------" << std::endl;
   }
 
-  unsigned reminder = 0;
-  if (g_total_block_number % nprocs != 0 && rank == (nprocs - 1))
-  {
-    // the last process will process the reminder
-    reminder = (g_total_block_number) % unsigned(nprocs);
-  }
-  // this value will vary when there is process join/leave
-  const unsigned nblocks_per_proc = reminder + g_total_block_number / nprocs;
-
-  int blockid_base = rank * nblocks_per_proc;
+  int blockid_base = rank * g_block_number;
   std::vector<Mandelbulb> MandelbulbList;
 
-  for (int i = 0; i < nblocks_per_proc; i++)
+  auto total_block_number = g_block_number*nprocs;
+
+  for (int i = 0; i < g_block_number; i++)
   {
     int blockid = blockid_base + i;
     int block_offset = blockid * g_block_depth;
     MandelbulbList.push_back(Mandelbulb(
       g_block_width, g_block_height, g_block_depth,
-      block_offset, 1.2, g_total_block_number));
-    std::array<int64_t,3> position = {
-        MandelbulbList[i].GetExtents()[0],
-        MandelbulbList[i].GetExtents()[2],
-        MandelbulbList[i].GetExtents()[4]
-    };
-    damaris_set_block_position("mandelbulb", i, position.data());
+      block_offset, 1.2, total_block_number));
+    std::array<int64_t,3> position = { 0, 0, block_offset };
+    // this is actually not working with dedicated nodes
+    // see https://gitlab.inria.fr/Damaris/damaris/-/issues/20
+    // damaris_set_block_position("mandelbulb", i, position.data());
+    damaris_write_block("position", i, position.data());
   }
 
   try
@@ -120,6 +112,7 @@ int main(int argc, char** argv)
 
       // use another iteration to do the stage
       // for every block
+      std::cout << "Client " << rank << " sending " << MandelbulbList.size() << std::endl;
 
       for (int i = 0; i < MandelbulbList.size(); i++)
       {
