@@ -110,9 +110,6 @@ int main(int argc, char** argv)
 
       MPI_Barrier(MPI_COMM_CLIENTS);
 
-      // use another iteration to do the stage
-      // for every block
-      std::cout << "Client " << rank << " sending " << MandelbulbList.size() << std::endl;
 
       for (int i = 0; i < MandelbulbList.size(); i++)
       {

@@ -179,19 +179,10 @@ void MPIInitialize(const std::string& script, MPI_Comm comm)
   DEBUG("InSituAdaptor MPIInitialize Start ");
 
   vtkMPICommunicatorOpaqueComm opaqueComm(&comm);
-  vtkNew<vtkMPICommunicator> communicator;;
-  communicator->InitializeExternal(&opaqueComm);
-
-  vtkMPIController* controller = vtkMPIController::New();
-  controller->SetCommunicator(communicator);
-  controller->Initialize(nullptr, nullptr, 1);
-  Controller = controller;
-
   if (Processor == NULL)
   {
     Processor = vtkCPProcessor::New();
-    Processor->Initialize("./");
-    vtkMultiProcessController::SetGlobalController(controller);
+    Processor->Initialize(opaqueComm);
   }
   else
   {

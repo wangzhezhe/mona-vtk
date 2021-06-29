@@ -89,19 +89,20 @@ extern "C" void mandelbulb_render(const char* name, int32_t source, int32_t iter
         auto block = *it;
         int64_t* pos = static_cast<int64_t*>(
                 block->GetDataSpace().GetData());
+        /*
         std::cout << "Rank " << rank << " has block {iteration=" << iteration
                   << ", source=" << block->GetSource() << ", id=" << block->GetID()
                   << "} at position (" << pos[0] << "," << pos[1] << ","
                   << pos[2] << ")" << std::endl;
+        */
     }
 
-    /*
     if(first_iteration) {
         first_iteration = false;
         InSitu::MPIInitialize(script, comm);
     }
-    */
 
     // cleanup data
+    std::cout << "Cleaning up data" << std::endl;
     data->ClearIteration(iteration);
 }
