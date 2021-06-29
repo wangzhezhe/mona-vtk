@@ -12,12 +12,19 @@ find_package(spdlog REQUIRED)
 # search for MPI
 find_package(MPI REQUIRED)
 
+find_package (Python3)
+
 add_executable(mbclient_damaris mbclient.cpp)
 target_link_libraries(mbclient_damaris spdlog::spdlog PkgConfig::TCLAP MPI::MPI_C
                       damaris Boost::filesystem Boost::log Boost::log_setup
                       Boost::system Boost::date_time Boost::thread)
 
-add_library(mbrender_damaris SHARED mbrender.cpp)
+add_library(mbrender_damaris SHARED mbrender.cpp MPIInSituAdaptor.cpp)
 target_link_libraries(mbrender_damaris spdlog::spdlog PkgConfig::TCLAP MPI::MPI_C
                       damaris Boost::filesystem Boost::log Boost::log_setup
-                      Boost::system Boost::date_time Boost::thread)
+                      Boost::system Boost::date_time Boost::thread
+                      ParaView::icet ParaView::RemotingViews
+                      ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel)
+
+install (TARGETS mbclient_damaris DESTINATION bin/example/MandelbulbDamaris/)
+install (TARGETS mbrender_damaris DESTINATION lib)

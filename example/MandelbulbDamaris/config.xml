@@ -13,8 +13,10 @@
         <parameter name="BLOCKS" type="int" value="2"  />
 
         <layout name="mandelbulb_layout" type="int" dimensions="DEPTH+1,HEIGHT,WIDTH" />
+        <layout name="script_name_layout" type="char" dimensions="1024" />
 
-        <variable name="mandelbulb" type="scalar" layout="mandelbulb_layout" />
+        <variable name="script" layout="script_name_layout" time-varying="false" />
+        <variable name="mandelbulb" layout="mandelbulb_layout" />
     </data>
     <actions>
         <event name="render" action="mandelbulb_render" library="libmbrender_damaris.so" scope="group"/>

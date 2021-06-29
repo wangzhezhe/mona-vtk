@@ -14,7 +14,7 @@
 #include <Damaris.h>
 #include <damaris/data/VariableManager.hpp>
 
-static std::string g_pipeline;
+static std::string g_script;
 static std::string g_log_level = "info";
 static std::string g_damaris_config;
 static int g_total_block_number;
@@ -38,6 +38,7 @@ int main(int argc, char** argv)
     spdlog::critical("damaris_initialize failed with error code {}", ret);
     exit(-1);
   }
+  spdlog::info("Damaris initialized");
 
   int is_client;
   ret = damaris_start(&is_client);
@@ -50,6 +51,7 @@ int main(int argc, char** argv)
     MPI_Finalize();
     exit(0);
   }
+  spdlog::info("Damaris client starting");
 
   MPI_Comm MPI_COMM_CLIENTS;
   damaris_client_comm_get(&MPI_COMM_CLIENTS);
@@ -71,7 +73,6 @@ int main(int argc, char** argv)
     std::cout << "g_block_width:" << g_block_width << std::endl;
     std::cout << "g_block_depth:" << g_block_depth << std::endl;
     std::cout << "g_block_height:" << g_block_height << std::endl;
-    std::cout << "g_pipeline:" << g_pipeline << std::endl;
     std::cout << "----------------------------" << std::endl;
   }
 
@@ -126,10 +127,14 @@ int main(int argc, char** argv)
       }
       MPI_Barrier(MPI_COMM_CLIENTS);
 
+      if(step == 0) {
+          std::string script_name = g_script;
+          script_name.resize(1024, '\0');
+          damaris_write("script", script_name.data());
+      }
+
       double exeStart = MPI_Wtime();
-      // execute the pipeline
-      if(rank == 0)
-          damaris_signal("render");
+      damaris_signal("render");
 
       double exeEnd = MPI_Wtime();
       if (rank == 0)
@@ -168,16 +173,20 @@ void parse_command_line(int argc, char** argv)
     TCLAP::CmdLine cmd("Mandelbulb client", ' ', "0.1");
     TCLAP::ValueArg<std::string> configArg(
       "c", "config", "Damaris configuration file", true, "", "string");
+    TCLAP::ValueArg<std::string> scriptArg(
+      "s", "script", "Python script for in situ pipeline", true, "", "string");
     TCLAP::ValueArg<std::string> logLevel("v", "verbose",
       "Log level (trace, debug, info, warning, error, critical, off)", false, "info", "string");
     TCLAP::ValueArg<int> totalStepArg("t", "total-time-step", "Total time step", true, 0, "int");
 
     cmd.add(configArg);
+    cmd.add(scriptArg);
     cmd.add(logLevel);
     cmd.add(totalStepArg);
 
     cmd.parse(argc, argv);
     g_damaris_config = configArg.getValue();
+    g_script = scriptArg.getValue();
     g_log_level = logLevel.getValue();
     g_total_step = totalStepArg.getValue();
   }
