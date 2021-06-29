@@ -1,0 +1,8 @@
+spack:
+  specs:
+  - damaris
+  - cmake
+  - spdlog
+  - pkg-config
+  - tclap
+  concretization: together
