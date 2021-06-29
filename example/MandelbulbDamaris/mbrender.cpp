@@ -6,6 +6,7 @@
 #include "mb.hpp"
 #include <fstream>
 #include <iostream>
+#include <exception>
 #include <mpi.h>
 #include <unistd.h>
 #include <spdlog/spdlog.h>
@@ -52,57 +53,49 @@ extern "C" void mandelbulb_render(const char* name, int32_t source, int32_t iter
         }
         auto& ds = block->GetDataSpace();
         script = static_cast<char*>(ds.GetData());
-        std::cout << "Found script to be " << script << std::endl;
-    }
-
-    int rank, nprocs;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &nprocs);
-
-    auto blocks_param = damaris::ParameterManager::Search("BLOCKS");
-    auto blocks_per_client = blocks_param->GetValue<int>();
-
-    /*
-    for(auto it = data->Begin(); it != data->End(); it++) {
-        auto& block = *it;
-        auto block_id = block->GetID();
-        auto source = block->GetSource();
-
-        auto block_id_base = blocks_per_client * source;
-
-
-        int blockid = block_id_base + block_id;
-        int block_offset = blockid * depth;
-
-        // can't do that because these functions are private
-        //block->SetStartIndex(2, block_offset);
-        //block->SetEndIndex(2, end_index+block_offset);
-
-        std::cout << "Rank " << rank << " has block {iteration=" << block->GetIteration()
-                  << ", source=" << block->GetSource() << ", id=" << block->GetID()
-                  << "} at position (" << block_offset << ","
-                  << block->GetStartIndex(1) << ","
-                  << block->GetStartIndex(2) << ")" << std::endl;
-    }
-    */
-    for(auto it = position->Begin(); it != position->End(); it++) {
-        auto block = *it;
-        int64_t* pos = static_cast<int64_t*>(
-                block->GetDataSpace().GetData());
-        /*
-        std::cout << "Rank " << rank << " has block {iteration=" << iteration
-                  << ", source=" << block->GetSource() << ", id=" << block->GetID()
-                  << "} at position (" << pos[0] << "," << pos[1] << ","
-                  << pos[2] << ")" << std::endl;
-        */
     }
 
     if(first_iteration) {
         first_iteration = false;
-        InSitu::MPIInitialize(script, comm);
+        InSitu::Initialize(script, comm);
     }
 
+    auto blocks_param = damaris::ParameterManager::Search("BLOCKS");
+    auto blocks_per_client = blocks_param->GetValue<int>();
+    auto num_clients = damaris::Environment::CountTotalClients();
+    auto total_blocks = num_clients*blocks_per_client;
+
+    auto depth = damaris::ParameterManager::Search("DEPTH")->GetValue<int>();
+    auto width = damaris::ParameterManager::Search("WIDTH")->GetValue<int>();
+    auto height = damaris::ParameterManager::Search("HEIGHT")->GetValue<int>();
+
+    std::vector<Mandelbulb> mandelbulbList;
+
+    for(auto it = position->Begin(); it != position->End(); it++) {
+        auto block = *it;
+        int64_t* pos = static_cast<int64_t*>(
+                block->GetDataSpace().GetData());
+        auto block_source = block->GetSource();
+        auto block_id = block->GetID();
+        auto data_block = data->GetBlock(block_source, iteration, block_id);
+        if(!data_block) {
+            std::cerr << "ERROR: data block not found for source "
+                      << source << " and block id " << block_id
+                      << std::endl;
+            throw std::runtime_error("data block not found");
+        }
+        auto global_block_id = block_source * blocks_per_client + block_id;
+        auto block_offset = global_block_id * depth;
+        mandelbulbList.emplace_back(
+                width, height, depth, block_offset,
+                1.2, total_blocks);
+        auto& mb = mandelbulbList[mandelbulbList.size()-1];
+        auto bytes = mb.DataSize() * sizeof(int);
+        memcpy(mb.GetData(), data_block->GetDataSpace().GetData(), bytes);
+    }
+
+    InSitu::CoProcess(mandelbulbList, total_blocks, iteration, iteration);
+
     // cleanup data
-    std::cout << "Cleaning up data" << std::endl;
     data->ClearIteration(iteration);
 }

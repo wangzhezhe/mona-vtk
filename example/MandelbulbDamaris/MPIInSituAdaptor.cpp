@@ -174,7 +174,7 @@ void BuildVTKDataStructuresList(
 namespace InSitu
 {
 
-void MPIInitialize(const std::string& script, MPI_Comm comm)
+void Initialize(const std::string& script, MPI_Comm comm)
 {
   DEBUG("InSituAdaptor MPIInitialize Start ");
 
@@ -210,7 +210,7 @@ void Finalize()
   }
 }
 
-void MPICoProcess(std::vector<Mandelbulb>& mandelbulbList,
+void CoProcess(std::vector<Mandelbulb>& mandelbulbList,
   int global_nblocks, double time, unsigned int timeStep)
 {
   // actual execution of the coprocess

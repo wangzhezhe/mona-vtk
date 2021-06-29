@@ -12,11 +12,11 @@ class Mandelbulb;
 namespace InSitu
 {
 
-void MPIInitialize(const std::string& script, MPI_Comm comm);
+void Initialize(const std::string& script, MPI_Comm comm);
 
 void Finalize();
 
-void MPICoProcessDynamic(const std::vector<Mandelbulb>& mandelbulbList,
+void CoProcess(std::vector<Mandelbulb>& mandelbulbList,
   int global_nblocks, double time, unsigned int timeStep);
 
 }// namespace InSitu
