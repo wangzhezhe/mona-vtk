@@ -104,6 +104,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // otherwise, do not reset
   // it might need some time for the fir step
 
+    double t1 = tl::timer::wtime();
+
   int totalBlock = 0;
   int procSize, procRank;
   mona_comm_size(m_mona_comm, &procSize);
@@ -194,6 +196,8 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
+    double t2 = tl::timer::wtime();
+    std::cout << "Rank " << procRank << " completed execution in " << (t2-t1) << " sec" << std::endl;
   return result;
 }
 

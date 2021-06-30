@@ -71,8 +71,8 @@ int main(int argc, char** argv)
     std::cout << "g_block_number:" << g_block_number << std::endl;
     std::cout << "g_total_step:" << g_total_step << std::endl;
     std::cout << "g_block_width:" << g_block_width << std::endl;
-    std::cout << "g_block_depth:" << g_block_depth << std::endl;
     std::cout << "g_block_height:" << g_block_height << std::endl;
+    std::cout << "g_block_depth:" << g_block_depth << std::endl;
     std::cout << "----------------------------" << std::endl;
   }
 

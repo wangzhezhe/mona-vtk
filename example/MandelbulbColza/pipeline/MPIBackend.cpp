@@ -60,6 +60,7 @@ void MPIBackendPipeline::abort(uint64_t iteration)
 colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
 {
 
+  double t1 = tl::timer::wtime();
   // when the mona is updated, init and reset
   // otherwise, do not reset
   // it might need some time for the fir step
@@ -110,7 +111,6 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
       mb.SetData(t.second.data);
       MandelbulbList.push_back(mb);
     }
-    std::cout << "iteration " << iteration << " size " << MandelbulbList.size() << std::endl;
   }
 
   MPI_Barrier(this->m_mpi_comm);
@@ -121,6 +121,10 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
+  int procRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+  double t2 = tl::timer::wtime();
+    std::cout << "Rank " << procRank << " completed execution in " << (t2-t1) << " sec" << std::endl;
   return result;
 }
 

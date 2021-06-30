@@ -24,6 +24,8 @@ extern "C" void mandelbulb_render(const char* name, int32_t source, int32_t iter
     static bool first_iteration = true;
     static std::string script;
 
+    double t1 = MPI_Wtime();
+
     if(!data) {
         data = damaris::VariableManager::Search("mandelbulb");
     }
@@ -98,4 +100,11 @@ extern "C" void mandelbulb_render(const char* name, int32_t source, int32_t iter
 
     // cleanup data
     data->ClearIteration(iteration);
+    double t2 = MPI_Wtime();
+
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    std::cout << "Server " << rank << " iteration " << iteration
+              << " Damaris execution time: "
+              << (t2-t1) << " sec" << std::endl;
 }
