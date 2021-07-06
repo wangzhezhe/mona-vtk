@@ -53,7 +53,7 @@ void MonaBackendPipeline::updateMonaAddresses(
 
 colza::RequestResult<int32_t> MonaBackendPipeline::start(uint64_t iteration)
 {
-  spdlog::trace("{}: Starting iteration {}", __FUNCTION__, iteration);
+  spdlog::trace("{}: Starting iteration {} m_need_reset {} ", __FUNCTION__, iteration, m_need_reset);
 
   std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
   if (m_need_reset || (m_mona_comm == nullptr))
@@ -116,7 +116,7 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   // this may takes long time for first step
   // make sure all servers do same things
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
-  spdlog::trace("{}: After barrier", __FUNCTION__);
+  spdlog::trace("iteration {} for {}: After barrier", iteration, __FUNCTION__);
 
   if (m_first_init)
   {
@@ -131,8 +131,9 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
     InSitu::MonaUpdateController(m_mona_comm);
     spdlog::trace("{}: Done updating MoNA controller", __FUNCTION__);
   }
-
-  m_need_reset = false;
+  
+  //false m_need_reset may influence the m_comm join for future iterations
+  //m_need_reset = false;
   m_first_init = false;
 
   // redistribute the process
@@ -169,7 +170,10 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
   }
   // get the block number from env
   // we may not need the total blocks value here
-  InSitu::MonaCoProcessList(dataBlockList, iteration, iteration);
+  // InSitu::MonaCoProcessList(dataBlockList, iteration, iteration);
+  
+  // test rescale use the synthetic
+  sleep(10);
 
   // try to execute the in-situ function that render the data
   auto result = colza::RequestResult<int32_t>();

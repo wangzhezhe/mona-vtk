@@ -7,6 +7,7 @@
 #include "RescaleController/Controller.hpp"
 #include "gray-scott.h"
 #include "settings.h"
+
 #include <colza/Client.hpp>
 #include <colza/MPIClientCommunicator.hpp>
 #include <fstream>
@@ -15,6 +16,7 @@
 #include <spdlog/spdlog.h>
 #include <ssg-mpi.h>
 #include <ssg.h>
+#include <unistd.h>
 
 #ifdef USE_GNI
 extern "C"
@@ -183,6 +185,8 @@ int main(int argc, char** argv)
       // compute stage
       double computeStart = tl::timer::wtime();
       sim.iterate();
+      // synthetic wait
+      sleep(settings.syntheticSleep);
       double computeEnd = tl::timer::wtime();
       if (rank == 0)
       {
@@ -195,6 +199,8 @@ int main(int argc, char** argv)
       lastReq.wait();
       // we need the
       double waitLastEnd = tl::timer::wtime();
+      // std::cout << "step " << step << " wait time for previous iteration finish  "
+      //          << waitLastEnd - waitLastStart << std::endl;
       MPI_Barrier(MPI_COMM_WORLD);
 
       if (rank == 0)
@@ -207,7 +213,97 @@ int main(int argc, char** argv)
       double rescaleStart = tl::timer::wtime();
       if (rank == 0)
       {
-        controller.naivePolicy(step);
+        // reload the file to check the new addr
+        // this should be the common part
+        ssg_group_id_t g_id;
+        int num_addrs_new = SSG_ALL_MEMBERS;
+        ssg_group_id_load(settings.ssgfile.c_str(), &num_addrs_new, &g_id);
+        spdlog::info("step {} the addrs number {}", step, num_addrs_new);
+        int addedProcNum = 0;
+
+        // the threshold to determin if we need to add new processes
+        // do not consider the step 0
+        if (false && (waitLastEnd - waitLastStart) > 1.0 && step > 0)
+        {
+          if (settings.policy.compare("naive") == 0)
+          {
+            spdlog::info("adopting naive strategy");
+            addedProcNum = controller.naivePolicy(step);
+          }
+          else if (settings.policy.compare("dynamic") == 0)
+          {
+            // using dynamic strategy
+            // get current group size
+            spdlog::info("adopting dynamic strategy");
+
+            if (step > 0)
+            {
+              // do not record for the 0 step, there is not execution time
+              if (controller.enoughData() == false)
+              {
+                spdlog::info(
+                  "debug recordData: {} time: {}", num_addrs_new, waitLastEnd - computeStart);
+                controller.recordData(waitLastEnd - computeStart, num_addrs_new);
+              }
+              // do not rescale for the 1 operation, there is unexpected issue caused by start
+              addedProcNum = controller.dynamicJoinProcessNum(
+                "default", num_addrs_new, computeEnd - computeStart);
+              spdlog::info("---do join addedProcNum: {} ", addedProcNum);
+            }
+          }
+          else
+          {
+            throw std::runtime_error("unsupported policy name: " + settings.policy);
+          }
+
+          // user constraints and do actual join operation
+          int maxprocess = 10;
+          if (num_addrs_new + addedProcNum >= maxprocess)
+          {
+            addedProcNum = maxprocess - num_addrs_new;
+            spdlog::info("step {} adjusted join addedProcNum: {} ", step, addedProcNum);
+          }
+          // only to the join operation if addedProcNum is larger than 0
+          if (addedProcNum > 0)
+          {
+            controller.m_rescaler.addNewServer(addedProcNum, controller.m_commandToAddServer);
+          }
+        }
+        else
+        {
+          if (step > 0)
+          {
+            spdlog::info("step {}, decrease the staging process number", step);
+            int removedProcessNum = 0;
+            if (settings.policy.compare("naive") == 0)
+            {
+              spdlog::info("adopting naive strategy");
+              removedProcessNum = controller.naivePolicy(step);
+            }
+            else if (settings.policy.compare("dynamic") == 0)
+            {
+              throw std::runtime_error("unsupported policy name: " + settings.policy);
+            }
+            else
+            {
+              throw std::runtime_error("unsupported policy name: " + settings.policy);
+            }
+            if (num_addrs_new <= 3)
+            {
+              spdlog::info(
+                "step {}, removedProcessNum is adjusted to 0 since there are 2 processess", step);
+              removedProcessNum = 0;
+            }
+            if (removedProcessNum > 0)
+            {
+              controller.m_rescaler.makeServersLeave(settings.ssgfile, removedProcessNum, 0);
+              // sleep 600 ms to make sure the server is closed completely
+              // and the ssg file is also updated
+              // the ssg period is set to 500 ms so we sleep 600 ms here
+              sleep(2);
+            }
+          }
+        }
       }
       MPI_Barrier(MPI_COMM_WORLD);
       double rescaleEnd = tl::timer::wtime();
@@ -233,6 +329,8 @@ int main(int argc, char** argv)
       if (rank == 0)
       {
         std::cout << "step " << step << " start time " << startEnd - startStart << std::endl;
+        std::cout << "step " << step << " rescale and start time "
+                  << rescaleEnd - rescaleStart + (startEnd - startStart) << std::endl;
       }
 
       double stageStart = tl::timer::wtime();
@@ -333,7 +431,8 @@ int main(int argc, char** argv)
 
     if (rank == 0)
     {
-      std::cout << "wait time for last iteration of whole workflow: " << waitEnd - waitStart << std::endl;
+      std::cout << "wait time for last iteration of whole workflow: " << waitEnd - waitStart
+                << std::endl;
     }
   }
   catch (const colza::Exception& ex)

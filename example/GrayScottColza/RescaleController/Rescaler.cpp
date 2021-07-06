@@ -55,6 +55,6 @@ void Rescaler::makeServersLeave(
     this->m_leave.on(ph)();
     spdlog::info("make rank {} process leave", rank);
   }
-
+  // we need to unobserve and reobserve when creating the pipeline at the client side
   ssg_group_unobserve(gid);
 }

@@ -8,7 +8,7 @@ void to_json(nlohmann::json& j, const Settings& s)
   j = nlohmann::json{ { "L", s.L }, { "steps", s.steps }, { "F", s.F }, { "k", s.k },
     { "dt", s.dt }, { "Du", s.Du }, { "Dv", s.Dv }, { "noise", s.noise }, { "ssgfile", s.ssgfile },
     { "loglevel", s.loglevel }, { "protocol", s.protocol }, { "pipelinename", s.pipelinename },
-    { "triggerCommand", s.triggerCommand } };
+    { "triggerCommand", s.triggerCommand }, { "policy", s.policy }, {"syntheticSleep",s.syntheticSleep} };
 }
 
 void from_json(const nlohmann::json& j, Settings& s)
@@ -26,6 +26,8 @@ void from_json(const nlohmann::json& j, Settings& s)
   j.at("protocol").get_to(s.protocol);
   j.at("pipelinename").get_to(s.pipelinename);
   j.at("triggerCommand").get_to(s.triggerCommand);
+  j.at("policy").get_to(s.policy);
+  j.at("syntheticSleep").get_to(s.syntheticSleep);
 }
 
 Settings::Settings()

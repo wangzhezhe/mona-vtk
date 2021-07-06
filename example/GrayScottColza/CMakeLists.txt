@@ -76,6 +76,9 @@ target_link_libraries (gsclient rescalecontroller colza-client MPI::MPI_C ${DRC_
 add_executable (gsserver gsserver.cpp)
 target_link_libraries (gsserver colza-server MPI::MPI_C ${DRC_LIBRARIES})
 
+# test
+add_executable (testcontroller ./RescaleController/test/testcontroller.cpp)
+target_link_libraries (testcontroller rescalecontroller)
 
 # install
 install (TARGETS gsserver gsclient DESTINATION bin/example/GrayScottColza/)

@@ -9,8 +9,10 @@
     "steps": 10,
     "noise": 0.01,
     "ssgfile":"ssgfile",
-    "loglevel":"info",
+    "loglevel":"trace",
     "protocol":"gni",
     "pipelinename":"gsmonabackend",
-    "triggerCommand": "/bin/bash ./addserver.sh"
+    "triggerCommand": "/bin/bash ./addserver.sh",
+    "policy": "naive",
+    "syntheticSleep": 0
 }

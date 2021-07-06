@@ -1,0 +1,54 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=10
+#SBATCH --tasks-per-node=32
+#SBATCH --time=10:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+
+cd $BUILDDIR
+
+# key envs
+SSGFILE=ssgfile
+PROTOCOL=gni
+
+SEVERCONFIG=$SRCDIR/example/GrayScottColza/pipeline/gsMonaConfig.json
+CLIENTCONFIG=$SRCDIR/example/GrayScottColza/client_settings_monaback_408_elasticity_leave.json
+
+SERVERNODE=8
+CLIENTNODE=2
+
+SERVERNUM=32
+CLIENTNUM=64
+
+# copy script to current dir
+cp $SRCDIR/example/GrayScottColza/pipeline/gsrender_multiclip.py .
+cp $SRCDIR/example/GrayScottColza/testScripts/elasticityPolicy/addserver.sh .
+
+# rm log for last testing
+rm gsserver_monaelasticity_${SERVERNUM}.log
+rm gsclient_monaelasticity_${CLIENTNUM}_${SERVERNUM}.log
+rm gsserver_monaelasticityAdd*.log
+rm $SSGFILE
+
+# 1 nodes for server (16*4=64=2*32)
+# set -p 500 to avoid the ssg_apply_member_updates: Assertion `0' failed
+# if the -p is a large value such as 1000, it might be in consistent between servers?
+srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 8 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsserver -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -p 500 -v trace &> gsserver_monaelasticity_${SERVERNUM}.log &
+
+#make sure the server load the pipeline
+result=0
+while [ $result -ne $SERVERNUM ]
+do
+    result=$(cat gsserver_monaelasticity_"$SERVERNUM".log | grep "Server running at" | wc -l)
+    echo "$result server loaded backend"
+    sleep 1  
+done
+sleep 1
+
+# 512*2/64=16
+srun -C haswell -N $CLIENTNODE -l -n $CLIENTNUM -c 2 --cpu_bind=cores --time=20:00 ./example/GrayScottColza/gsclient $CLIENTCONFIG &> gsclient_monaelasticity_${CLIENTNUM}_${SERVERNUM}.log
+

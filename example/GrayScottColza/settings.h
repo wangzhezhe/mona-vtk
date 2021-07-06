@@ -17,6 +17,9 @@ struct Settings {
     std::string protocol;
     std::string pipelinename;
     std::string triggerCommand;
+    std::string policy;
+    double syntheticSleep;
+
 
     Settings();
     static Settings from_json(const std::string &fname);

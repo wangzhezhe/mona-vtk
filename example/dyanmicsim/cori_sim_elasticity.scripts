@@ -1,0 +1,54 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=4
+#SBATCH --tasks-per-node=32
+#SBATCH --time=10:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+
+cd $BUILDDIR
+
+# key envs
+SSGFILE=ssgfilesim
+PROTOCOL=gni
+
+CLIENTNODE=2
+CLIENTNUM=64
+
+# rm log for last testing
+rm gsclient_simelasticity*.log
+rm $SSGFILE
+
+
+# 512*2/64=16
+srun -C haswell -N $CLIENTNODE -l -n $CLIENTNUM -c 2 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
+              -p 500 \
+              -a gni \
+              -s $SSGFILE \
+              -v trace \
+              -t 1 &> gsclient_simelasticity.log &
+
+sleep 5
+
+# join the new sim processes
+
+srun -C haswell -N 1 -l -n 2 -c 2 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
+              -p 500 \
+              -a gni \
+              -s $SSGFILE \
+              -v trace \
+              -t 1 -j &> gsclient_simelasticity_add1.log &
+
+sleep 5
+
+srun -C haswell -N 1 -l -n 2 -c 2 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
+              -p 500 \
+              -a gni \
+              -s $SSGFILE \
+              -v trace \
+              -t 1 -j &> gsclient_simelasticity_add2.log &
+
+wait

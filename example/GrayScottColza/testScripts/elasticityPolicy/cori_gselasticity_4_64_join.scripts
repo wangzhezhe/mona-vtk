@@ -16,7 +16,7 @@ SSGFILE=ssgfile
 PROTOCOL=gni
 
 SEVERCONFIG=$SRCDIR/example/GrayScottColza/pipeline/gsMonaConfig.json
-CLIENTCONFIG=$SRCDIR/example/GrayScottColza/client_settings_monaback_408_elasticity.json
+CLIENTCONFIG=$SRCDIR/example/GrayScottColza/client_settings_monaback_408_elasticity_join.json
 
 SERVERNODE=1
 CLIENTNODE=2
