@@ -1,0 +1,30 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=1
+#SBATCH --tasks-per-node=32
+#SBATCH --time=5:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+ulimit -c unlimited
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+
+cd $BUILDDIR
+
+# key envs
+PROTOCOL=gni
+
+CLIENTNODE=1
+CLIENTNUM=4
+
+rm elasticity_testsim_init.log
+
+
+# 512*2/64=16
+srun -C haswell -N $CLIENTNODE -l -n $CLIENTNUM -c 4 --cpu_bind=cores --time=10:00 ./example/leaderworker/testsim \
+              -a gni \
+              -v debug \
+              -t 4 &> elasticity_testsim_init.log
+
+wait

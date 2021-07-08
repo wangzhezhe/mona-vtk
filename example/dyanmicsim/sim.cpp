@@ -87,7 +87,7 @@ int main(int argc, char** argv)
     hii.na_init_info.auth_key = cookie_str.c_str();
 
   // we use one RPC thread to run SSG RPCs
-  tl::engine engine(g_address, THALLIUM_SERVER_MODE, true, 1, &hii);
+  tl::engine engine(g_address, THALLIUM_SERVER_MODE, true, 4, &hii);
 
   // if it is not g_join, it is the initial process
   if (!g_join)
@@ -169,6 +169,7 @@ int main(int argc, char** argv)
   // colza::Provider provider(engine, gid, g_join, mona, 0, config, colza_pool);
   // tl::engine* enginePtr, ssg_group_id_t gid, bool must_join,
   //                 mona_instance_t mona, const tl::pool& pool
+  // it looks the program hangs there when the g_join is true
   colza::DynamicScheduler dscheduler(engine, gid, g_join, mona, 0, colza_pool);
 
   // Add a callback to rewrite the SSG file when the group membership changes
@@ -178,13 +179,16 @@ int main(int argc, char** argv)
 
   for (int step = 0; step < g_num_iterations; step++)
   {
-    dscheduler.activate(step);
+    // TODO, how to avoid the new added process hangs there?
+    colza::RequestResult<int32_t> results = dscheduler.activate(step);
+    spdlog::trace(
+      "sim iteration {}: results success {} info {}", step, results.success(), results.error());
     // get the addr used for current iteration
-    // how to make sure every process has the same view?
+    // how to make sure every process has the same view then move to the next iteration?
+    // how to make sure new added process start from a specific iteration?
     spdlog::trace("sim iteration {}: number of addresses is now {}", step,
       dscheduler.m_updated_addresses.size());
-
-    sleep(10);
+    sleep(5);
     dscheduler.deactivate(step);
   }
 
@@ -249,7 +253,6 @@ void parse_command_line(int argc, char** argv, int rank)
       std::cout << "g_drc_credential: " << g_drc_credential << std::endl;
       std::cout << "g_num_iterations: " << g_num_iterations << std::endl;
       std::cout << "--------------------------" << std::endl;
-
     }
   }
   catch (TCLAP::ArgException& e)

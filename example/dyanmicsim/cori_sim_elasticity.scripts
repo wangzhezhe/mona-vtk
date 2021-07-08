@@ -16,7 +16,7 @@ SSGFILE=ssgfilesim
 PROTOCOL=gni
 
 CLIENTNODE=2
-CLIENTNUM=64
+CLIENTNUM=16
 
 # rm log for last testing
 rm gsclient_simelasticity*.log
@@ -24,27 +24,27 @@ rm $SSGFILE
 
 
 # 512*2/64=16
-srun -C haswell -N $CLIENTNODE -l -n $CLIENTNUM -c 2 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
+srun -C haswell -N $CLIENTNODE -l -n $CLIENTNUM -c 4 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
               -p 500 \
               -a gni \
               -s $SSGFILE \
               -v trace \
               -t 1 &> gsclient_simelasticity.log &
 
-sleep 5
+sleep 10
 
 # join the new sim processes
 
-srun -C haswell -N 1 -l -n 2 -c 2 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
+srun -C haswell -N 1 -l -n 2 -c 4 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
               -p 500 \
               -a gni \
               -s $SSGFILE \
               -v trace \
               -t 1 -j &> gsclient_simelasticity_add1.log &
 
-sleep 5
+sleep 10
 
-srun -C haswell -N 1 -l -n 2 -c 2 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
+srun -C haswell -N 1 -l -n 2 -c 4 --cpu_bind=cores --time=10:00 ./example/dyanmicsim/dynamic-sim \
               -p 500 \
               -a gni \
               -s $SSGFILE \
