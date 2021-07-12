@@ -4,6 +4,8 @@
 
 namespace tl = thallium;
 
+#define MONA_TESTLEAVE_BARRIER_TAG 2023
+
 struct Controller
 {
 
@@ -42,7 +44,7 @@ struct Controller
   int m_addedServerID = 1;
 
   // this is supposed to be called by leader process
-  void naive(int iteration)
+  void naiveJoin(int iteration)
   {
     if (iteration == 3)
     {
@@ -66,5 +68,31 @@ struct Controller
         this->m_addedServerID++;
       }
     }
+  }
+  // the pending process num at the leader must be udpated firstly
+
+  bool naiveLeave(int iteration, int leaveNum, int monaRank)
+  {
+    bool leave = false;
+    if (iteration == 4)
+    {
+      if (monaRank == 0)
+      {
+        // tell leader that we plan to add process
+        m_controller_client->expectedUpdatingProcess(leaveNum);
+      }
+      mona_comm_barrier(m_controller_client->m_mona_comm, MONA_TESTLEAVE_BARRIER_TAG);
+
+      // do the leave operation
+      if (monaRank >= 1 && monaRank <= 1 + leaveNum - 1)
+      {
+        // call the leave RPC, send the req to the leader to deregister the addr
+
+        spdlog::debug("mona rank {} call the process leave", monaRank);
+        m_controller_client->removeProcess();
+        leave = true;
+      }
+    }
+    return leave;
   }
 };

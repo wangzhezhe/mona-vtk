@@ -151,13 +151,42 @@ void ControllerClient::sync(int iteration, bool leader)
   // maybe add a barrier here for future using
 }
 
+// get the mona_comm based on current mona addr list
+// TODO only get comm when we make sure there are updates
+void ControllerClient::getMonaComm(mona_instance_t mona)
+{
+  // get m_member_addrs from the set
+  std::vector<na_addr_t> m_member_addrs;
+  for (auto& p : this->m_common_meta->m_monaaddr_set)
+  {
+
+    na_addr_t addr = NA_ADDR_NULL;
+    na_return_t ret = mona_addr_lookup(mona, p.c_str(), &addr);
+    if (ret != NA_SUCCESS)
+    {
+      throw std::runtime_error("failed for mona_addr_lookup");
+    }
+
+    m_member_addrs.push_back(addr);
+  }
+
+  na_return_t ret =
+    mona_comm_create(mona, m_member_addrs.size(), m_member_addrs.data(), &(this->m_mona_comm));
+  if (ret != 0)
+  {
+    spdlog::debug("{}: MoNA communicator creation failed", __FUNCTION__);
+    throw std::runtime_error("failed to init mona communicator");
+  }
+
+  return;
+}
+
 // this is called by the any process that is newly added into the group
 void ControllerClient::registerProcessToLeader(std::string mona_addr)
 {
   // TODO define it in the constructor
   // register its addr
   tl::remote_procedure addMonaAddr = this->m_clientengine_ptr->define("colza_addMonaAddr");
-  this->m_leader_endpoint = this->m_clientengine_ptr->lookup(this->m_leader_addr);
   int result = addMonaAddr.on(this->m_leader_endpoint)(mona_addr);
   if (result != 0)
   {
@@ -166,10 +195,16 @@ void ControllerClient::registerProcessToLeader(std::string mona_addr)
   return;
 }
 
-// this is called by the leader process
+// this is called by the process who wants to deregister its thallium addr from the leader
 void ControllerClient::removeProcess()
 {
-  // TODO
+  tl::remote_procedure removeMonaAddr = this->m_clientengine_ptr->define("colza_removeMonaAddr");
+  int result = removeMonaAddr.on(this->m_leader_endpoint)();
+  if (result != 0)
+  {
+    throw std::runtime_error("failed to remove mona addr");
+  }
+  return;
 }
 
 // this is called by the leader process itsself set the expected process (both join and leave)

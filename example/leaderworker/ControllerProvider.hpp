@@ -42,6 +42,7 @@ public:
     : tl::provider<ControllerProvider>(engine, provider_id)
   {
     define("colza_addMonaAddr", &ControllerProvider::addMonaAddr);
+    define("colza_removeMonaAddr", &ControllerProvider::removeMonaAddr);
     define("colza_updateMonaAddrList", &ControllerProvider::updateMonaAddrList);
     define("colza_helloRPC", &ControllerProvider::hello);
     if (leader)
@@ -61,7 +62,7 @@ public:
   void removeMonaAddr(const tl::request& req)
   {
     std::string clientThalliumAddr = std::string(req.get_endpoint());
-    spdlog::debug("RPC addMonaAddr is called by {}", clientThalliumAddr);
+    spdlog::debug("RPC removeMonaAddr is called by {}", clientThalliumAddr);
     // if this is old one , this is existing one, we find its addr by its id
     // no response
     // check member id, if not exist, throw error
@@ -84,7 +85,7 @@ public:
       std::lock_guard<tl::mutex> lock(this->m_leader_meta->m_pendingProcessNum_mtx);
       this->m_leader_meta->pendingProcessNum = this->m_leader_meta->pendingProcessNum - 1;
     }
-    // no response
+    req.respond(0);
   }
 
   // leader process expose this RPC
@@ -97,15 +98,15 @@ public:
 
     {
       std::lock_guard<tl::mutex> lock(this->m_leader_meta->m_monaAddrmap_mtx);
-      
-      //if the current addr is not stored into the map
+
+      // if the current addr is not stored into the map
       if (this->m_leader_meta->m_mona_addresses_map.find(clientThalliumAddr) ==
         this->m_leader_meta->m_mona_addresses_map.end())
       {
-        //this addr is not exist in the map
-        //put the thallium addr into it, this record the thallium addr instead of mona addr
-        //the client will check this set, and update all mona addrs insted of the modified addrs 
-        //when the thallium addr is added in the m_first_added_set
+        // this addr is not exist in the map
+        // put the thallium addr into it, this record the thallium addr instead of mona addr
+        // the client will check this set, and update all mona addrs insted of the modified addrs
+        // when the thallium addr is added in the m_first_added_set
         this->m_leader_meta->m_first_added_set.insert(clientThalliumAddr);
       }
 

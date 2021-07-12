@@ -21,7 +21,7 @@ CLIENTNODE=1
 CLIENTNUM=4
 
 rm elasticity_leaderworker_join_init.log
-
+rm elasticity_leaderworker_join*.log 
 
 # 512*2/64=16
 srun -C haswell -N $CLIENTNODE -l -n $CLIENTNUM -c 4 --cpu_bind=cores --time=10:00 ./example/leaderworker/testsim \

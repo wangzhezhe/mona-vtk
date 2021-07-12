@@ -11,6 +11,9 @@
 #include <memory>
 #include <thallium.hpp>
 
+#include <mona-coll.h>
+#include <mona.h>
+
 namespace tl = thallium;
 
 class ControllerProvider;
@@ -113,6 +116,8 @@ public:
 
   int getPendingProcess();
 
+  void getMonaComm(mona_instance_t mona);
+
   tl::endpoint m_leader_endpoint;
   std::string m_leader_addr;
   std::string m_self_addr;
@@ -126,6 +131,8 @@ public:
   // only access info not manage itslifecycle
   LeaderMeta* m_leader_meta = nullptr;
   CommonMeta* m_common_meta = nullptr;
+
+  mona_comm_t m_mona_comm = nullptr;
 };
 
 #endif

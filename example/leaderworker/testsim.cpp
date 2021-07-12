@@ -13,6 +13,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+
 #ifdef USE_GNI
 extern "C"
 {
@@ -47,6 +48,9 @@ static uint64_t g_num_iterations = 10;
 static void parse_command_line(int argc, char** argv, int rank);
 
 std::unique_ptr<tl::engine> globalServerEnginePtr;
+
+#define MONA_TESTSIM_BARRIER_TAG 2021
+#define MONA_TESTSIM_BCAST_TAG 2022
 
 int main(int argc, char** argv)
 {
@@ -228,16 +232,12 @@ int main(int argc, char** argv)
   // if the g_join is true the procs is 1
   spdlog::debug("rank {} create the controller ok", rank);
 
-  for (int step = 0; step < g_num_iterations; step++)
+  int step = 0;
+  while (step < g_num_iterations)
   {
     // send the rescale command by the rank 0 process
     // then every process execute sync
 
-    // do the rescale operation
-    if (leader)
-    {
-      controller.naive(step);
-    }
     spdlog::info("start sync for iteration {} ", step);
     // TODO return the mona comm and get the step we should process
     // get the step that needs to be processes after the sync operation
@@ -245,8 +245,49 @@ int main(int argc, char** argv)
     // we can get this message based on synced mona
     controller.m_controller_client->sync(step, leader);
 
+    controller.m_controller_client->getMonaComm(mona);
+
+    // mona comm check size and procs
+    int procSize, procRank;
+    mona_comm_size(controller.m_controller_client->m_mona_comm, &procSize);
+    mona_comm_rank(controller.m_controller_client->m_mona_comm, &procRank);
+    spdlog::debug("iteration {} : rank={}, size={}", step, procRank, procSize);
+
+    // this may takes long time for first step
+    // make sure all servers do same things
+    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
+    na_return_t ret = mona_comm_bcast(
+      controller.m_controller_client->m_mona_comm, &step, sizeof(step), 0, MONA_TESTSIM_BCAST_TAG);
+    if (ret != NA_SUCCESS)
+    {
+      throw std::runtime_error("failed to execute bcast to get step value");
+    }
+    spdlog::info("get the step value {} from the master ", step);
+    // mona comm bcast
+
+    // create the mona here, get the mona comm
+    // and build a barrier
+
     // to do some actual work based on current info
     sleep(5);
+
+    // do the rescale operation
+    // add process here
+    if (leader)
+    {
+      controller.naiveJoin(step);
+    }
+
+    // remove process here
+    bool leave = controller.naiveLeave(step, 1, procRank);
+    if (leave)
+    {
+      break;
+    }
+    if (rank == 0)
+    {
+      step++;
+    }
   }
 
   spdlog::debug("Engine finalized, now finalizing MoNA...");
@@ -254,6 +295,7 @@ int main(int argc, char** argv)
   spdlog::debug("MoNA finalized");
 
   // colza finalize
+  // maybe wait the engine things finish here?
   globalServerEnginePtr->finalize();
 
   MPI_Finalize();
