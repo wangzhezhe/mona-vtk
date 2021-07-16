@@ -1,0 +1,124 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=7
+#SBATCH --tasks-per-node=32
+#SBATCH --time=10:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+ulimit -c unlimited
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+
+cd $BUILDDIR
+rm dynamic_drc.config
+rm dynamic_leader.config
+rm elasticmb_*.log
+rm elasticmbcolza_client_*.log
+rm clientleave.config
+
+# key envs
+PROTOCOL=gni
+
+CLIENT_INIT_NODE=4
+CLIENT_INIT_NUM=32
+CLIENT_DYNAMIC_NUM=1
+
+# server nodes
+SERVERNODE=2
+SERVERPROCESS=8
+CONFIG=$SRCDIR/example/leaderworker/pipeline/monaconfig.json
+SCRIPTPATH=$SRCDIR/example/leaderworker/pipeline/mbrender_64_iso.py
+
+
+# block config
+BLOCKLENW=64
+BLOCKLENH=64
+BLOCKLEND=64
+BLOCKNUM=256
+
+
+# copy the script used for in-situ execution
+cp SCRIPTPATH .
+
+# start the colza server firstly
+srun -C haswell -N $SERVERNODE -n $SERVERPROCESS -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/mbcolzaserver \
+            -a gni \
+            -s ssgfile \
+            -c $CONFIG \
+            -t 1 \
+            -p 500 \
+            -v trace > elasticmb_colzaserver_mona_$SERVERPROCESS.log 2>&1 &
+ 
+
+# check the drc, start the client part when it exist
+while [ ! -f dynamic_drc.config ]
+do
+  sleep 1 
+done
+
+#make sure the server load the pipeline
+result=0
+while [ $result -ne $SERVERPROCESS ]
+do
+    result=$(cat elasticmb_colzaserver_mona_"$SERVERPROCESS".log | grep "Server running at" | wc -l)
+    echo "$result server loaded backend"
+    sleep 1  
+done
+
+#make sure the ssgfile exist
+#then start the client parts
+while [ ! -f ssgfile ]
+do
+  sleep 1 
+done
+
+# start the sim clients
+# 512*2/64=16
+srun -C haswell -N $CLIENT_INIT_NODE -l -n $CLIENT_INIT_NUM -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbcolza \
+              -a gni \
+              -v trace \
+              -t 4 \
+              -i 10 \
+              --initjoin $CLIENT_DYNAMIC_NUM \
+              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH > elasticmb_colzaclient_init.log 2>&1 &
+
+# when there is multiple thread, start the dynamic case
+# check the drc file existance
+# start others when leader engine start
+while [ ! -f dynamic_leader.config ]
+do
+  sleep 1 
+done
+
+sleep 1
+
+x=1
+while [ $x -le $CLIENT_DYNAMIC_NUM ]
+do
+  srun -C haswell -N 1 -l -n 1 -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbcolza \
+              -a gni \
+              -v trace \
+              -t 4 \
+              -i 10 \
+              --initjoin $CLIENT_DYNAMIC_NUM -j \
+              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH > elasticmb_colzaclient_join_add$x.log 2>&1 &
+  x=$(( $x + 1 ))
+done
+
+# if there is client leave, start another colza server
+while [ ! -f clientleave.config ]
+do
+  sleep 1 
+done
+
+srun -C haswell -N 1 -n 1 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/mbcolzaserver \
+            -a gni \
+            -s ssgfile \
+            -c $CONFIG \
+            -t 1 \
+            -p 500 \
+            -v trace -j > elasticmb_colzaserver_mona_add.log 2>&1 &
+
+wait

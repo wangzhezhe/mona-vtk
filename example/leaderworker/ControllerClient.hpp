@@ -118,6 +118,11 @@ public:
 
   void getMonaComm(mona_instance_t mona);
 
+  // the cache to map the server add into the endpoints
+  std::map<std::string, tl::endpoint> m_addrToEndpoints;
+  // function to find and cache the endpoints
+  tl::endpoint lookup(const std::string& address);
+
   tl::endpoint m_leader_endpoint;
   std::string m_leader_addr;
   std::string m_self_addr;

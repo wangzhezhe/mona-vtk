@@ -1,0 +1,11 @@
+{
+	"pipelines": {
+		"monabackend": {
+			"library": "./example/leaderworker/libmonabackend-pipeline-leaderworker.so",
+			"type": "monabackend",
+			"config": {
+				"script": "./mbrender_64_iso.py"
+			}
+		}
+	}
+}

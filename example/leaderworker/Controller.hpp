@@ -20,13 +20,14 @@ struct Controller
 
     if (leader_meta != nullptr)
     {
+      // for the master case
       // set the initial process number that we need to sync
       // this is supposed to called once by leader process
       m_controller_client->expectedUpdatingProcess(procs);
       spdlog::info("rank {} create master controller, update expected process", rank);
     }
 
-    // make sure the pending number is set then do subsequent works
+    // make sure the pending number is set for the inital processes then do subsequent works
     MPI_Barrier(MPI_COMM_WORLD);
 
     // if the controller is created first time
@@ -84,7 +85,7 @@ struct Controller
       mona_comm_barrier(m_controller_client->m_mona_comm, MONA_TESTLEAVE_BARRIER_TAG);
 
       // do the leave operation
-      if (monaRank >= 1 && monaRank <= 1 + leaveNum - 1)
+      if (monaRank >= 1 && monaRank <= leaveNum)
       {
         // call the leave RPC, send the req to the leader to deregister the addr
 
@@ -95,4 +96,33 @@ struct Controller
     }
     return leave;
   }
+
+  bool naiveLeave2(int iteration, int leaveNum, int procs, int monaRank)
+  {
+    bool leave = false;
+    if (iteration == 4)
+    {
+      if (monaRank == 0)
+      {
+        // tell leader that we plan to add process
+        m_controller_client->expectedUpdatingProcess(leaveNum);
+      }
+      mona_comm_barrier(m_controller_client->m_mona_comm, MONA_TESTLEAVE_BARRIER_TAG);
+
+      // do the leave operation
+      if (monaRank >= procs - leaveNum)
+      {
+        // call the leave RPC, send the req to the leader to deregister the addr
+
+        spdlog::debug("mona rank {} call the process leave", monaRank);
+        m_controller_client->removeProcess();
+        leave = true;
+      }
+    }
+    return leave;
+  }
+
+  // how to let process itsself know it should leave?
+  // all get the gjoin list and rank id, then the first one in gjoin list should move
+  // or for testing, from last to the first
 };

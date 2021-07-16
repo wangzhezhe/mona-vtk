@@ -1,0 +1,40 @@
+#!/bin/bash
+#SBATCH --qos=shared
+#SBATCH --nodes=1
+#SBATCH --time=5:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+
+cd $BUILDDIR
+cp $SRCDIR/example/leaderworker/temp.sh .
+
+rm elasticity_temp_*.log
+
+# every srun is a process control group
+srun -C haswell -N 1 -n 8 -c 2 --mem=1GB /bin/bash temp.sh &> elasticity_temp_1.log &
+TEST_PID1=$!
+echo "test1 pid is ${TEST_PID1}"
+
+sleep 5
+
+# kill and restart
+# kill $TEST_PID1
+
+# sleep 1
+# if we do not kill previous srun it shows that 
+# if we start to srun and try to let them share one node
+# this can not be scheduled since it is waiting for another set of resource
+# different srun can not share the resoruces in current case
+srun -C haswell -N 1 -n 8 -c 2 --mem=1GB /bin/bash temp.sh &> elasticity_temp_2.log &
+TEST_PID2=$!
+echo "test2 pid is ${TEST_PID2}"
+
+#sleep 5
+
+# kill and restart
+# kill $TEST_PID2
+
+wait

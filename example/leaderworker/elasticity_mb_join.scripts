@@ -1,0 +1,65 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=8
+#SBATCH --tasks-per-node=32
+#SBATCH --time=10:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+ulimit -c unlimited
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+
+cd $BUILDDIR
+rm dynamic_drc.config
+rm dynamic_leader.config
+
+# key envs
+PROTOCOL=gni
+
+CLIENT_INIT_NODE=4
+CLIENT_INIT_NUM=32
+CLIENT_DYNAMIC_NUM=4
+
+# block config
+BLOCKLENW=64
+BLOCKLENH=64
+BLOCKLEND=64
+BLOCKNUM=256
+
+rm elasticmb_*.log
+
+# 512*2/64=16
+srun -C haswell -N $CLIENT_INIT_NODE -l -n $CLIENT_INIT_NUM -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmb \
+              -a gni \
+              -v debug \
+              -t 4 \
+              -i 10 \
+              --initjoin $CLIENT_DYNAMIC_NUM \
+              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH > elasticmb_init.log 2>&1 &
+
+# when there is multiple thread, start the dynamic case
+# check the drc file existance
+# start others when leader engine start
+while [ ! -f dynamic_leader.config ]
+do
+  sleep 1 
+done
+
+sleep 1
+
+x=1
+while [ $x -le $CLIENT_DYNAMIC_NUM ]
+do
+  srun -C haswell -N 1 -l -n 1 -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmb \
+              -a gni \
+              -v debug \
+              -t 4 \
+              -i 10 \
+              --initjoin $CLIENT_DYNAMIC_NUM -j \
+              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH > elasticmb_join_add$x.log 2>&1 &
+  x=$(( $x + 1 ))
+done
+
+wait

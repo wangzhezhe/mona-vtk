@@ -120,6 +120,12 @@ int main(int argc, char** argv)
       spdlog::critical("Could not store SSG file {}", g_ssg_file);
       exit(-1);
     }
+    // also write the g_drc_file for sim using
+    static std::string g_drc_file = "dynamic_drc.config";
+    std::ofstream credFile;
+    credFile.open(g_drc_file);
+    credFile << g_drc_credential << "\n";
+    credFile.close();
   }
 
   // Create Mona instance
@@ -173,8 +179,9 @@ int main(int argc, char** argv)
     colza_xstreams.clear();
     spdlog::trace("Colza xstreams joined");
   });
-
-  colza::Provider provider(engine, gid, g_join, mona, 0, config, colza_pool);
+  
+  //the provider id is 1 in this case, the 0 is used by the client part itsself
+  colza::Provider provider(engine, gid, g_join, mona, 1, config, colza_pool);
 
   // Add a callback to rewrite the SSG file when the group membership changes
   ssg_group_add_membership_update_callback(gid, update_group_file, reinterpret_cast<void*>(gid));
@@ -207,8 +214,6 @@ void parse_command_line(int argc, char** argv)
     TCLAP::SwitchArg joinGroup("j", "join", "Join an existing group rather than create it", false);
     TCLAP::ValueArg<unsigned> swimPeriod(
       "p", "swim-period-length", "Length of the SWIM period in milliseconds", false, 1000, "int");
-    TCLAP::ValueArg<int64_t> drc(
-      "d", "drc-credential-id", "DRC credential ID, if already setup", false, -1, "int");
     cmd.add(addressArg);
     cmd.add(numThreads);
     cmd.add(logLevel);
@@ -216,7 +221,6 @@ void parse_command_line(int argc, char** argv)
     cmd.add(configFile);
     cmd.add(joinGroup);
     cmd.add(swimPeriod);
-    cmd.add(drc);
     cmd.parse(argc, argv);
     g_address = addressArg.getValue();
     g_num_threads = numThreads.getValue();
@@ -225,7 +229,6 @@ void parse_command_line(int argc, char** argv)
     g_config_file = configFile.getValue();
     g_join = joinGroup.getValue();
     g_swim_period_ms = swimPeriod.getValue();
-    g_drc_credential = drc.getValue();
   }
   catch (TCLAP::ArgException& e)
   {

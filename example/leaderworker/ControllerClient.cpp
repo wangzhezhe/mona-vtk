@@ -3,10 +3,24 @@
 #include "ControllerClient.hpp"
 #include "common.hpp"
 
+tl::endpoint ControllerClient::lookup(const std::string& address)
+{
+  auto it = m_addrToEndpoints.find(address);
+  if (it == m_addrToEndpoints.end())
+  {
+    // do not lookup here to avoid the potential mercury race condition
+    // throw std::runtime_error("failed to find addr, cache the endpoint at the constructor\n");
+    auto endpoint = this->m_clientengine_ptr->lookup(address);
+    std::string tempAddr = address;
+    this->m_addrToEndpoints[tempAddr] = endpoint;
+    return endpoint;
+  }
+  return it->second;
+}
+
 // this is called by every one
 // if the leader
 // if the non-leader, wait for the m_mona_addrlist_updated updated
-
 int ControllerClient::getPendingProcess()
 {
   std::lock_guard<tl::mutex> lock(this->m_leader_meta->m_pendingProcessNum_mtx);
@@ -31,16 +45,19 @@ void ControllerClient::sync(int iteration, bool leader)
     // if all pending processes is updated, the leader owns the latest view, it propagate this view
     // to all members range the map and call the update rpc
     tl::remote_procedure updateMonaAddrListRPC =
-      this->m_clientengine_ptr->define("colza_updateMonaAddrList");
+      this->m_clientengine_ptr->define("sim_updateMonaAddrList").disable_response();
     {
       std::lock_guard<tl::mutex> lock(this->m_leader_meta->m_monaAddrmap_mtx);
       // maybe just create a snap shot of the current addr instead of using a large critical region
       // TODO, if the new joined and it is the first time
+      spdlog::info("iteration {} m_added_list size {} m_removed_list size {}", iteration,
+        this->m_leader_meta->m_added_list.size(), this->m_leader_meta->m_removed_list.size());
       UpdatedMonaList updatedMonaList(
         this->m_leader_meta->m_added_list, this->m_leader_meta->m_removed_list);
       std::unique_ptr<UpdatedMonaList> updatedMonaListAll;
       // When there are process that are added firstly
       // we set the updatedmonalist as all existing mona addrs
+      // otherwise, this list is nullptr
       if (this->m_leader_meta->m_first_added_set.size() > 0)
       {
         spdlog::debug("debug iteration {} m_first_added_set {}", iteration,
@@ -58,6 +75,8 @@ void ControllerClient::sync(int iteration, bool leader)
         updatedMonaListAll = std::make_unique<UpdatedMonaList>(UpdatedMonaList(added, removed));
       }
 
+      // for async response
+      std::vector<tl::async_response> async_responses;
       // the key is the thallium addr which we should call based on rpc
       for (auto& p : this->m_leader_meta->m_mona_addresses_map)
       {
@@ -74,38 +93,39 @@ void ControllerClient::sync(int iteration, bool leader)
         // TODO use cache here
         // TODO define it in the constructor
         spdlog::debug("leader sent updated list to {} ", p.first);
-        tl::endpoint workerEndpoint = this->m_clientengine_ptr->lookup(p.first);
+        // TODO use a cache here
+        tl::endpoint workerEndpoint = this->lookup(p.first);
 
         // TODO if it belongs to the m_first_added_set, then use all the list addr
-        if (this->m_leader_meta->m_first_added_set.find(p.first) !=
-          this->m_leader_meta->m_first_added_set.end())
+        if (this->m_leader_meta->m_first_added_set.size() > 0)
         {
-          // just checking
-          // when current addr is not in the added set
-          // it should not be the monaListA
-          if (updatedMonaListAll.get() != nullptr)
+          if (this->m_leader_meta->m_first_added_set.find(p.first) !=
+            this->m_leader_meta->m_first_added_set.end())
           {
-            // use the MonaListAll in this case
-            int result = updateMonaAddrListRPC.on(workerEndpoint)(*(updatedMonaListAll.get()));
-            if (result != 0)
+            // just checking
+            // when current addr is not in the added set
+            // it should not be the monaListA
+            if (updatedMonaListAll.get() != nullptr)
             {
-              throw std::runtime_error("failed to notify to worker " + p.first);
+              // use the MonaListAll in this case
+              updateMonaAddrListRPC.on(workerEndpoint)(*(updatedMonaListAll.get()));
+              // if (result != 0)
+              //{
+              //  throw std::runtime_error("failed to notify to worker " + p.first);
+              //}
+              spdlog::debug("iteration {} leader sent updatedMonaListAll ok", iteration);
             }
-            spdlog::debug("leader sent updated list ok");
-          }
-          else
-          {
-            throw std::runtime_error("updatedMonaListAll is not supposed to be empty");
+            else
+            {
+              throw std::runtime_error("updatedMonaListAll is not supposed to be empty");
+            }
           }
         }
         else
         {
-          int result = updateMonaAddrListRPC.on(workerEndpoint)(updatedMonaList);
-          if (result != 0)
-          {
-            throw std::runtime_error("failed to notify to worker " + p.first);
-          }
-          spdlog::debug("leader sent updated list ok");
+          // TODO use async call here
+          updateMonaAddrListRPC.on(workerEndpoint)(updatedMonaList);
+          spdlog::debug("iteration {} leader sent updatedMonaList ok", iteration);
         }
       }
 
@@ -137,7 +157,8 @@ void ControllerClient::sync(int iteration, bool leader)
   spdlog::info("iteration {} wait the sync addr list to be updated", iteration);
   while (this->m_common_meta->m_mona_addrlist_updated == false)
   {
-    usleep(5000);
+    usleep(500000);
+    tl::thread::yield();
   }
 
   // update it back to false for next iteration case
@@ -186,7 +207,7 @@ void ControllerClient::registerProcessToLeader(std::string mona_addr)
 {
   // TODO define it in the constructor
   // register its addr
-  tl::remote_procedure addMonaAddr = this->m_clientengine_ptr->define("colza_addMonaAddr");
+  tl::remote_procedure addMonaAddr = this->m_clientengine_ptr->define("sim_addMonaAddr");
   int result = addMonaAddr.on(this->m_leader_endpoint)(mona_addr);
   if (result != 0)
   {
@@ -198,7 +219,7 @@ void ControllerClient::registerProcessToLeader(std::string mona_addr)
 // this is called by the process who wants to deregister its thallium addr from the leader
 void ControllerClient::removeProcess()
 {
-  tl::remote_procedure removeMonaAddr = this->m_clientengine_ptr->define("colza_removeMonaAddr");
+  tl::remote_procedure removeMonaAddr = this->m_clientengine_ptr->define("sim_removeMonaAddr");
   int result = removeMonaAddr.on(this->m_leader_endpoint)();
   if (result != 0)
   {
