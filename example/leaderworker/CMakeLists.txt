@@ -63,3 +63,12 @@ ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI
 # build the colza server
 add_executable (mbcolzaserver mbcolzaserver.cpp)
 target_link_libraries (mbcolzaserver colza-server MPI::MPI_C ${DRC_LIBRARIES})
+
+# build the leader worker server for testing
+add_executable (teststagingserver ./pipeline/test/teststagingserver.cpp)
+target_link_libraries (teststagingserver MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium 
+monabackend-pipeline-leaderworker
+)
+
+add_executable (testsimsync ./pipeline/test/testsimsync.cpp)
+target_link_libraries (testsimsync MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium)

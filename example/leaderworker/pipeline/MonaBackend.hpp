@@ -7,12 +7,12 @@
 #define __MONA_BACKEND_HPP
 
 //#include "../InSituAdaptor.hpp"
-#include <colza/Backend.hpp>
+#include "Backend.hpp"
 #include <mona-coll.h>
 #include <mona.h>
+#include <spdlog/spdlog.h>
 #include <thallium.hpp>
 
-using json = nlohmann::json;
 namespace tl = thallium;
 
 struct DataBlock
@@ -21,7 +21,7 @@ struct DataBlock
   std::vector<char> data;
   std::vector<size_t> dimensions;
   std::vector<int64_t> offsets;
-  colza::Type type;
+  Type type;
 
   DataBlock() = default;
   DataBlock(DataBlock&&) = default;
@@ -34,13 +34,11 @@ struct DataBlock
 /**
  * MonaBackend implementation of an colza Backend.
  */
-class MonaBackendPipeline : public colza::Backend
+class MonaBackendPipeline : public Backend
 {
 
 protected:
   tl::engine m_engine;
-  ssg_group_id_t m_gid;
-  json m_config;
   std::map<uint64_t,      // iteration
     std::map<std::string, // dataset name
       std::map<uint64_t,  // block id
@@ -52,14 +50,27 @@ public:
   /**
    * @brief Constructor.
    */
-  MonaBackendPipeline(const colza::PipelineFactoryArgs& args)
-    : m_engine(args.engine)
-    , m_gid(args.gid)
-    , m_config(args.config)
+  MonaBackendPipeline(const tl::engine& engine, std::string script_name, mona_instance_t mona)
+    : m_engine(engine)
+    , m_script_name(script_name)
   {
-      if(auto it = m_config.find("script") != m_config.end()) {
-          m_script_name = m_config["script"];
+    if (m_mona_comm_self == nullptr)
+    {
+      na_addr_t self_addr = NA_ADDR_NULL;
+      na_return_t ret = mona_addr_self(mona, &self_addr);
+      if (ret != NA_SUCCESS)
+      {
+        spdlog::critical("{}: mona_addr_self returned {}", __FUNCTION__, ret);
+        throw std::runtime_error("mona_addr_self failed");
       }
+      ret = mona_comm_create(mona, 1, &self_addr, &m_mona_comm_self);
+      if (ret != NA_SUCCESS)
+      {
+        spdlog::critical("{}: mona_comm_create returned {}", __FUNCTION__, ret);
+        throw std::runtime_error("mona_comm_create failed");
+      }
+      mona_addr_free(mona, self_addr);
+    }
   }
 
   /**
@@ -85,89 +96,31 @@ public:
   /**
    * @brief Destructor.
    */
-  virtual ~MonaBackendPipeline() = default;
-
-  /**
-   * @brief Update the array of Mona addresses associated with
-   * the SSG group.
-   *
-   * @param mona Mona instance.
-   * @param addresses Array of Mona addresses.
-   */
-  void updateMonaAddresses(mona_instance_t mona, const std::vector<na_addr_t>& addresses) override;
-
-  /**
-   * @brief Tells the pipeline that the given iteration is starting.
-   * This function should be called before stage/execute/cleanup can
-   * be called.
-   *
-   * @param iteration Iteration
-   *
-   * @return a RequestResult containing an error code.
-   */
-  colza::RequestResult<int32_t> start(uint64_t iteration) override;
-
-  /**
-   * @brief Tells the pipeline that the given iteration is aborted.
-   * This function is used automatically when there is a mismatch
-   * between the client's view of the group and the group itself.
-   *
-   * @param iteration Iteration
-   */
-  void abort(uint64_t iteration) override;
+  virtual ~MonaBackendPipeline(){};
 
   /**
    * @brief Stage some data.
    */
-  colza::RequestResult<int32_t> stage(const std::string& sender_addr,
-    const std::string& dataset_name, uint64_t iteration, uint64_t block_id,
-    const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets,
-    const colza::Type& type, const thallium::bulk& data) override;
+
+  int stage(const std::string& sender_addr, const std::string& dataset_name, uint64_t iteration,
+    uint64_t block_id, const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets,
+    const Type& type, const thallium::bulk& data);
 
   /**
    * @brief The execute method in this backend is not doing anything.
+   * the m_mona_comm is set by the dynamic
    */
-  colza::RequestResult<int32_t> execute(uint64_t iteration) override;
+  int execute(uint64_t iteration, mona_comm_t m_mona_comm);
 
-  /**
-   * @brief Erase all the data blocks associated with a given iteration.
-   */
-  colza::RequestResult<int32_t> cleanup(uint64_t iteration) override;
-
-  /**
-   * @brief Destroys the underlying pipeline.
-   *
-   * @return a RequestResult<int32_t> instance indicating
-   * whether the database was successfully destroyed.
-   */
-  colza::RequestResult<int32_t> destroy() override;
-
-  /**
-   * @brief Static factory function used by the PipelineFactory to
-   * create a MonaBackendPipeline.
-   *
-   * @param args arguments used for creating the pipeline.
-   *
-   * @return a unique_ptr to a pipeline
-   */
-  static std::unique_ptr<colza::Backend> create(const colza::PipelineFactoryArgs& args);
+  int cleanup(uint64_t iteration);
 
   /**
    * @brief the mona communicator associated with current pipeline
    *
    */
-  mona_instance_t        m_mona = nullptr;
-  mona_comm_t            m_mona_comm = nullptr; // MoNA communicator built in start()
-  mona_comm_t            m_mona_comm_self = nullptr; // MoNA communicator with only this process
-  std::vector<na_addr_t> m_member_addrs; // latest known member addresses
-
-  // do not update comm when it is used by the in-situ part
-  tl::mutex m_mona_comm_mtx;
-
-  // these two varibles are not accessed by multi-thread
+  // MoNA communicator with only this process, set this to make the in-staging processing work
+  mona_comm_t m_mona_comm_self = nullptr;
   bool m_first_init = true;
-  bool m_need_reset = false;
-
   std::string m_script_name = "";
 };
 

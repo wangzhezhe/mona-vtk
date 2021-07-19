@@ -108,6 +108,7 @@ do
 done
 
 # if there is client leave, start another colza server
+# TODO, we need to change this part gradually
 while [ ! -f clientleave.config ]
 do
   sleep 1 

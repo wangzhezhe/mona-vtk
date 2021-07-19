@@ -1,0 +1,61 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=4
+#SBATCH --tasks-per-node=32
+#SBATCH --time=5:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+rm core
+ulimit -c unlimited
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+
+cd $BUILDDIR
+
+cp $SRCDIR/example/leaderworker/pipeline/test/addprocess.sh .
+rm elasticity_leaderworker_*.log
+
+
+# key envs
+PROTOCOL=gni
+
+SERVERNODE=1
+SERVERNUMINIT=4
+
+rm dynamic_drc.config
+
+rm dynamic_server_leader.config
+rm dynamic_sim_leader.config
+
+# no gjoin for initilization here
+# we start the process separately
+# the gjoin is only used for leader
+srun -C haswell -N $SERVERNODE -l -n $SERVERNUMINIT -c 4 --cpu_bind=cores --time=5:00 ./example/leaderworker/teststagingserver \
+              -a gni \
+              -v debug \
+              -t 4 \
+              -g 1 &> elasticity_leaderworker_server_init.log &
+
+# when the drc and the server addr exist
+while [ ! -f dynamic_server_leader.config ]
+do
+  sleep 1 
+done
+
+srun -C haswell -N 1 -l -n 1 -c 4 --cpu_bind=cores --time=5:00 ./example/leaderworker/teststagingserver \
+              -a gni \
+              -v debug \
+              -t 4 \
+              -j &> elasticity_leaderworker_server_add0.log &
+
+
+# start the client
+srun -C haswell -N 1 -l -n 4 -c 4 --cpu_bind=cores --time=5:00 ./example/leaderworker/testsimsync \
+              -a gni \
+              -v debug \
+              -t 4 &> elasticity_leaderworker_sim_init.log &
+
+
+wait
