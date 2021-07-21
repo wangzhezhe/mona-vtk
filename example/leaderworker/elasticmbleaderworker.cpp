@@ -1,16 +1,18 @@
 
-
 /*
- only testing the dynamic sim
+ dynamic sim + dynamic staging based on leader worker mechanism
  */
 #include <mpi.h>
 #include <spdlog/spdlog.h>
 #include <tclap/CmdLine.h>
 
 #include "Controller.hpp"
+#include "TypeSizes.hpp"
 #include "mb.hpp"
+#include "pipeline/StagingClient.hpp"
 #include <fstream>
 #include <iostream>
+#include <thallium.hpp>
 #include <vector>
 
 #ifdef USE_GNI
@@ -32,13 +34,19 @@ extern "C"
   } while (0)
 #endif
 
+size_t int2size_t(int val)
+{
+  return (val < 0) ? __SIZE_MAX__ : (size_t)((unsigned)val);
+}
+
 namespace tl = thallium;
 
 static std::string g_address = "na+sm";
 static int g_num_threads = 0;
 static std::string g_log_level = "info";
-static std::string g_leader_addr_file = "dynamic_leader.config";
+static std::string g_sim_leader_file = "dynamic_leader.config";
 static std::string g_drc_file = "dynamic_drc.config";
+static std::string g_server_leader_config = "dynamic_server_leader.config";
 static bool g_join = false;
 static unsigned g_swim_period_ms = 1000;
 static int64_t g_drc_credential = -1;
@@ -51,8 +59,6 @@ static uint64_t g_total_block_number = 256;
 static uint64_t g_block_width = 64;
 static uint64_t g_block_height = 64;
 static uint64_t g_block_depth = 64;
-static std::string g_ssg_file = "ssgfile";
-static std::string g_pipeline = "";
 
 // block_offset, 1.2, g_total_block_number
 
@@ -68,6 +74,7 @@ int main(int argc, char** argv)
 
   // Initialize MPI
   MPI_Init(&argc, &argv);
+
   int rank;
   int procs;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -91,128 +98,51 @@ int main(int argc, char** argv)
   struct hg_init_info hii;
   memset(&hii, 0, sizeof(hii));
 
-  if (!g_join)
-  {
+// all processes can be viewd at g_join type in this case
+// since the drc is started by the colza server
 #ifdef USE_GNI
-    uint32_t drc_credential_id = 0;
-    drc_info_handle_t drc_credential_info;
-    uint32_t drc_cookie;
-    char drc_key_str[256] = { 0 };
-    int ret;
+  // get the drc id from the shared file
+  std::ifstream infile(g_drc_file);
+  std::string cred_id;
+  std::getline(infile, cred_id);
+  if (rank == 0)
+  {
+    std::cout << "load cred_id: " << cred_id << std::endl;
+  }
 
-    if (rank == 0)
-    {
-      ret = drc_acquire(&drc_credential_id, DRC_FLAGS_FLEX_CREDENTIAL);
-      DIE_IF(ret != DRC_SUCCESS, "drc_acquire");
+  char drc_key_str[256] = { 0 };
+  uint32_t drc_cookie;
+  uint32_t drc_credential_id;
+  drc_info_handle_t drc_credential_info;
+  int ret;
+  drc_credential_id = (uint32_t)atoi(cred_id.c_str());
 
-      ret = drc_access(drc_credential_id, 0, &drc_credential_info);
-      DIE_IF(ret != DRC_SUCCESS, "drc_access");
-      drc_cookie = drc_get_first_cookie(drc_credential_info);
-      sprintf(drc_key_str, "%u", drc_cookie);
-      hii.na_init_info.auth_key = drc_key_str;
+  ret = drc_access(drc_credential_id, 0, &drc_credential_info);
+  DIE_IF(ret != DRC_SUCCESS, "drc_access %u", drc_credential_id);
+  drc_cookie = drc_get_first_cookie(drc_credential_info);
 
-      ret = drc_grant(drc_credential_id, drc_get_wlm_id(), DRC_FLAGS_TARGET_WLM);
-      DIE_IF(ret != DRC_SUCCESS, "drc_grant");
+  sprintf(drc_key_str, "%u", drc_cookie);
+  hii.na_init_info.auth_key = drc_key_str;
 
-      spdlog::debug("grant the drc_credential_id: {}", drc_credential_id);
-      spdlog::debug("use the drc_key_str {}", std::string(drc_key_str));
-      for (int dest = 1; dest < procs; dest++)
-      {
-        // dest tag communicator
-        MPI_Send(&drc_credential_id, 1, MPI_UINT32_T, dest, 0, MPI_COMM_WORLD);
-      }
-
-      // write this cred_id into file that can be shared by clients
-      // output the credential id into the config files
-      std::ofstream credFile;
-      credFile.open(g_drc_file);
-      credFile << drc_credential_id << "\n";
-      credFile.close();
-    }
-    else
-    {
-      // send rcv is the block call
-      // gather the id from the rank 0
-      // source tag communicator
-      MPI_Recv(&drc_credential_id, 1, MPI_UINT32_T, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      spdlog::debug("rank {} recieve cred key {}", rank, drc_credential_id);
-
-      if (drc_credential_id == 0)
-      {
-        throw std::runtime_error("failed to rcv drc_credential_id");
-      }
-      ret = drc_access(drc_credential_id, 0, &drc_credential_info);
-      DIE_IF(ret != DRC_SUCCESS, "drc_access %u", drc_credential_id);
-      drc_cookie = drc_get_first_cookie(drc_credential_info);
-
-      sprintf(drc_key_str, "%u", drc_cookie);
-      hii.na_init_info.auth_key = drc_key_str;
-    }
-
-    globalServerEnginePtr = std::make_unique<tl::engine>(
-      tl::engine(g_address, THALLIUM_SERVER_MODE, true, g_num_threads, &hii));
+  globalServerEnginePtr = std::make_unique<tl::engine>(
+    tl::engine(g_address, THALLIUM_SERVER_MODE, true, g_num_threads, &hii));
 
 #else
-
-    // tl::engine engine(g_address, THALLIUM_SERVER_MODE);
-    // globalServerEnginePtr =
-    //  std::make_unique<tl::engine>(tl::engine(g_address, THALLIUM_SERVER_MODE));
-    // if (rank == 0)
-    //{
-    //  spdlog::trace("use the protocol other than gni: {}", g_address);
-    // write the leader addr
-    //}
-    throw std::runtime_error("gni is supposed to use");
-
+  // tl::engine engine(g_address, THALLIUM_SERVER_MODE);
+  // globalServerEnginePtr =
+  //  std::make_unique<tl::engine>(tl::engine(g_address, THALLIUM_SERVER_MODE));
+  throw std::runtime_error("gni is supposed to use");
 #endif
-  }
-  else
-  {
-// for new started processes
-// other process get it by the file
-#ifdef USE_GNI
-    // get the drc id from the shared file
-    std::ifstream infile(g_drc_file);
-    std::string cred_id;
-    std::getline(infile, cred_id);
-    if (rank == 0)
-    {
-      std::cout << "load cred_id: " << cred_id << std::endl;
-    }
-
-    char drc_key_str[256] = { 0 };
-    uint32_t drc_cookie;
-    uint32_t drc_credential_id;
-    drc_info_handle_t drc_credential_info;
-    int ret;
-    drc_credential_id = (uint32_t)atoi(cred_id.c_str());
-
-    ret = drc_access(drc_credential_id, 0, &drc_credential_info);
-    DIE_IF(ret != DRC_SUCCESS, "drc_access %u", drc_credential_id);
-    drc_cookie = drc_get_first_cookie(drc_credential_info);
-
-    sprintf(drc_key_str, "%u", drc_cookie);
-    hii.na_init_info.auth_key = drc_key_str;
-
-    globalServerEnginePtr = std::make_unique<tl::engine>(
-      tl::engine(g_address, THALLIUM_SERVER_MODE, true, g_num_threads, &hii));
-
-#else
-    // tl::engine engine(g_address, THALLIUM_SERVER_MODE);
-    // globalServerEnginePtr =
-    //  std::make_unique<tl::engine>(tl::engine(g_address, THALLIUM_SERVER_MODE));
-    throw std::runtime_error("gni is supposed to use");
-#endif
-  }
 
   if (leader)
   {
+    // write the leader thallium addr into the file
     std::ofstream leaderFile;
-    leaderFile.open(g_leader_addr_file);
+    leaderFile.open(g_sim_leader_file);
     leaderFile << std::string(globalServerEnginePtr->self()) << "\n";
     leaderFile.close();
     spdlog::info(
-      "ok to write the leader addr into file {} ", std::string(globalServerEnginePtr->self()));
+      "ok to write the sim leader addr into file {} ", std::string(globalServerEnginePtr->self()));
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -230,6 +160,7 @@ int main(int argc, char** argv)
   mona_addr_free(mona, mona_addr);
 
   // provider should start initilzted firstly before the client
+  // this is for the elasticity of the sim program
   ControllerProvider controllerProvider(*globalServerEnginePtr, 0, leader);
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -238,13 +169,18 @@ int main(int argc, char** argv)
   // the worker size is procs-1 for init stage
   Controller controller(globalServerEnginePtr.get(), std::string(mona_addr_buf.data()), 0,
     procs + g_num_initial_join, controllerProvider.m_leader_meta.get(),
-    controllerProvider.m_common_meta.get(), g_leader_addr_file, rank);
+    controllerProvider.m_common_meta.get(), g_sim_leader_file, rank);
+
+  // the client used for sync staging view
+  StagingClient stagingClient(globalServerEnginePtr.get(), g_server_leader_config);
 
   // if the g_join is true the procs is 1
-  spdlog::debug("rank {} create the controller ok", rank);
+  spdlog::debug("rank {} create the controller and staging client ok", rank);
+
+  // the data generated by the sim
   std::vector<Mandelbulb> MandelbulbList;
   int step = 0;
-  bool ifupdated = true;
+
   while (step < g_num_iterations)
   {
     // send the rescale command by the rank 0 process
@@ -258,27 +194,28 @@ int main(int argc, char** argv)
     // the step should be syncronized from the leader
     // we can get this message based on synced mona
     controller.m_controller_client->sync(step, leader);
+    // ok to sync the sim program
 
-    auto syncEnd1 = tl::timer::wtime();
-
-    if (step == 5)
-    {
-      // for testing
-      // this should be get from the leader
-      ifupdated = true;
-    }
-    if (ifupdated)
-    {
-      // only update mona when there are addr updates
-      controller.m_controller_client->getMonaComm(mona);
-      ifupdated = false;
-    }
+    // the controller.m_controller_client->m_mona_comm is updated here
+    controller.m_controller_client->getMonaComm(mona);
 
     // mona comm check size and procs
     int procSize, procRank;
     mona_comm_size(controller.m_controller_client->m_mona_comm, &procSize);
     mona_comm_rank(controller.m_controller_client->m_mona_comm, &procRank);
     spdlog::debug("iteration {} : rank={}, size={}", step, procRank, procSize);
+
+    auto syncEnd1 = tl::timer::wtime();
+    
+    // start to sync the staging service
+    if (leader)
+    {
+      spdlog::info("start sync for step {}", step);
+
+      stagingClient.leadersync(step);
+    }
+    // use the new updated client comm
+    stagingClient.workerSyncMona(leader, step, rank, controller.m_controller_client->m_mona_comm);
 
     // this may takes long time for first step
     // make sure all servers do same things
@@ -319,7 +256,7 @@ int main(int argc, char** argv)
     // when the i is large, the time is long, there is unbalance here
     // the index should be 0, n-1, 1, n-2, ...
     // the block id base may also need to be updated?
-    int rank_offset = 40;
+    int rank_offset = procSize;
     int blockid = procRank;
     for (int i = 0; i < nblocks_per_proc; i++)
     {
@@ -329,8 +266,8 @@ int main(int argc, char** argv)
       }
       int block_offset = blockid * g_block_depth;
       // the block offset need to be recaculated, we can not use the resize function
-      MandelbulbList.push_back(Mandelbulb(
-        g_block_width, g_block_height, g_block_depth, block_offset, 1.2, blockid, g_total_block_number));
+      MandelbulbList.push_back(Mandelbulb(g_block_width, g_block_height, g_block_depth,
+        block_offset, 1.2, blockid, g_total_block_number));
       MandelbulbList[i].compute(order);
       blockid = blockid + rank_offset;
     }
@@ -365,10 +302,56 @@ int main(int argc, char** argv)
     // set the colza execute wait here
     // which will call the clean up
 
+    // colza stage
+
+    for (int i = 0; i < MandelbulbList.size(); i++)
+    {
+
+      // stage the data at current iteration
+
+      int32_t result;
+
+      int* extents = MandelbulbList[i].GetExtents();
+      // the extends value is from 0 to 29
+      // the dimension value should be extend value +1
+      // the sequence is depth, height, width
+      std::vector<size_t> dimensions = { int2size_t(*(extents + 1)) + 1,
+        int2size_t(*(extents + 3)) + 1, int2size_t(*(extents + 5)) + 1 };
+      std::vector<int64_t> offsets = { 0, 0, MandelbulbList[i].GetZoffset() };
+
+      auto type = Type::INT32;
+      stagingClient.stage("mydata", step, MandelbulbList[i].GetBlockID(), dimensions, offsets, type,
+        MandelbulbList[i].GetData(), procRank);
+      /*
+      std::cout << "step " << step << " blockid " << blockid << " dimentions " << dimensions[0]
+                << "," << dimensions[1] << "," << dimensions[2] << " offsets " << offsets[0]
+                << "," << offsets[1] << "," << offsets[2] << " listvalueSize "
+                << MandelbulbList[i].DataSize() << std::endl;
+      */
+      if (result != 0)
+      {
+        throw std::runtime_error(
+          "failed to stage " + std::to_string(step) + " return status " + std::to_string(result));
+      }
+    }
+
+    // colza execute
+    // stagingClient.execute(step);
+
+    // colza cleanup
+    // stagingClient.cleanup(step);
+
     // remove process here
-    bool leave = controller.naiveLeave(step, 1, procRank);
+    bool leave = controller.naiveLeave2(step, 1, procSize, procRank);
     if (leave)
     {
+      // write a file and the colza server can start
+      static std::string leaveFileName = "clientleave.config";
+      std::ofstream leaveFile;
+      leaveFile.open(leaveFileName);
+      leaveFile << "test"
+                << "\n";
+      leaveFile.close();
       break;
     }
 
@@ -396,6 +379,11 @@ int main(int argc, char** argv)
 
   spdlog::debug("Engine finalized, now finalizing MoNA...");
   mona_finalize(mona);
+
+  // there are finalize error when we call it, not sure the reason
+  // spdlog::debug("Finalizing SSG");
+  // ssg_finalize();
+
   spdlog::debug("MoNA finalized");
 
   // colza finalize

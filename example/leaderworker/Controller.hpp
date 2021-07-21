@@ -1,3 +1,6 @@
+#ifndef __CONTROLLER_HPP
+#define __CONTROLLER_HPP
+
 #include "ControllerClient.hpp"
 #include "ControllerProvider.hpp"
 #include "common.hpp"
@@ -100,7 +103,7 @@ struct Controller
   bool naiveLeave2(int iteration, int leaveNum, int procs, int monaRank)
   {
     bool leave = false;
-    if (iteration == 4)
+    if (iteration == 5)
     {
       if (monaRank == 0)
       {
@@ -126,3 +129,5 @@ struct Controller
   // all get the gjoin list and rank id, then the first one in gjoin list should move
   // or for testing, from last to the first
 };
+
+#endif

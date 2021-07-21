@@ -113,6 +113,13 @@ int main(int argc, char** argv)
   // Create Mona instance
   mona_instance_t mona = mona_init_thread(g_address.c_str(), NA_TRUE, &hii.na_init_info, NA_TRUE);
 
+  // add call back after initilization
+  engine.push_prefinalize_callback([mona]() {
+    spdlog::info("Engine finalized, now finalizing MoNA...");
+    mona_finalize(mona);
+    spdlog::info("MoNA finalized");
+  });
+
   // Print MoNA address for information
   na_addr_t mona_addr;
   mona_addr_self(mona, &mona_addr);
@@ -155,9 +162,6 @@ int main(int argc, char** argv)
 
   engine.wait_for_finalize();
 
-  spdlog::trace("Engine finalized, now finalizing MoNA...");
-  mona_finalize(mona);
-  spdlog::trace("MoNA finalized");
   MPI_Finalize();
 
   return 0;

@@ -72,3 +72,6 @@ monabackend-pipeline-leaderworker
 
 add_executable (testsimsync ./pipeline/test/testsimsync.cpp)
 target_link_libraries (testsimsync MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium)
+
+add_executable (elasticmbleaderworker ./elasticmbleaderworker.cpp)
+target_link_libraries (elasticmbleaderworker MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium)
