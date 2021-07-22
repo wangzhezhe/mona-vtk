@@ -108,7 +108,7 @@ public:
     tl::provider_handle ph(m_stagingLeaderEndpoint, 0);
     int addrSize = this->m_stagingView.size();
 
-    std::vector<std::string> returnAddrs = m_stage.on(ph)(iteration, addrSize);
+    std::vector<std::string> returnAddrs = m_syncview.on(ph)(iteration, addrSize);
     spdlog::debug("sent sync rpc");
 
     if (returnAddrs.size() > 0)
@@ -184,10 +184,13 @@ public:
         MPI_Bcast(packed_addresses.data(), packed_addresses.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
 
         // check the results
+        this->m_stagingView.clear();
         for (int i = 0; i < group_size; i++)
         {
           char* addr = packed_addresses.data() + i * 256;
-          spdlog::debug("iteration {} rank {} check addr {}", iteration, rank, std::string(addr));
+          // spdlog::debug("iteration {} rank {} check addr {}", iteration, rank,
+          // std::string(addr)); updte current stageView
+          this->m_stagingView.push_back(std::string(addr));
         }
       }
     }
@@ -251,12 +254,14 @@ public:
 
         // MPI_Bcast(packed_addresses.data(), packed_addresses.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
 
-        // check the results
+        // check and updates results
+        this->m_stagingView.clear();
         for (int i = 0; i < group_size; i++)
         {
           char* addr = packed_addresses.data() + i * 256;
-          spdlog::debug(
-            "iteration {} rank {} check addr {}", iteration, monarank, std::string(addr));
+          // spdlog::debug(
+          //  "iteration {} rank {} check addr {}", iteration, monarank, std::string(addr));
+          this->m_stagingView.push_back(std::string(addr));
         }
       }
     }
@@ -307,6 +312,13 @@ public:
 
     // choose a suitable server to create ph
     int stagingSize = this->m_stagingView.size();
+    if (stagingSize == 0)
+    {
+      throw std::runtime_error(
+        "stage api, stagingSize is not supposed to be zero for rank " + std::to_string(monarank));
+    }
+    spdlog::debug(
+      "start iteration {} stage view size {} monarank {}", iteration, stagingSize, monarank);
     int serverid = monarank % stagingSize;
     auto ep = this->lookup(this->m_stagingView[serverid]);
 
@@ -327,6 +339,10 @@ public:
       throw std::runtime_error("failed to stage iteration rank id :" + std::to_string(iteration) +
         "," + std::to_string(monarank) + "," + std::to_string(block_id));
     }
+
+    //spdlog::debug(
+    //  "ok for start iteration {} stage view size {} monarank {}", iteration, stagingSize, monarank);
+
     return;
   }
 };

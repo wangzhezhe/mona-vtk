@@ -14,6 +14,7 @@ pkg_check_modules (TCLAP REQUIRED IMPORTED_TARGET tclap)
 pkg_check_modules (SSG REQUIRED IMPORTED_TARGET ssg)
 
 
+
 include (xpkg-import)
 xpkg_import_module (uuid REQUIRED uuid)
 
@@ -30,21 +31,21 @@ add_executable (testsim
 ${CMAKE_CURRENT_SOURCE_DIR}/testsim.cpp 
 ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp
 )
-target_link_libraries (testsim MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium)
+target_link_libraries (testsim MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
 
 # this is the test for elasticity for only mb sim program
 add_executable (elasticmb 
 ${CMAKE_CURRENT_SOURCE_DIR}/elasticmb.cpp 
 ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp
 )
-target_link_libraries (elasticmb MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium)
+target_link_libraries (elasticmb MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
 
 # the mb sim is elstic and it also includes coza for this case
 add_executable (elasticmbcolza
 ${CMAKE_CURRENT_SOURCE_DIR}/elasticmbcolza.cpp 
 ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp
 )
-target_link_libraries (elasticmbcolza colza-client MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium)
+target_link_libraries (elasticmbcolza colza-client MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
 
 
 # monabackend pipeline library
@@ -71,7 +72,9 @@ monabackend-pipeline-leaderworker
 )
 
 add_executable (testsimsync ./pipeline/test/testsimsync.cpp)
-target_link_libraries (testsimsync MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium)
+target_link_libraries (testsimsync MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
 
-add_executable (elasticmbleaderworker ./elasticmbleaderworker.cpp)
-target_link_libraries (elasticmbleaderworker MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium)
+add_executable (elasticmbleaderworker 
+${CMAKE_CURRENT_SOURCE_DIR}/elasticmbleaderworker.cpp
+${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp)
+target_link_libraries (elasticmbleaderworker MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)

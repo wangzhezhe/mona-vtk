@@ -37,6 +37,14 @@ if(USE_GNI)
 endif()
 
 find_package(spdlog REQUIRED)
+message("spdlog include dir: " ${SPDLOG_INCLUDE_DIR})
+include_directories(${SPDLOG_INCLUDE_DIR})
+
+
+pkg_check_modules (TCLAP REQUIRED IMPORTED_TARGET tclap)
+include_directories(${TCLAP_INCLUDE_DIRS})
+# not sure why the find package for cmake does not work for it
+
 
 if(ENABLE_EXAMPLE)
 # there is issue to find target Python3::Pyhon if we put this find_package command into the example folder

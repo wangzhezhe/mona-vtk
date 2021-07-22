@@ -206,7 +206,7 @@ int main(int argc, char** argv)
     spdlog::debug("iteration {} : rank={}, size={}", step, procRank, procSize);
 
     auto syncEnd1 = tl::timer::wtime();
-    
+
     // start to sync the staging service
     if (leader)
     {
@@ -346,12 +346,16 @@ int main(int argc, char** argv)
     if (leave)
     {
       // write a file and the colza server can start
-      static std::string leaveFileName = "clientleave.config";
-      std::ofstream leaveFile;
-      leaveFile.open(leaveFileName);
-      leaveFile << "test"
-                << "\n";
-      leaveFile.close();
+      // trigger another server before leave
+      stagingClient.updateExpectedProcess("join", 1);
+
+      std::string startStagingCommand = "/bin/bash ./addprocess.sh";
+      std::string command = startStagingCommand + " " + std::to_string(1);
+      // use systemcall to start ith server
+      spdlog::info("Add server by command: {}", command);
+      std::system(command.c_str());
+      
+      //trigger a service then break
       break;
     }
 

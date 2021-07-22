@@ -129,6 +129,7 @@ int MonaBackendPipeline::stage(const std::string& sender_addr, const std::string
   uint64_t iteration, uint64_t block_id, const std::vector<size_t>& dimensions,
   const std::vector<int64_t>& offsets, const Type& type, const thallium::bulk& data)
 {
+  spdlog::debug("satge data set {} iteration {} blockid {}", dataset_name, iteration, block_id);
   // double serverStage1 = tl::timer::wtime();
   int result = 0;
   {

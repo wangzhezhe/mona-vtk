@@ -510,13 +510,17 @@ public:
   {
     // TODO check the status
     // execute when pipeline is in activate status
-    this->m_stagecommon_meta->m_pipeline->stage(
+    int result = this->m_stagecommon_meta->m_pipeline->stage(
       sender_addr, dataset_name, iteration, block_id, dimensions, offsets, type, data);
+
+    req.respond(result);
   }
 
   void execute(const tl::request& req, uint64_t iteration)
   {
-    this->m_stagecommon_meta->m_pipeline->execute(iteration, this->m_stagecommon_meta->m_mona_comm);
+    int result = this->m_stagecommon_meta->m_pipeline->execute(
+      iteration, this->m_stagecommon_meta->m_mona_comm);
+    req.respond(result);
   }
 
   void hello(const tl::request& req)

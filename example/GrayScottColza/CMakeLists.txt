@@ -70,7 +70,7 @@ target_link_libraries(rescalecontroller colza-client MPI::MPI_C ${DRC_LIBRARIES}
 
 # client
 add_executable (gsclient gsclient.cpp gray-scott.cpp settings.cpp)
-target_link_libraries (gsclient rescalecontroller colza-client MPI::MPI_C ${DRC_LIBRARIES})
+target_link_libraries (gsclient rescalecontroller colza-client MPI::MPI_C ${DRC_LIBRARIES} nlohmann_json::nlohmann_json)
 
 # server
 add_executable (gsserver gsserver.cpp)
