@@ -88,7 +88,7 @@ public:
     m_extents[1] = m_depth - 1;
     m_origin[2] = 0;
     m_origin[1] = 0;
-    m_origin[0] = z_offset / (nblocks);
+    m_origin[0] = z_offset*1.0 / (nblocks*1.0);
   }
 
   Mandelbulb(const Mandelbulb&) = default;

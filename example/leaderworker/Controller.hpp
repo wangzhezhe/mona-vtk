@@ -103,7 +103,7 @@ struct Controller
   bool naiveLeave2(int iteration, int leaveNum, int procs, int monaRank)
   {
     bool leave = false;
-    if (iteration == 5)
+    if (iteration % 2 == 0 && iteration != 0)
     {
       if (monaRank == 0)
       {

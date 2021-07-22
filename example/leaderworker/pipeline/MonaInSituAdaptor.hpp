@@ -7,6 +7,7 @@
 #include <memory>
 
 #include <icet/mona.hpp>
+#include "MonaBackend.hpp"
 
 class Mandelbulb;
 
@@ -24,6 +25,9 @@ void MonaUpdateController(mona_comm_t mona_comm);
 
 void MonaCoProcessDynamic(std::vector<Mandelbulb>& mandelbulbList,
   int global_nblocks, double time, unsigned int timeStep);
+
+void MBOutPutVTIFile(Mandelbulb& dataBlock, std::string fileName);
+
 
 }// namespace InSitu
 

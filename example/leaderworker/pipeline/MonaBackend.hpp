@@ -54,6 +54,7 @@ public:
     : m_engine(engine)
     , m_script_name(script_name)
   {
+
     if (m_mona_comm_self == nullptr)
     {
       na_addr_t self_addr = NA_ADDR_NULL;
@@ -110,7 +111,9 @@ public:
    * @brief The execute method in this backend is not doing anything.
    * the m_mona_comm is set by the dynamic
    */
-  int execute(uint64_t iteration, mona_comm_t m_mona_comm);
+  int execute(uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm);
+
+  int executesynthetic(uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm);
 
   int cleanup(uint64_t iteration);
 

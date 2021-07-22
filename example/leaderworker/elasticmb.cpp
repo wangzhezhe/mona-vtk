@@ -392,6 +392,8 @@ int main(int argc, char** argv)
     {
       throw std::runtime_error("failed to execute bcast to get step value");
     }
+
+   // try to write data out for testing
   }
 
   spdlog::debug("Engine finalized, now finalizing MoNA...");

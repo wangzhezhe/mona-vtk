@@ -141,6 +141,7 @@ int main(int argc, char** argv)
 
   // the client will use the default provider if it did not call server based on provider handle
   std::string stagingScript = "./mbrender_64_iso.py";
+  // std::string stagingScript = "./gridwriter.py";
   StagingProvider stageprovider(engine, 0, leader, mona, std::string(mona_addr_buf.data()),
     g_server_leader_config, stagingScript);
 

@@ -98,7 +98,10 @@ public:
    *
    * @return a RequestResult containing an error code.
    */
-  virtual int execute(uint64_t iteration, mona_comm_t m_mona_comm) = 0;
+  virtual int execute(uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm) = 0;
+
+  virtual int executesynthetic(
+    uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm) = 0;
 
   virtual int cleanup(uint64_t iteration) = 0;
 };

@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=7
+#SBATCH --nodes=9
 #SBATCH --tasks-per-node=32
 #SBATCH --time=10:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
-
+rm core
 ulimit -c unlimited
 
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
@@ -15,21 +15,25 @@ cd $BUILDDIR
 rm dynamic_drc.config
 rm dynamic_leader.config
 rm dynamic_server_leader.config
-
+rm *.png
 rm elasticmb_*.log
+rm clientleave.config
 
 # key envs
 PROTOCOL=gni
 
 CLIENT_INIT_NODE=4
 CLIENT_INIT_NUM=32
-CLIENT_DYNAMIC_NUM=1
+CLIENT_DYNAMIC_NUM=4
 
 # server nodes
-SERVERNODE=2
-SERVERPROCESS=8
+SERVERNODE=1
+# set this value to 2 at least
+# otherwise there are issue to add new process, there is an extra bcast call
+SERVERPROCESS=2
 CONFIG=$SRCDIR/example/leaderworker/pipeline/monaconfig.json
-SCRIPTPATH=$SRCDIR/example/leaderworker/pipeline/mbrender_64_iso.py
+SCRIPTPAT1=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
+SCRIPTPAT2=$SRCDIR/example/MandelbulbColza/pipeline/gridwriter.py
 
 # block config
 BLOCKLENW=64
@@ -39,7 +43,8 @@ BLOCKNUM=256
 
 
 # copy the script used for in-situ execution
-cp SCRIPTPATH .
+cp $SCRIPTPAT1 .
+cp $SCRIPTPAT2 .
 cp $SRCDIR/example/leaderworker/pipeline/test/addprocess.sh .
 
 # start the colza server firstly, no join
@@ -102,16 +107,24 @@ done
 # use the trigger command to start
 # if there is client leave, start another colza server
 # TODO, we need to change this part gradually
-#while [ ! -f clientleave.config ]
-#do
-#  sleep 1 
-#done
+
+x=1
+while true;
+do
+# this can be a signal to say that a new server should be started
+while [ ! -f clientleave.config ]
+do
+  sleep 1 
+done
 
 # start the another server if there is leave message
-#srun -C haswell -N 1 -n 1 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
-#            -a gni \
-#           -t 4 \
-#            -v debug \
-#            -j &> elasticmb_elasticserver_add1.log &
+srun -C haswell -N 1 -n 1 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
+           -a gni \
+           -t 4 \
+           -v debug \
+           -j &> elasticmb_elasticserver_add$x.log &
+rm clientleave.config
+x=$(( $x + 1 ))
+done
 
 wait

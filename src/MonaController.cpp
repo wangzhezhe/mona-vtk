@@ -137,6 +137,7 @@ void MonaController::TriggerRMIInternal(
 void MonaController::Initialize(int*, char***, int)
 {
   DEBUG("{}", __FUNCTION__ );
+
   if (MonaController::Initialized)
   {
     vtkWarningMacro("Already initialized.");

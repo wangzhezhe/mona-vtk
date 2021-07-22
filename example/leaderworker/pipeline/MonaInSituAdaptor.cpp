@@ -11,6 +11,7 @@
 #include <vtkFloatArray.h>
 #include <vtkIceTContext.h>
 #include <vtkImageData.h>
+#include <vtkImageImport.h>
 #include <vtkIntArray.h>
 #include <vtkMPI.h>
 #include <vtkMPICommunicator.h>
@@ -21,6 +22,7 @@
 #include <vtkNew.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
+#include <vtkXMLImageDataWriter.h>
 
 #include "../mb.hpp"
 #include <MonaController.hpp>
@@ -68,6 +70,7 @@ void BuildVTKGridList(std::vector<Mandelbulb>& gridList, int global_blocks)
   for (int i = 0; i < local_piece_num; i++)
   {
     int* extents = gridList[i].GetExtents();
+
     vtkNew<vtkImageData> imageData;
     imageData->SetSpacing(1.0 / global_blocks, 1, 1);
     imageData->SetExtent(extents);
@@ -342,6 +345,44 @@ void MonaCoProcess(Mandelbulb& mandelbulb, int nprocs, int rank, double time, un
     Processor->CoProcess(dataDescription.GetPointer());
   }
   DEBUG("{}: MonaCoProcess completed", __FUNCTION__);
+}
+
+size_t int2size_t(int val)
+{
+  return (val < 0) ? __SIZE_MAX__ : (size_t)((unsigned)val);
+}
+
+void MBOutPutVTIFile(Mandelbulb& dataBlock, std::string fileName)
+{
+
+  int* extents = dataBlock.GetExtents();
+  // depth height weight
+  std::array<int, 3> indexlb = { { 0, 0, 0 } };
+  std::array<int, 3> indexub = { { int2size_t(*(extents + 1)) + 1, int2size_t(*(extents + 3)) + 1,
+    int2size_t(*(extents + 5)) + 1 } };
+
+  auto importer = vtkSmartPointer<vtkImageImport>::New();
+  importer->SetDataSpacing(1, 1, 1);
+  importer->SetDataOrigin(dataBlock.GetOrigin());
+  // from 0 to the shape -1 or from lb to the ub??
+  importer->SetWholeExtent(indexlb[0], indexub[0], indexlb[1], indexub[1], indexlb[2], indexub[2]);
+  importer->SetDataExtentToWholeExtent();
+  importer->SetDataScalarTypeToInt();
+  importer->SetNumberOfScalarComponents(1);
+  importer->SetImportVoidPointer((int*)(dataBlock.GetData()));
+  importer->Update();
+
+  // Write the file by vtkXMLDataSetWriter
+  vtkSmartPointer<vtkXMLImageDataWriter> writer = vtkSmartPointer<vtkXMLImageDataWriter>::New();
+  writer->SetFileName(fileName.data());
+
+  // get the specific polydata and check the results
+  writer->SetInputConnection(importer->GetOutputPort());
+  // writer->SetInputData(importer->GetOutputPort());
+  // Optional - set the mode. The default is binary.
+  writer->SetDataModeToBinary();
+  // writer->SetDataModeToAscii();
+  writer->Write();
 }
 
 } // namespace InSitu

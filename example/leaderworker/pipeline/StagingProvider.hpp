@@ -516,10 +516,13 @@ public:
     req.respond(result);
   }
 
-  void execute(const tl::request& req, uint64_t iteration)
+  void execute(const tl::request& req, std::string& dataset_name, uint64_t& iteration)
   {
-    int result = this->m_stagecommon_meta->m_pipeline->execute(
-      iteration, this->m_stagecommon_meta->m_mona_comm);
+    //int result = this->m_stagecommon_meta->m_pipeline->execute(
+    //  iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
+    int result = this->m_stagecommon_meta->m_pipeline->executesynthetic(
+     iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
+    
     req.respond(result);
   }
 

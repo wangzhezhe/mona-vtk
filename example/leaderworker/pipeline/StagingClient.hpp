@@ -305,6 +305,29 @@ public:
     return;
   }
 
+  // only call one exeucte for each iteration for each process
+  std::vector<tl::async_response> execute(
+    uint64_t iteration, std::string& dataset_name, bool leader)
+  {
+    std::vector<tl::async_response> asyncResponses;
+
+    if (leader == false)
+    {
+      return asyncResponses;
+    }
+    // for the leader
+    // send execute rpc to every one in the stageView
+    for (auto& addr : this->m_stagingView)
+    {
+      auto endpoint = this->lookup(addr);
+      tl::provider_handle ph(endpoint, 0);
+      auto response = m_execute.on(ph).async(dataset_name, iteration);
+      asyncResponses.push_back(std::move(response));
+    }
+
+    return asyncResponses;
+  }
+
   void stage(const std::string& dataset_name, uint64_t iteration, uint64_t block_id,
     const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets, const Type& type,
     const void* data, int monarank)
@@ -340,8 +363,9 @@ public:
         "," + std::to_string(monarank) + "," + std::to_string(block_id));
     }
 
-    //spdlog::debug(
-    //  "ok for start iteration {} stage view size {} monarank {}", iteration, stagingSize, monarank);
+    // spdlog::debug(
+    //  "ok for start iteration {} stage view size {} monarank {}", iteration, stagingSize,
+    //  monarank);
 
     return;
   }
