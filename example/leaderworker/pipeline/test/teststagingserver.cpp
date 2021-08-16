@@ -21,6 +21,16 @@ extern "C"
 {
 #include <rdmacred.h>
 }
+#define DIE_IF(cond_expr, err_fmt, ...)                                                            \
+  do                                                                                               \
+  {                                                                                                \
+    if (cond_expr)                                                                                 \
+    {                                                                                              \
+      fprintf(stderr, "ERROR at %s:%d (" #cond_expr "): " err_fmt "\n", __FILE__, __LINE__,        \
+        ##__VA_ARGS__);                                                                            \
+      exit(1);                                                                                     \
+    }                                                                                              \
+  } while (0)
 #endif
 
 namespace tl = thallium;

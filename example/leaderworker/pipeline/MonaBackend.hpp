@@ -115,7 +115,9 @@ public:
 
   int executesynthetic(uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm);
 
-  int cleanup(uint64_t iteration);
+  int executesynthetic2(uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm);
+
+  int cleanup(std::string& dataset_name, uint64_t iteration);
 
   /**
    * @brief the mona communicator associated with current pipeline

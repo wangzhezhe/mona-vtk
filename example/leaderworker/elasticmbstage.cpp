@@ -1,6 +1,7 @@
 
 /*
- dynamic sim + dynamic staging based on leader worker mechanism
+ only the data staging is dynamic and elastic
+ based on leader worker mechanism for this case
  */
 #include <mpi.h>
 #include <spdlog/spdlog.h>
@@ -185,54 +186,50 @@ int main(int argc, char** argv)
   double lastComputeSubmit =
     tl::timer::wtime(); // this value will be updated when the compute is submitted next time
   int avalibleDynamicProcess = g_num_initial_join;
-  bool leave = false;
+  // TODO get the wait time
+  double lastWaitTime = 0;
+  double lastcomputationTime = 0;
   while (step < g_num_iterations)
   {
-    // switch the process functionality
-    // we do nothing at the first step here
-    // remove process here (this should leave after the execution) of previous step
-    // bool leave = controller.naiveLeave2(step, 1, procSize, procRank);
-    // avaliable slot also decrease, since at the first two step, we let it to be the 1
-    // the upper bound here for dynamic anticipation should be g_num_initial_join-2
-    // spdlog::info("start dynamicLeave for iteration {} ", step);
-    
-    leave = controller.dynamicLeave(
-      step, stagingClient.m_stagingView.size(), procSize, procRank, avalibleDynamicProcess);
-    // remember add the bcast back when using the dynamic leave
 
-    // bcast the updated avalibleDynamicProcess to all other processes
-    // for next round to do the dynamicLeave, there are same view about the avalibleDynamicProcess
-    if (step > 0)
+    if (leader)
     {
-      mona_comm_bcast(controller.m_controller_client->m_mona_comm, &avalibleDynamicProcess,
-        sizeof(avalibleDynamicProcess), 0, MONA_TESTSIM_BCAST_TAG);
-    }
+      // the dedicated process will give siganal to associated one
+      // for the naive case, we add one if the wait Time is larger than a threshold
+      // for the adaptive case, we caculate this value
 
-    if (leave)
-    {
-      // write a file and the colza server can start
-      // trigger another server before leave
-      spdlog::debug("leave operation at step {} rank {}", step, procRank);
-      stagingClient.updateExpectedProcess("join", 1);
+      if (step != 0 && lastWaitTime > 0.1)
+      {
+        /* naive strategy
+        // write a file and the colza server can start
+        // trigger another server before leave
+        stagingClient.updateExpectedProcess("join", 1);
+        std::string leaveFileName = "clientleave.config" + std::to_string(procRank);
+        std::ofstream leaveFile;
+        leaveFile.open(leaveFileName);
+        leaveFile << "test\n";
+        leaveFile.close();
+        */
 
-      // it looks using the system call does not trigger things (not sure the reason)
-      // even if the existing process exist, so we still use the config file
-      /*
-      std::string startStagingCommand = "/bin/bash ./addprocess.sh";
-      std::string command = startStagingCommand + " " + std::to_string(1);
-      // use systemcall to start ith server
-      spdlog::info("Add server by command: {}", command);
-      std::system(command.c_str());
-      */
+        /* using model estimation*/
+        // caculate the value of k based on model estimation
 
-      static std::string leaveFileName = "clientleave.config" + std::to_string(procRank);
-      std::ofstream leaveFile;
-      leaveFile.open(leaveFileName);
-      leaveFile << "test\n";
-      leaveFile.close();
-      // trigger a service then break
+        int addNum = controller.m_dmpc.dynamicAddProcessToStaging(
+          "default", stagingClient.m_stagingView.size(), lastcomputationTime);
 
-      break;
+        stagingClient.updateExpectedProcess("join", addNum);
+        spdlog::info("add {} process for step {}", addNum, step);
+        // send the siganal
+        for (int k = 0; k < addNum; k++)
+        {    
+          std::string signalName = "clientleave.config" + std::to_string(k);
+          std::ofstream fileStream;
+          fileStream.open(signalName);
+          fileStream << "test\n";
+          fileStream.close();
+          spdlog::info("send siganal {} for staging", signalName);
+        }
+      }
     }
 
     // syncSimOperation
@@ -240,15 +237,16 @@ int main(int argc, char** argv)
     // for step 0, the sim is synced before the while loop
     auto syncSimStart = tl::timer::wtime();
     spdlog::info("start sync for iteration {} ", step);
-    // TODO return the mona comm and get the step we should process
-    // get the step that needs to be processes after the sync operation
-    // the step should be syncronized from the leader
-    // we can get this message based on synced mona
-    controller.m_controller_client->sync(step, leader);
-    // ok to sync the sim program
+
+    // we do not call the sync operation if sim does not change
 
     // the controller.m_controller_client->m_mona_comm is updated here
-    controller.m_controller_client->getMonaComm(mona);
+    // we only sync for the first step, since the sim is static for this case
+    if (step == 0)
+    {
+      controller.m_controller_client->sync(step, leader);
+      controller.m_controller_client->getMonaComm(mona);
+    }
 
     // mona comm check size and procs
     mona_comm_size(controller.m_controller_client->m_mona_comm, &procSize);
@@ -260,7 +258,7 @@ int main(int argc, char** argv)
 
     if (leader)
     {
-      spdlog::info("iteration {} : rank={}, size={} simsynctime {}", step, procRank, procSize,
+      spdlog::debug("iteration {} : rank={}, size={} simsynctime {}", step, procRank, procSize,
         syncSimEnd - syncSimStart);
     }
 
@@ -334,6 +332,7 @@ int main(int argc, char** argv)
       spdlog::info("iteration {} nblocks_per_proc {} compute time is {} and {}, sum {}", step,
         nblocks_per_proc, caculateEnd2 - caculateEnd1, caculateEnd1 - caculateStart,
         caculateEnd2 - caculateStart);
+      lastcomputationTime = caculateEnd2 - caculateStart;
     }
 
     // waitTime
@@ -357,6 +356,8 @@ int main(int argc, char** argv)
       double stageComputation = waitEend - lastComputeSubmit;
       spdlog::info("wait time for iteration {}: {} total stage computation {} ", step,
         waitEend - waitSart, stageComputation);
+
+      lastWaitTime = waitEend - waitSart;
 
       // TODO try to record the data for model using
       // only record it from the second iteration, there is no staging operation at the first one
@@ -439,32 +440,8 @@ int main(int argc, char** argv)
     asyncResponses = stagingClient.execute(step, dataSetName, leader);
     lastComputeSubmit = tl::timer::wtime();
 
-    // colza execute
-    // stagingClient.execute(step);
-
-    // colza cleanup
-    // stagingClient.cleanup(step);
-
-    if (rank == 0)
-    {
-      step++;
-    }
-
-    // sync the step
-    auto syncStep = tl::timer::wtime();
-
-    ret = mona_comm_bcast(
-      controller.m_controller_client->m_mona_comm, &step, sizeof(step), 0, MONA_TESTSIM_BCAST_TAG);
-
-    auto syncStepEnd = tl::timer::wtime();
-
-    // this time is trival
-    spdlog::debug("get the step value {} from the master takes {}", step, syncStepEnd - syncStep);
-
-    if (ret != NA_SUCCESS)
-    {
-      throw std::runtime_error("failed to execute bcast to get step value");
-    }
+    step++;
+    // sync the step (do not need this if sim is not elastic)
   }
 
   // wait the last execution after the remove operation

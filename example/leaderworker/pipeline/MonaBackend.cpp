@@ -17,9 +17,90 @@
 
 #define MONA_BACKEND_ALLREDUCE_TAG 2053
 
+// this synthetic application is between the
+// pure synthetic one and actual one, we use mona reduce here
+int MonaBackendPipeline::executesynthetic2(
+  uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm)
+{
+  auto executeStart = tl::timer::wtime();
+
+  spdlog::debug("{}: Executing iteration {}", __FUNCTION__, iteration);
+  // when the mona is updated, init and reset
+  // otherwise, do not reset
+  // it might need some time for the fir step
+  // still use mona comm lock to make sure we use the latest value
+
+  int procSize, procRank;
+  mona_comm_size(m_mona_comm, &procSize);
+  mona_comm_rank(m_mona_comm, &procRank);
+  spdlog::debug("iteration {}: rank={}, size={}", iteration, procRank, procSize);
+
+  std::vector<Mandelbulb> MandelbulbList;
+  int totalBlock = 0;
+  int localBlocks = m_datasets[iteration][dataset_name].size();
+  // std::cout << "local blocks is " << localBlocks << std::endl;
+  // the reduce function is a lambda expression here
+  mona_comm_allreduce(
+    m_mona_comm, &localBlocks, &totalBlock, sizeof(int), 1,
+    [](const void* in, void* out, na_size_t, na_size_t, void*) {
+      const int* a = static_cast<const int*>(in);
+      int* b = static_cast<int*>(out);
+      *b += *a;
+    },
+    nullptr, MONA_BACKEND_ALLREDUCE_TAG);
+  spdlog::debug(
+    "{}: After AllReduce, localBlocks={}, totalBlocks={}", __FUNCTION__, localBlocks, totalBlock);
+
+  // process the insitu function for the MandelbulbList
+  // the controller is updated in the MonaUpdateController
+  mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG2);
+  spdlog::debug("after barrier, iteration={} commsize {}", iteration, procSize);
+
+  // reduce the block data to one process and do some operations
+  // reduce data reduce dimentions reduce offsets average
+  int workload = 10;
+  for (int k = 0; k < workload; k++)
+  {
+    // give staging some burdern for execution
+    for (auto& t : m_datasets[iteration][dataset_name])
+    {
+      size_t blockID = t.first;
+      auto depth = t.second.dimensions[0] - 1;
+      auto height = t.second.dimensions[1];
+      auto width = t.second.dimensions[2];
+      // std::cout << blockID << ",";
+      size_t blockOffset = blockID * depth;
+      // reconstruct the MandelbulbList
+      Mandelbulb mb(width, height, depth, blockOffset, 1.2, blockID, totalBlock);
+      mb.SetData(t.second.data);
+      MandelbulbList.push_back(mb);
+      double* origin = mb.GetOrigin();
+      int* extents = mb.GetExtents();
+
+      // spdlog::debug("check upstream data id {} depth {} height {} width {} ,check generated info
+      // "
+      //              "origin {} {} {} extents{} {} {}",
+      //  blockID, depth, height, width, origin[0], origin[1], origin[2], extents[1], extents[3],
+      //  extents[5]);
+
+      // for testing the data
+      std::string fileName =
+        "./mbtestdata/mb" + std::to_string(iteration) + "_" + std::to_string(blockID) + ".vti";
+
+      // try to do multiple writs
+      InSitu::MBOutPutVTIFile(mb, fileName);
+    }
+  }
+
+  auto executeEnd = tl::timer::wtime();
+  spdlog::debug(
+    "iteration {}: Done with executesynthetic2 time {}", iteration, executeEnd - executeStart);
+
+  return 0;
+}
+
 // update the data, try to add the visulization operations
 // when this is called, we can not update the comm
-
 int MonaBackendPipeline::executesynthetic(
   uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm)
 {
@@ -56,7 +137,7 @@ int MonaBackendPipeline::executesynthetic(
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG2);
   spdlog::debug("after barrier, iteration={} commsize {}", iteration, procSize);
 
-  double syntheticT = 15.0 * pow(procSize, -0.9);
+  double syntheticT = 18.0 * pow(procSize, -0.6);
   usleep(syntheticT * 1000000);
 
   auto executeEnd = tl::timer::wtime();
@@ -173,11 +254,11 @@ int MonaBackendPipeline::execute(
   // the controller is updated in the MonaUpdateController
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG2);
   spdlog::debug("after barrier, iteration={} commsize {}", iteration, procSize);
-  // InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
-  // use 15*x^(-0.9)
 
-  double syntheticT = 16.0 * pow(procSize, -0.9);
+  double syntheticT = 18 * pow(procSize, -0.6);
   usleep(syntheticT * 1000000);
+  InSitu::MonaCoProcessDynamic(MandelbulbList, totalBlock, iteration, iteration);
+  // use 15*x^(-0.9)
 
   auto executeEnd = tl::timer::wtime();
   spdlog::debug("iteration {}: Done with InSitu::MonaCoProcessDynamic time {}", iteration,
@@ -186,15 +267,17 @@ int MonaBackendPipeline::execute(
   return 0;
 }
 
-int MonaBackendPipeline::cleanup(uint64_t iteration)
+int MonaBackendPipeline::cleanup(std::string& dataset_name, uint64_t iteration)
 {
-  spdlog::debug("{}: Calling cleanup for iteration {}", __FUNCTION__, iteration);
+  spdlog::debug(
+    "{}: Calling cleanup for iteration {} for datastet {}", __FUNCTION__, iteration, dataset_name);
   {
     std::lock_guard<tl::mutex> g(m_datasets_mtx);
-    m_datasets.erase(iteration);
+    m_datasets[iteration].erase(dataset_name);
   }
 
-  spdlog::debug("{}: Done cleaning up iteration {}", __FUNCTION__, iteration);
+  spdlog::debug(
+    "{}: Done cleaning up iteration {} for datastet {}", __FUNCTION__, iteration, dataset_name);
   return 0;
 }
 

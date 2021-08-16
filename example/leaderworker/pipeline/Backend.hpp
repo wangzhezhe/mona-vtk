@@ -99,11 +99,15 @@ public:
    * @return a RequestResult containing an error code.
    */
   virtual int execute(uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm) = 0;
-
+  
+  // TODO, update this part, add another parameter to label the versio of execution function
   virtual int executesynthetic(
     uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm) = 0;
 
-  virtual int cleanup(uint64_t iteration) = 0;
+  virtual int executesynthetic2(
+    uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm) = 0;
+
+  virtual int cleanup(std::string& dataset_name, uint64_t iteration) = 0;
 };
 
 #endif

@@ -328,6 +328,33 @@ public:
     return asyncResponses;
   }
 
+  void cleanup(int monarank, std::string& dataset_name, uint64_t iteration)
+  {
+    // choose a suitable server to create ph
+    int stagingSize = this->m_stagingView.size();
+    if (stagingSize == 0)
+    {
+      throw std::runtime_error(
+        "stage api, stagingSize is not supposed to be zero for rank " + std::to_string(monarank));
+    }
+    spdlog::debug("start iteration {} cleanup for monarank {}", iteration, stagingSize, monarank);
+    int serverid = monarank % stagingSize;
+    auto ep = this->lookup(this->m_stagingView[serverid]);
+
+    tl::provider_handle ph(ep, 0);
+    auto sender_addr = static_cast<std::string>(this->m_engineptr->self());
+
+    // send the RPC
+    int result = this->m_cleanup.on(ph)(sender_addr, dataset_name, iteration);
+    if (result != 0)
+    {
+      throw std::runtime_error("failed to cleanup iteration rank id :" + std::to_string(iteration) +
+        "," + std::to_string(monarank) + "," + dataset_name);
+    }
+
+    return;
+  }
+
   void stage(const std::string& dataset_name, uint64_t iteration, uint64_t block_id,
     const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets, const Type& type,
     const void* data, int monarank)

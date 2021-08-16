@@ -7,6 +7,10 @@
 #SBATCH --constraint=haswell
 rm core
 ulimit -c unlimited
+# make sure the synthetic function is executesynthetic2
+# for this script
+rm -rf mbtestdata
+mkdir mbtestdata
 
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk

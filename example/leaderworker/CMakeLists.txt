@@ -14,7 +14,6 @@ pkg_check_modules (TCLAP REQUIRED IMPORTED_TARGET tclap)
 pkg_check_modules (SSG REQUIRED IMPORTED_TARGET ssg)
 
 
-
 include (xpkg-import)
 xpkg_import_module (uuid REQUIRED uuid)
 
@@ -84,3 +83,10 @@ add_executable (elasticmbleaderworker
 ${CMAKE_CURRENT_SOURCE_DIR}/elasticmbleaderworker.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp)
 target_link_libraries (elasticmbleaderworker MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
+
+add_executable (elasticmbstage 
+${CMAKE_CURRENT_SOURCE_DIR}/elasticmbstage.cpp
+${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp)
+target_link_libraries (elasticmbstage MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
+
+add_executable (testDynamicProcessController ./pipeline/test/testDynamicProcessController.cpp)
