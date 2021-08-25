@@ -55,6 +55,7 @@ int main(int argc, char** argv)
 {
   parse_command_line(argc, argv);
   spdlog::set_level(spdlog::level::from_str(g_log_level));
+  spdlog::info("program start at this timestamp");
 
   // Initialize MPI
   MPI_Init(&argc, &argv);

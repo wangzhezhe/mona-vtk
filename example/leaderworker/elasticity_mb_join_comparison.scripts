@@ -132,6 +132,8 @@ then
   sleep 2
 else
   # start one process and remove one
+  echo "config is detected $(date)"
+  # start one process and remove one
   echo "start one process"
   fileName=`ls clientleave.config* |sed -n '1p'`
   echo "remove ${fileName}"
@@ -146,6 +148,7 @@ else
            -v debug \
            -j &> elasticmb_elasticserver_add$x.log &
 
+  echo "srun is started for $x and time $(date)"
   x=$(( $x + 1 ))
 fi
 done

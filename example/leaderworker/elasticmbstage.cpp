@@ -200,7 +200,7 @@ int main(int argc, char** argv)
 
       if (step != 0 && lastWaitTime > 0.1)
       {
-        /* naive strategy
+        /* static strategy
         // write a file and the colza server can start
         // trigger another server before leave
         stagingClient.updateExpectedProcess("join", 1);
@@ -221,7 +221,7 @@ int main(int argc, char** argv)
         spdlog::info("add {} process for step {}", addNum, step);
         // send the siganal
         for (int k = 0; k < addNum; k++)
-        {    
+        {
           std::string signalName = "clientleave.config" + std::to_string(k);
           std::ofstream fileStream;
           fileStream.open(signalName);
@@ -368,7 +368,7 @@ int main(int argc, char** argv)
 
         // the size is still the last recorded size of staging part
         controller.m_dmpc.recordData(
-          "staging", stagingClient.m_stagingView.size(), stageComputation);
+          "staging", stageComputation, stagingClient.m_stagingView.size());
       }
     }
 

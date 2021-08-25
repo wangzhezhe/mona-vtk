@@ -58,7 +58,7 @@ int MonaBackendPipeline::executesynthetic2(
 
   // reduce the block data to one process and do some operations
   // reduce data reduce dimentions reduce offsets average
-  int workload = 10;
+  int workload = 20;
   for (int k = 0; k < workload; k++)
   {
     // give staging some burdern for execution
@@ -175,7 +175,7 @@ int MonaBackendPipeline::execute(
   // there is an extra bcast operation for first added process, do this thing every time
   if (m_first_init)
   {
-    // self is created when we init the backedn
+    // self is created when we init the backend
     spdlog::debug("{}: First init, requires initialization with mona_comm_self", __FUNCTION__);
     InSitu::MonaInitialize(m_script_name, m_mona_comm_self);
     spdlog::debug("{}: Done initializing with mona_comm_self", __FUNCTION__);

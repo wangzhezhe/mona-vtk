@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=10
+#SBATCH --nodes=11
 #SBATCH --tasks-per-node=32
 #SBATCH --time=5:00
 #SBATCH --licenses=cscratch1
@@ -31,7 +31,7 @@ PROTOCOL=gni
 
 CLIENT_INIT_NODE=4
 CLIENT_INIT_NUM=32
-CLIENT_DYNAMIC_NUM=5
+CLIENT_DYNAMIC_NUM=6
 
 # server nodes
 SERVERNODE=1

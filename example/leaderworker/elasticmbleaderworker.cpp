@@ -71,7 +71,7 @@ std::unique_ptr<tl::engine> globalServerEnginePtr;
 
 int main(int argc, char** argv)
 {
-
+  
   // Initialize MPI
   MPI_Init(&argc, &argv);
 
@@ -186,53 +186,59 @@ int main(int argc, char** argv)
     tl::timer::wtime(); // this value will be updated when the compute is submitted next time
   int avalibleDynamicProcess = g_num_initial_join;
   bool leave = false;
+  double lastWaitTime = 0;
+
   while (step < g_num_iterations)
   {
     // switch the process functionality
     // we do nothing at the first step here
     // remove process here (this should leave after the execution) of previous step
-    // bool leave = controller.naiveLeave2(step, 1, procSize, procRank);
     // avaliable slot also decrease, since at the first two step, we let it to be the 1
     // the upper bound here for dynamic anticipation should be g_num_initial_join-2
     // spdlog::info("start dynamicLeave for iteration {} ", step);
-    
-    leave = controller.dynamicLeave(
-      step, stagingClient.m_stagingView.size(), procSize, procRank, avalibleDynamicProcess);
-    // remember add the bcast back when using the dynamic leave
 
-    // bcast the updated avalibleDynamicProcess to all other processes
-    // for next round to do the dynamicLeave, there are same view about the avalibleDynamicProcess
-    if (step > 0)
+    if (step != 0 && lastWaitTime > 0.1)
     {
-      mona_comm_bcast(controller.m_controller_client->m_mona_comm, &avalibleDynamicProcess,
-        sizeof(avalibleDynamicProcess), 0, MONA_TESTSIM_BCAST_TAG);
-    }
+      leave = controller.naiveLeave2(step, 1, procSize, procRank);
 
-    if (leave)
-    {
-      // write a file and the colza server can start
-      // trigger another server before leave
-      spdlog::debug("leave operation at step {} rank {}", step, procRank);
-      stagingClient.updateExpectedProcess("join", 1);
+      //leave = controller.dynamicLeave(
+      //  step, stagingClient.m_stagingView.size(), procSize, procRank, avalibleDynamicProcess);
+      // remember add the bcast back when using the dynamic leave
 
-      // it looks using the system call does not trigger things (not sure the reason)
-      // even if the existing process exist, so we still use the config file
-      /*
-      std::string startStagingCommand = "/bin/bash ./addprocess.sh";
-      std::string command = startStagingCommand + " " + std::to_string(1);
-      // use systemcall to start ith server
-      spdlog::info("Add server by command: {}", command);
-      std::system(command.c_str());
-      */
+      // bcast the updated avalibleDynamicProcess to all other processes
+      // for next round to do the dynamicLeave, there are same view about the avalibleDynamicProcess
+      if (step > 0)
+      {
+        mona_comm_bcast(controller.m_controller_client->m_mona_comm, &avalibleDynamicProcess,
+          sizeof(avalibleDynamicProcess), 0, MONA_TESTSIM_BCAST_TAG);
+      }
 
-      static std::string leaveFileName = "clientleave.config" + std::to_string(procRank);
-      std::ofstream leaveFile;
-      leaveFile.open(leaveFileName);
-      leaveFile << "test\n";
-      leaveFile.close();
-      // trigger a service then break
+      if (leave)
+      {
+        // write a file and the colza server can start
+        // trigger another server before leave
+        spdlog::info("leave operation at step {} rank {}", step, procRank);
+        stagingClient.updateExpectedProcess("join", 1);
 
-      break;
+        // it looks using the system call does not trigger things (not sure the reason)
+        // even if the existing process exist, so we still use the config file
+        /*
+        std::string startStagingCommand = "/bin/bash ./addprocess.sh";
+        std::string command = startStagingCommand + " " + std::to_string(1);
+        // use systemcall to start ith server
+        spdlog::info("Add server by command: {}", command);
+        std::system(command.c_str());
+        */
+
+        static std::string leaveFileName = "clientleave.config" + std::to_string(procRank);
+        std::ofstream leaveFile;
+        leaveFile.open(leaveFileName);
+        leaveFile << "test\n";
+        leaveFile.close();
+        // trigger a service then break
+        spdlog::info("send leave signal step {} rank {}", step, procRank);
+        break;
+      }
     }
 
     // syncSimOperation
@@ -352,6 +358,9 @@ int main(int argc, char** argv)
     mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
     auto waitEend = tl::timer::wtime();
 
+    // all process should record the waitTime, this is different compared with previous evaluation
+    lastWaitTime = waitEend - waitSart;
+
     if (leader)
     {
       double stageComputation = waitEend - lastComputeSubmit;
@@ -367,7 +376,7 @@ int main(int argc, char** argv)
 
         // the size is still the last recorded size of staging part
         controller.m_dmpc.recordData(
-          "staging", stagingClient.m_stagingView.size(), stageComputation);
+          "staging", stageComputation, stagingClient.m_stagingView.size());
       }
     }
 

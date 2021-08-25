@@ -1,0 +1,13 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --time=5:00
+#SBATCH --nodes=2
+#SBATCH --tasks-per-node=32
+#SBATCH --constraint=haswell
+#DW jobdw capacity=16MB access_mode=striped type=scratch
+
+echo "burstbuffer test: ${DW_JOB_STRIPED}"
+
+srun check-mpi.intel.cori > ${DW_JOB_STRIPED}/output.txt
+ls ${DW_JOB_STRIPED}
+cat ${DW_JOB_STRIPED}/output.txt

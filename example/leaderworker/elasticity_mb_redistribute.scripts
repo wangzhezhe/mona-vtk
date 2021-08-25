@@ -56,7 +56,8 @@ srun -C haswell -N $SERVERNODE -n $SERVERPROCESS -c 8 -l --cpu_bind=cores --time
             -t 4 \
             -v debug \
             -g 0 &> elasticmb_elasticserver_$SERVERPROCESS.log &
- 
+
+echo "srun is called for elasticserver init at $(date)"
 
 # make sure the leader start
 while [ ! -f dynamic_server_leader.config ]
@@ -121,14 +122,15 @@ do
 result=`ls clientleave.config* |wc -l`
 if [ $result -eq 0 ]
 then
-  echo "no config file, wait signal and sleep"
-  sleep 2
+  sleep 1
 else
   # start one process and remove one
+  echo "config is detected $(date)"
   echo "start one process"
   fileName=`ls clientleave.config* |sed -n '1p'`
   echo "remove ${fileName}"
   rm $fileName
+  echo "remove filename ${fileName} $(date)"
 
   # start the another server if there is leave message
   # there are some issue if we start by system call
@@ -138,7 +140,7 @@ else
            -t 4 \
            -v debug \
            -j &> elasticmb_elasticserver_add$x.log &
-
+  echo "srun is called for elasticserver$x at $(date)"
   x=$(( $x + 1 ))
 fi
 done
