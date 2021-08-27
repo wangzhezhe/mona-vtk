@@ -28,12 +28,14 @@ colza_to_numpy_type = {
     Type.INT16   : np.dtype(np.int16),
     Type.INT32   : np.dtype(np.int32),
     Type.INT64   : np.dtype(np.int64),
-    Type.INT8    : np.dtype(np.uint8),
-    Type.INT16   : np.dtype(np.uint16),
-    Type.INT32   : np.dtype(np.uint32),
-    Type.INT64   : np.dtype(np.uint64),
+    Type.UINT8    : np.dtype(np.uint8),
+    Type.UINT16   : np.dtype(np.uint16),
+    Type.UINT32   : np.dtype(np.uint32),
+    Type.UINT64   : np.dtype(np.uint64),
 }
-numpy_to_colza_type = {v: k for k, v in colza_to_numpy_type.items()}
+numpy_to_colza_type = {str(v): k for k, v in colza_to_numpy_type.items()}
+numpy_to_colza_type['<f4'] = Type.FLOAT32
+
 
 def find_vtm_file(path):
     files = glob.glob(path+'/*.vtm')
@@ -60,8 +62,8 @@ def read_vtu_file(vtu_file):
     print('Rank {} reading {}'.format(MPI.COMM_WORLD.Get_rank(), vtu_file))
     mesh = meshio.read(vtu_file)
     output = {}
-    output['rho'] = mesh.cell_data['rho']
-    output['v02'] = mesh.cell_data['v02']
+    output['rho'] = mesh.cell_data['rho'][0]
+    output['v02'] = mesh.cell_data['v02'][0]
     output['points'] = mesh.points
 
     cell_types = np.array([], dtype=np.ubyte)
@@ -110,7 +112,7 @@ def process_file(iteration, filename, stage_path, pipeline):
     output = {}
     for i in range(0, len(vtu_files)):
         if i % size == rank:
-            output[i] = read_vtu_file(vtu_files[i]))
+            output[i] = read_vtu_file(vtu_files[i])
 
     logger.info('Starting iteration {} in Colza pipeline'.format(iteration))
     pipeline.start(iteration)
@@ -121,8 +123,8 @@ def process_file(iteration, filename, stage_path, pipeline):
             pipeline.stage(
                 dataset_name=name,
                 iteration=iteration,
-                type=numpy_to_colza_type(array.dtype),
-                block_id = block_id,
+                type=numpy_to_colza_type[str(array.dtype)],
+                block_id=block_id,
                 data=array)
 
     logger.info('Executing pipeline')
@@ -141,14 +143,14 @@ def process(engine, filenames, ssg_file, provider_id, pipeline_name, stage_path)
     colza_comm = ColzaCommunicator(MPI.COMM_WORLD)
     colza_client = ColzaClient(engine)
 
-    colza_pipeline = client.make_distributed_pipeline_handle(
+    colza_pipeline = colza_client.make_distributed_pipeline_handle(
         comm=colza_comm,
         ssg_file=ssg_file,
         provider_id=provider_id,
         name=pipeline_name,
         check=True)
 
-    for i, filename in enumerate(filenames)
+    for i, filename in enumerate(filenames):
         MPI.COMM_WORLD.Barrier()
         process_file(i, filename, stage_path, colza_pipeline)
 
@@ -156,8 +158,9 @@ def process(engine, filenames, ssg_file, provider_id, pipeline_name, stage_path)
 def run(args):
     filenames = args.files
     protocol = args.protocol
-    master = args.master_address
-    provider_id = args.master_id
+    ssg_file = args.ssg_file
+    pipeline = args.pipeline
+    provider_id = args.provider_id
     stage_path = args.stage_path
 
     if MPI.COMM_WORLD.Get_rank() != 0:
@@ -167,7 +170,7 @@ def run(args):
 
     with Engine('ofi+tcp', pymargo.server) as engine:
         pyssg.init()
-        process(engine, filenames, master, provider_id, stage_path)
+        process(engine, filenames, ssg_file, provider_id, pipeline, stage_path)
         engine.finalize()
         pyssg.finalize()
 
