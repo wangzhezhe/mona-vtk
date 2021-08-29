@@ -73,7 +73,7 @@ int main(int argc, char** argv)
 
   /* access credential and covert to string for use by mercury */
   ret = drc_access(drc_credential_id, 0, &drc_credential_info);
-  DIE_IF(ret != DRC_SUCCESS, "drc_access %u %ld", drc_credential_id);
+  DIE_IF(ret != DRC_SUCCESS, "drc_access %u %ld", ret, drc_credential_id);
   drc_cookie = drc_get_first_cookie(drc_credential_info);
   sprintf(drc_key_str, "%u", drc_cookie);
   hii.na_init_info.auth_key = drc_key_str;
@@ -98,7 +98,8 @@ int main(int argc, char** argv)
   if (ret != SSG_SUCCESS)
     throw std::runtime_error("Could not observe the SSG group from file");
   // get string addresses
-  int group_size = ssg_get_group_size(gid);
+  int group_size;
+  ssg_get_group_size(gid, &group_size);
   std::cout << "group size: " << group_size << std::endl;
 
   // std::vector<char> packed_addresses(group_size * 256, 0);

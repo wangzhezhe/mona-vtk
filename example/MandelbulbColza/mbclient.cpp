@@ -321,8 +321,9 @@ uint32_t get_credentials_from_ssg_file()
     spdlog::critical("Could not load group id from file");
     exit(-1);
   }
-  int64_t credential_id = ssg_group_id_get_cred(gid);
-  if (credential_id == -1)
+  int64_t credential_id;
+  ret = ssg_group_id_get_cred(gid, &credential_id);
+  if (ret != SSG_SUCCESS)
     return cookie;
   // ssg_group_destroy(gid);
 
