@@ -23,7 +23,7 @@ set (CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 #use the debug build when it is necessary
-#SET(CMAKE_CXX_FLAGS  "-DDEBUG_BUILD")
+SET(CMAKE_CXX_FLAGS  "-DDEBUG_BUILD")
 
 option(USE_GNI "use cray gni" ON)
 option(ENABLE_DAMARIS "Build the Damaris-based example (requires ENABLE_EXAMPLE=ON)" ON)

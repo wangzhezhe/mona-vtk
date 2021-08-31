@@ -1,0 +1,9 @@
+{
+    "pipelines" : {
+        "dwi_mpi_backend" : {
+            "library" : "example/DeepWaterImpact/pipeline/libpycolza-dwi-mpi-pipeline.so",
+            "type" : "dwi_mpi_backend",
+            "config" : {}
+        }
+    }
+}

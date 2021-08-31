@@ -28,7 +28,7 @@ colza_to_numpy_type = {
     Type.INT16   : np.dtype(np.int16),
     Type.INT32   : np.dtype(np.int32),
     Type.INT64   : np.dtype(np.int64),
-    Type.UINT8    : np.dtype(np.uint8),
+    Type.UINT8    : np.dtype(np.uint8), #byte is an alias for uint8
     Type.UINT16   : np.dtype(np.uint16),
     Type.UINT32   : np.dtype(np.uint32),
     Type.UINT64   : np.dtype(np.uint64),
@@ -66,22 +66,32 @@ def read_vtu_file(vtu_file):
     output['v02'] = mesh.cell_data['v02'][0]
     output['points'] = mesh.points
 
+    #print ("rho type {} v02 type {} points array type {}".format(output['rho'].dtype,output['v02'].dtype,output['points'].dtype))
+
     cell_types = np.array([], dtype=np.ubyte)
-    cell_offsets = np.array([], dtype=int)
-    cell_conn = np.array([], dtype=int)
+    cell_offsets = np.array([], dtype=np.int64)
+    cell_conn = np.array([], dtype=np.int64)
 
     for meshio_type, data in mesh.cells:
         vtk_type = meshio_to_vtk_type[meshio_type]
         ncells, npoints = data.shape
+        print("ncells",ncells)
+        print("npoints",npoints)
+
         cell_types = np.hstack(
             [cell_types, np.full(ncells, vtk_type, dtype=np.ubyte)]
         )
-        offsets = len(cell_conn) + (1 + npoints) * np.arange(ncells, dtype=int)
+        offsets = len(cell_conn) + (npoints) * np.arange(ncells+1, dtype=np.int64)
         cell_offsets = np.hstack([cell_offsets, offsets])
-        conn = np.hstack(
-            [npoints * np.ones((ncells, 1), dtype=int), data]
-        ).flatten()
+        #conn = np.hstack(
+        #    [npoints * np.ones((ncells, 1), dtype=np.int64), data]
+        #).flatten()
+        conn = data.flatten()
         cell_conn = np.hstack([cell_conn, conn])
+
+        print("cell_types shape", cell_types.shape)
+        print("cell_offsets shape", cell_offsets.shape)
+        print("cell_conn shape", cell_conn.shape)
 
     output['cell_types'] = cell_types
     output['cell_offsets'] = cell_offsets
@@ -93,6 +103,7 @@ def process_file(iteration, filename, stage_path, pipeline):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
+    print (filename)
     name = filename.split('/')[-1].split('.')[-2]
     to_remove = []
     if rank == 0:
@@ -149,7 +160,7 @@ def process(engine, filenames, ssg_file, provider_id, pipeline_name, stage_path)
         provider_id=provider_id,
         name=pipeline_name,
         check=True)
-
+    # the iteration number equals to the number of tar files
     for i, filename in enumerate(filenames):
         MPI.COMM_WORLD.Barrier()
         process_file(i, filename, stage_path, colza_pipeline)
@@ -166,13 +177,12 @@ def run(args):
     if MPI.COMM_WORLD.Get_rank() != 0:
         logger.setLevel(logging.ERROR)
     else:
-        logger.setLevel(logging.DEBUG)
-
-    with Engine('ofi+tcp', pymargo.server) as engine:
-        pyssg.init()
+        logger.setLevel(logging.INFO)
+    
+    cookie = pyssg.get_credentials_from_ssg_file(ssg_file)
+    with Engine(protocol, pymargo.server, options={ 'mercury': { 'auth_key': cookie }}) as engine:
         process(engine, filenames, ssg_file, provider_id, pipeline, stage_path)
         engine.finalize()
-        pyssg.finalize()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mini-app reloading Deep Water Impact datasets')
@@ -181,6 +191,9 @@ if __name__ == '__main__':
     parser.add_argument('--provider-id', type=int, default=0, help='Provide id of Colza servers')
     parser.add_argument('--stage-path', type=str, default='.', help='Folder in which to stage uncompressed data')
     parser.add_argument('--pipeline', type=str, help='Name of the Colza pipeline to which to send data')
-    parser.add_argument('files', type=str, nargs='+', help='Files to load')
+    parser.add_argument('--files', type=str, nargs='+', help='Files to load')
     args = parser.parse_args()
+    pyssg.init()
     run(args)
+    pyssg.finalize()
+
