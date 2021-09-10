@@ -1,8 +1,8 @@
 {
     "pipelines" : {
-        "dwmonabackend" : {
+        "dwi_mona_backend" : {
             "library" : "example/DeepWaterImpact/pipeline/libpycolza-dwi-mona-pipeline.so",
-            "type" : "dwmonabackend",
+            "type" : "dwi_mona_backend",
             "config" : {}
         }
     }

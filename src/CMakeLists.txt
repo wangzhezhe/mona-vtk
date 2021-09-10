@@ -1,7 +1,7 @@
 # list of source files
 set(mona-vtk-src MonaCommunicator.cpp
-                  MonaController.cpp
-                  MonaUtilities.cpp)
+                 MonaController.cpp
+                 MonaUtilities.cpp)
 
 set(mona-icet-src icet/mona.cpp)
 

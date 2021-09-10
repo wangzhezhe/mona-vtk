@@ -3,8 +3,8 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __DWI_BACKEND_HPP
-#define __DWI_BACKEND_HPP
+#ifndef __DWI_MPI_BACKEND_HPP
+#define __DWI_MPI_BACKEND_HPP
 
 #include "DataBlock.hpp"
 #include <colza/Backend.hpp>

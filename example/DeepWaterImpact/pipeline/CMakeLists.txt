@@ -19,3 +19,14 @@ VTK::IOImage
 VTK::IOXML
 VTK::IOLegacy
 )
+
+#find the icet and updated mochi controller
+include_directories(${CMAKE_SOURCE_DIR}/src)
+add_library (pycolza-dwi-mona-pipeline SHARED DWIMonaPipeline.cpp DWIInSituMonaAdaptor.cpp)
+target_link_libraries (pycolza-dwi-mona-pipeline 
+colza-server 
+spdlog::spdlog
+mona-vtk-icet
+mona-vtk
+ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel
+)

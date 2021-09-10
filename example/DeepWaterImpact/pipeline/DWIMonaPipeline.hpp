@@ -3,17 +3,19 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __DWI_BACKEND_HPP
-#define __DWI_BACKEND_HPP
+#ifndef __DWI_MONA_BACKEND_HPP
+#define __DWI_MONA_BACKEND_HPP
 
 #include "DataBlock.hpp"
 #include <colza/Backend.hpp>
 #include <thallium.hpp>
+#include <mona-coll.h>
+#include <mona.h>
 
 using json = nlohmann::json;
 namespace tl = thallium;
 
-class DWIPipeline : public colza::Backend
+class DWIMONAPipeline : public colza::Backend
 {
 
 protected:
@@ -32,7 +34,7 @@ public:
   /**
    * @brief Constructor.
    */
-  DWIPipeline(const colza::PipelineFactoryArgs& args)
+  DWIMONAPipeline(const colza::PipelineFactoryArgs& args)
     : m_engine(args.engine)
     , m_gid(args.gid)
     , m_config(args.config)
@@ -42,27 +44,27 @@ public:
   /**
    * @brief Move-constructor.
    */
-  DWIPipeline(DWIPipeline&&) = delete;
+  DWIMONAPipeline(DWIMONAPipeline&&) = delete;
 
   /**
    * @brief Copy-constructor.
    */
-  DWIPipeline(const DWIPipeline&) = delete;
+  DWIMONAPipeline(const DWIMONAPipeline&) = delete;
 
   /**
    * @brief Move-assignment operator.
    */
-  DWIPipeline& operator=(DWIPipeline&&) = delete;
+  DWIMONAPipeline& operator=(DWIMONAPipeline&&) = delete;
 
   /**
    * @brief Copy-assignment operator.
    */
-  DWIPipeline& operator=(const DWIPipeline&) = delete;
+  DWIMONAPipeline& operator=(const DWIMONAPipeline&) = delete;
 
   /**
    * @brief Destructor.
    */
-  virtual ~DWIPipeline() = default;
+  virtual ~DWIMONAPipeline() = default;
 
   /**
    * @brief Update the array of Mona addresses associated with
@@ -121,13 +123,33 @@ public:
 
   /**
    * @brief Static factory function used by the PipelineFactory to
-   * create a DWIPipeline.
+   * create a DWIMONAPipeline.
    *
    * @param args arguments used for creating the pipeline.
    *
    * @return a unique_ptr to a pipeline
    */
   static std::unique_ptr<colza::Backend> create(const colza::PipelineFactoryArgs& args);
+
+
+  /**
+   * @brief the mona communicator associated with current pipeline
+   *
+   */
+  mona_instance_t        m_mona = nullptr;
+  mona_comm_t            m_mona_comm = nullptr; // MoNA communicator built in start()
+  mona_comm_t            m_mona_comm_self = nullptr; // MoNA communicator with only this process
+  std::vector<na_addr_t> m_member_addrs; // latest known member addresses
+
+  // do not update comm when it is used by the in-situ part
+  tl::mutex m_mona_comm_mtx;
+
+  int m_init_rank = 0;
+  int m_init_proc = 0;
+  bool m_first_init = true;
+  std::string m_script_name = "";
+
+
 };
 
 #endif
