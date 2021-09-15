@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=2
-#SBATCH --time=20:00
+#SBATCH --nodes=10
+#SBATCH --time=29:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
 
@@ -36,26 +36,29 @@ RENDERSCRIPT=$SRCDIR/example/DeepWaterImpact/pipeline/render_dwi.py
 cp $RENDERSCRIPT .
 
 rm -rf pv_insitu_*
+rm *.png
 
-TARFILEPATH=/global/cscratch1/sd/zw241
-TARFILE=pv_insitu_15674.tar
+TARFILEPATH=/global/cscratch1/sd/zw241/DeepWaterImpact
+#TARFILE=pv_insitu_15674.tar
 #cp /global/cscratch1/sd/zw241/pv_insitu_15674_test_2/pv_insitu_15674.tar .
-cp $TARFILEPATH/$TARFILE .
+TARFILE=DeepWaterImpactData/pv_insitu_*
+#do this before hand
+#cp $TARFILEPATH/$TARFILE .
 
 cp $SRCDIR/example/DeepWaterImpact/client/dwi_client.py .
 
-SERVERNODE=1
-CLIENTNODE=1
+SERVERNODE=8
+CLIENTNODE=2
 
-SERVERNUM=4
-CLIENTNUM=16
+SERVERNUM=64
+CLIENTNUM=32
 
 rm dwiserver_mpi_${SERVERNUM}.log
 rm dwiclient_mpi_${CLIENTNUM}_${SERVERNUM}.log
 
 # 1 nodes for server (16*4=64=2*32)
 # the colza-dist-server is in PATH after the associated env is loaded
-srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 4 --cpu_bind=cores --time=20:00 colza-dist-server -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v trace &> dwiserver_mpi_${SERVERNUM}.log &
+srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 4 --cpu_bind=cores colza-dist-server -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v info &> dwiserver_mpi_${SERVERNUM}.log &
 
 #make sure the server load the pipeline
 result=0
@@ -68,7 +71,7 @@ done
 
 #load necessary package for python script
 #use the tcp for temporary testing, use gni things in future
-srun -C haswell -N $CLIENTNODE -n $CLIENTNUM -c 2 --cpu_bind=cores --time=20:00 python3 dwi_client.py --protocol $PROTOCOL --ssg-file $SSGFILE --provider-id 0 --stage-path . --pipeline dwi_mpi_backend --files $TARFILE &> dwiclient_mpi_${CLIENTNUM}_${SERVERNUM}.log 
+srun -C haswell -N $CLIENTNODE -n $CLIENTNUM -c 2 --cpu_bind=cores python3 dwi_client.py --protocol $PROTOCOL --ssg-file $SSGFILE --provider-id 0 --stage-path . --pipeline dwi_mpi_backend --files $TARFILE &> dwiclient_mpi_${CLIENTNUM}_${SERVERNUM}.log 
 
 wait
 

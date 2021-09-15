@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=6
+#SBATCH --nodes=3
 #SBATCH --time=29:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
@@ -51,12 +51,12 @@ TARFILE=DeepWaterImpactData/pv_insitu_*
 #do this before hand
 #cp $TARFILEPATH/$TARFILE .
 
-cp $SRCDIR/example/DeepWaterImpact/client/dwi_client.py .
+cp $SRCDIR/example/DeepWaterImpact/client/dwi_client_elastic.py .
 
-SERVERNODE=4
+SERVERNODE=1
 CLIENTNODE=2
 
-SERVERNUM=32
+SERVERNUM=8
 CLIENTNUM=32
 
 rm dwiserver_mona_${SERVERNUM}.log
@@ -64,20 +64,20 @@ rm dwiclient_mona_${CLIENTNUM}_${SERVERNUM}.log
 
 # 1 nodes for server (16*4=64=2*32)
 # the colza-dist-server is in PATH after the associated env is loaded
-srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 4 --cpu_bind=cores colza-dist-server -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v trace &> dwiserver_mona_${SERVERNUM}.log &
+srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 4 --cpu_bind=cores colza-dist-server -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v trace &> dwiserver_mona_elastic_${SERVERNUM}.log &
 
 #make sure the server load the pipeline
 result=0
 while [ $result -ne $SERVERNUM ]
 do
-    result=$(cat dwiserver_mona_"$SERVERNUM".log | grep "Server running at" | wc -l)
+    result=$(cat dwiserver_mona_elastic_"$SERVERNUM".log | grep "Server running at" | wc -l)
     echo "$result server loaded backend"
     sleep 1  
 done
 
 #load necessary package for python script
 #use the tcp for temporary testing, use gni things in future
-srun -C haswell -N $CLIENTNODE -n $CLIENTNUM -c 2 --cpu_bind=cores python3 dwi_client.py --protocol $PROTOCOL --ssg-file $SSGFILE --provider-id 0 --stage-path . --pipeline dwi_mona_backend --files $TARFILE &> dwiclient_mona_${CLIENTNUM}_${SERVERNUM}.log 
+srun -C haswell -N $CLIENTNODE -n $CLIENTNUM -c 2 --cpu_bind=cores python3 dwi_client_elastic.py --protocol $PROTOCOL --ssg-file $SSGFILE --provider-id 0 --stage-path . --pipeline dwi_mona_backend --files $TARFILE --elasticnum 10 &> dwiclient_mona_elastic_${CLIENTNUM}_${SERVERNUM}.log &
 
 wait
 
