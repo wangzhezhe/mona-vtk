@@ -147,6 +147,8 @@ public:
   int m_init_rank = 0;
   int m_init_proc = 0;
   bool m_first_init = true;
+  bool m_need_reset = false;
+
   std::string m_script_name = "";
 
 

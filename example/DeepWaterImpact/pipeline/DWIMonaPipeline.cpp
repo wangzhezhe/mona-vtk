@@ -23,6 +23,7 @@ void DWIMONAPipeline::updateMonaAddresses(
     std::lock_guard<tl::mutex> g_comm(this->m_mona_comm_mtx);
     m_mona = mona;
     m_member_addrs = addresses;
+    m_need_reset = true;
 
     if (m_mona_comm_self == nullptr)
     {
@@ -50,7 +51,7 @@ colza::RequestResult<int32_t> DWIMONAPipeline::start(uint64_t iteration)
   spdlog::trace("{}: Starting iteration {}", __FUNCTION__, iteration);
 
   std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
-  if (m_mona_comm == nullptr)
+  if (m_need_reset || m_mona_comm == nullptr)
   {
     spdlog::trace("{}: Need to create a MoNA communicator", __FUNCTION__);
     if (m_mona_comm)
@@ -83,6 +84,7 @@ void DWIMONAPipeline::abort(uint64_t iteration)
     std::lock_guard<tl::mutex> g_comm(m_mona_comm_mtx);
     mona_comm_free(m_mona_comm);
     m_mona_comm = nullptr;
+    m_need_reset = true;
   }
   spdlog::trace("{}: Abort complete", __FUNCTION__);
 }
@@ -98,7 +100,7 @@ colza::RequestResult<int32_t> DWIMONAPipeline::execute(uint64_t iteration)
   int procSize, procRank;
   mona_comm_size(m_mona_comm, &procSize);
   mona_comm_rank(m_mona_comm, &procRank);
-  spdlog::trace("{}: rank={}, size={}", __FUNCTION__, procRank, procSize);
+  spdlog::info("{}: Iteration {}, rank={}, size={}", __FUNCTION__, iteration, procRank, procSize);
 
   // this may takes long time for first step
   // make sure all servers do same things
@@ -119,10 +121,14 @@ colza::RequestResult<int32_t> DWIMONAPipeline::execute(uint64_t iteration)
   spdlog::trace("{}: Done updating MoNA controller", __FUNCTION__);
 
   m_first_init = false;
+  m_need_reset = false;
+
 
   mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG);
   InSitu::MonaCoProcessDynamic(this->m_datasets[iteration], iteration, iteration);
 
+  spdlog::trace("Iteration {} finish executing", iteration);
+  
   auto result = colza::RequestResult<int32_t>();
   result.value() = 0;
   return result;

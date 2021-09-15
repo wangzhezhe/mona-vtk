@@ -15,7 +15,8 @@ import logging
 import glob
 import re
 import time
-
+from os import path
+import time
 
 meshio_to_vtk_type = meshio._vtk_common.meshio_to_vtk_type
 
@@ -96,9 +97,27 @@ def read_vtu_file(vtu_file):
 
 
 def process_file(iteration, filename, stage_path, pipeline):
+
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
+    newserverAdded = False
+    # write a file to tell the data staging service to start a new one
+    # how to make sure the server process started successfully here?
+    # maybe add one for every two iterations, new iteration cause the execution time longer then normal case
+    if rank==0 and iteration>=14 and iteration%2==0:
+        # when there is avalible process 
+        global avalible_process
+        if avalible_process > 0:
+            # write a signal file
+            signalfile = "dwiconfig_" + str(avalible_process)
+            with open(signalfile, 'w') as f:
+                data = 'test'
+                f.write(data)
+            print(f"write a signal file {signalfile} at step {iteration}")
+            avalible_process = avalible_process-1
+            newserverAdded=True
+
     print (filename)
     name = filename.split('/')[-1].split('.')[-2]
     to_remove = []
@@ -117,31 +136,39 @@ def process_file(iteration, filename, stage_path, pipeline):
 
     logger.info('Getting data from VTU files')
     output = {}
+
     tstart = time.perf_counter()
     for i in range(0, len(vtu_files)):
         if i % size == rank:
             output[i] = read_vtu_file(vtu_files[i])
 
-    logger.info('Starting iteration {} in Colza pipeline'.format(iteration))
-    
-    # write a file to tell the data staging service to start a new one
-    # how to make sure the server process started successfully here?
-    if rank==0 and iteration>=2:
-        # when there is avalible process 
-        global avalible_process
-        if avalible_process > 0:
-            #write a signal file
-            signalfile = "dwiconfig_" + str(avalible_process)
-            with open(signalfile, 'w') as f:
-                data = 'test'
-                f.write(data)
-            print("write a signal file", signalfile)
-            avalible_process = avalible_process-1
+    tend = time.perf_counter()
 
+    if rank==0:
+        print(f"rank {rank} file extracting time for iteration {iteration} filename {filename} takes {tend - tstart:0.4f} seconds")
+        logger.info('Starting iteration {} in Colza pipeline'.format(iteration))
+
+
+    # TODO check another signal file written by bash script
+    # this file aims to show that the new added server is started succesfully
+    # the file extracting takes long time, we start the new servers here to overlap these two parts
+    # detect existing of the file
+    server_ok_config="dwiconfigserver"
+    if newserverAdded:
+        while True:
+            if path.exists(server_ok_config):
+                os.remove(server_ok_config)
+                break
+            else:
+                time.sleep(1)
+
+    comm.Barrier()
+
+    tstart = time.perf_counter()
     pipeline.start(iteration)
     tend = time.perf_counter()
-    print(f"rank {rank} file extracting time for iteration {iteration} filename {filename} takes {tend - tstart:0.4f} seconds")
-
+    if rank==0:
+        print(f"start time for iteration {iteration} filename {filename} takes {tend - tstart:0.4f} seconds")
 
     logger.info('Staging data in Colza pipeline')
     tstart = time.perf_counter()
@@ -154,19 +181,20 @@ def process_file(iteration, filename, stage_path, pipeline):
                 block_id=block_id,
                 data=array)
     tend = time.perf_counter()
-    if rank==0:
+    
+    if rank ==0:
         print(f"Data staging time for iteration {iteration} filename {filename} takes {tend - tstart:0.4f} seconds")
 
-
     logger.info('Executing pipeline')
-
     tic = time.perf_counter()
     pipeline.execute(iteration=iteration,
                      auto_cleanup=True)
+    
     toc = time.perf_counter()
     
-    # only some of processes are scheduled to execute t
-    print(f"rank {rank} Execution time for iteration {iteration} filename {filename} takes {toc - tic:0.4f} seconds")
+    # only some of processes are scheduled to execute 
+    if rank == 0:
+        print(f"Execution time for iteration {iteration} filename {filename} takes {toc - tic:0.4f} seconds")
 
     logger.info('Removing staged files')
     for f in to_remove:
@@ -203,10 +231,10 @@ def run(args):
     global avalible_process
     avalible_process = args.elasticnum
 
-    if MPI.COMM_WORLD.Get_rank() != 0:
-        logger.setLevel(logging.ERROR)
-    else:
-        logger.setLevel(logging.INFO)
+    #if MPI.COMM_WORLD.Get_rank() != 0:
+    #    logger.setLevel(logging.ERROR)
+    #else:
+    #    logger.setLevel(logging.INFO)
     
     cookie = pyssg.get_credentials_from_ssg_file(ssg_file)
     with Engine(protocol, pymargo.server, options={ 'mercury': { 'auth_key': cookie }}) as engine:
