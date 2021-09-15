@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=6
+#SBATCH --nodes=3
 #SBATCH --time=29:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
@@ -51,12 +51,12 @@ TARFILE=DeepWaterImpactData/pv_insitu_*
 #do this before hand
 #cp $TARFILEPATH/$TARFILE .
 
-cp $SRCDIR/example/DeepWaterImpact/client/dwi_client.py .
+cp $SRCDIR/example/DeepWaterImpact/client/dwi_client_elastic.py .
 
-SERVERNODE=4
+SERVERNODE=1
 CLIENTNODE=2
 
-SERVERNUM=32
+SERVERNUM=8
 CLIENTNUM=32
 
 rm dwiserver_mona_${SERVERNUM}.log
@@ -64,20 +64,58 @@ rm dwiclient_mona_${CLIENTNUM}_${SERVERNUM}.log
 
 # 1 nodes for server (16*4=64=2*32)
 # the colza-dist-server is in PATH after the associated env is loaded
-srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 4 --cpu_bind=cores colza-dist-server -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v trace &> dwiserver_mona_${SERVERNUM}.log &
+srun -C haswell -N $SERVERNODE -l -n $SERVERNUM -c 4 --cpu_bind=cores colza-dist-server -a $PROTOCOL -s $SSGFILE -c $SEVERCONFIG -t 1 -v trace &> dwiserver_mona_elastic_init_${SERVERNUM}.log &
 
 #make sure the server load the pipeline
 result=0
 while [ $result -ne $SERVERNUM ]
 do
-    result=$(cat dwiserver_mona_"$SERVERNUM".log | grep "Server running at" | wc -l)
+    result=$(cat dwiserver_mona_elastic_init_"$SERVERNUM".log | grep "Server running at" | wc -l)
     echo "$result server loaded backend"
     sleep 1  
 done
 
 #load necessary package for python script
 #use the tcp for temporary testing, use gni things in future
-srun -C haswell -N $CLIENTNODE -n $CLIENTNUM -c 2 --cpu_bind=cores python3 dwi_client.py --protocol $PROTOCOL --ssg-file $SSGFILE --provider-id 0 --stage-path . --pipeline dwi_mona_backend --files $TARFILE &> dwiclient_mona_${CLIENTNUM}_${SERVERNUM}.log 
+srun -C haswell -N $CLIENTNODE -n $CLIENTNUM -c 2 --cpu_bind=cores python3 dwi_client_elastic.py --protocol $PROTOCOL --ssg-file $SSGFILE --provider-id 0 --stage-path . --pipeline dwi_mona_backend --files $TARFILE --elasticnum 10 &> dwiclient_mona_elastic_${CLIENTNUM}_${SERVERNUM}.log &
+
+
+INCREASE=8
+#detect if there are new added files, start new processes if it is detected
+#trigger new proesses
+x=1
+while true;
+do
+# this can be a signal to say that a new server should be started
+# there might multiple config files
+# we continue create server if there exist config
+# the name of the configuration file for signal using is dwiconfig_
+result=`ls dwiconfig_* |wc -l`
+if [ $result -eq 0 ]
+then
+  sleep 1
+else
+  # start one process and remove one
+  echo "config is detected $(date)"
+  echo "start one process"
+  fileName=`ls dwiconfig_* |sed -n '1p'`
+  echo "remove ${fileName}"
+  rm $fileName
+  echo "remove filename ${fileName} $(date)"
+
+  # start the another server if there are associated messages
+  # TODO use the -j operation
+  # start 8 processes for each new node
+  srun -C haswell -N $SERVERNODE -l -n $INCREASE -c 4 --cpu_bind=cores colza-dist-server \
+  -a $PROTOCOL \
+  -s $SSGFILE \
+  -c $SEVERCONFIG \
+  -t 1 -j -v trace &> dwiserver_mona_elastic_add${x}.log &
+
+  echo "srun is called for colzaserver $x at $(date)"
+  x=$(( $x + 1 ))
+fi
+done
 
 wait
 

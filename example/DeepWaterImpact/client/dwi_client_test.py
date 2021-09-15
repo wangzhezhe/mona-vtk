@@ -48,37 +48,32 @@ def read_vtu_file(vtu_file):
     cell_conn = np.array([], dtype=np.int64)
 
     for meshio_type, data in mesh.cells:
-        print(meshio_type)
+        #print(meshio_type)
         vtk_type = meshio_to_vtk_type[meshio_type]
         ncells, npoints = data.shape
-        print (data.shape)
-        print("ncells",ncells)
-        print("npoints",npoints)
+        #print (data.shape)
+        #print("ncells",ncells)
+        #print("npoints",npoints)
 
         cell_types = np.hstack(
             [cell_types, np.full(ncells, vtk_type, dtype=np.ubyte)]
         )
-        print(len(cell_conn))
+        #print(len(cell_conn))
         offsets = len(cell_conn) + (npoints) * np.arange(ncells+1, dtype=np.int64)
-        print(offsets)
+        #print(offsets)
 
         cell_offsets = np.hstack([cell_offsets, offsets])
-        print(cell_offsets)
+        #print(cell_offsets)
         
         conn = data.flatten()
-        print(np.ones((ncells, 1)).shape)
-        print(conn[:10])
+        #print(np.ones((ncells, 1)).shape)
+        #print(conn[:10])
         cell_conn = np.hstack([cell_conn, conn])
         #rint(cell_conn)
 
-        print(data[0])
-        print(data[1])
-        print(data[2])
-
-
-    print("cell_types shape", cell_types.shape)
-    print("cell_offsets shape", cell_offsets.shape)
-    print("cell_conn shape", cell_conn.shape)
+    #print("cell_types shape", cell_types.shape)
+    #print("cell_offsets shape", cell_offsets.shape)
+    #print("cell_conn shape", cell_conn.shape)
 
     output['cell_types'] = cell_types
     output['cell_offsets'] = cell_offsets

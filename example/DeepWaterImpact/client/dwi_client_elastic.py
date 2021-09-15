@@ -37,7 +37,7 @@ colza_to_numpy_type = {
 }
 numpy_to_colza_type = {str(v): k for k, v in colza_to_numpy_type.items()}
 numpy_to_colza_type['<f4'] = Type.FLOAT32
-
+avalible_process = 0
 
 def find_vtm_file(path):
     files = glob.glob(path+'/*.vtm')
@@ -123,10 +123,24 @@ def process_file(iteration, filename, stage_path, pipeline):
             output[i] = read_vtu_file(vtu_files[i])
 
     logger.info('Starting iteration {} in Colza pipeline'.format(iteration))
+    
+    # write a file to tell the data staging service to start a new one
+    # how to make sure the server process started successfully here?
+    if rank==0 and iteration>=2:
+        # when there is avalible process 
+        global avalible_process
+        if avalible_process > 0:
+            #write a signal file
+            signalfile = "dwiconfig_" + str(avalible_process)
+            with open(signalfile, 'w') as f:
+                data = 'test'
+                f.write(data)
+            print("write a signal file", signalfile)
+            avalible_process = avalible_process-1
+
     pipeline.start(iteration)
     tend = time.perf_counter()
-    if rank==0:
-        print(f"rank {rank} file extracting time for iteration {iteration} filename {filename} takes {tend - tstart:0.4f} seconds")
+    print(f"rank {rank} file extracting time for iteration {iteration} filename {filename} takes {tend - tstart:0.4f} seconds")
 
 
     logger.info('Staging data in Colza pipeline')
@@ -141,7 +155,8 @@ def process_file(iteration, filename, stage_path, pipeline):
                 data=array)
     tend = time.perf_counter()
     if rank==0:
-        print(f"rank {rank} Data staging time for iteration {iteration} filename {filename} takes {tend - tstart:0.4f} seconds")
+        print(f"Data staging time for iteration {iteration} filename {filename} takes {tend - tstart:0.4f} seconds")
+
 
     logger.info('Executing pipeline')
 
@@ -149,8 +164,9 @@ def process_file(iteration, filename, stage_path, pipeline):
     pipeline.execute(iteration=iteration,
                      auto_cleanup=True)
     toc = time.perf_counter()
-    if rank==0:
-        print(f"rank {rank} Execution time for iteration {iteration} filename {filename} takes {toc - tic:0.4f} seconds")
+    
+    # only some of processes are scheduled to execute t
+    print(f"rank {rank} Execution time for iteration {iteration} filename {filename} takes {toc - tic:0.4f} seconds")
 
     logger.info('Removing staged files')
     for f in to_remove:
@@ -183,11 +199,14 @@ def run(args):
     pipeline = args.pipeline
     provider_id = args.provider_id
     stage_path = args.stage_path
+    #this is a global variable
+    global avalible_process
+    avalible_process = args.elasticnum
 
-    #if MPI.COMM_WORLD.Get_rank() != 0:
-    #    logger.setLevel(logging.ERROR)
-    #else:
-    #    logger.setLevel(logging.INFO)
+    if MPI.COMM_WORLD.Get_rank() != 0:
+        logger.setLevel(logging.ERROR)
+    else:
+        logger.setLevel(logging.INFO)
     
     cookie = pyssg.get_credentials_from_ssg_file(ssg_file)
     with Engine(protocol, pymargo.server, options={ 'mercury': { 'auth_key': cookie }}) as engine:
@@ -202,6 +221,7 @@ if __name__ == '__main__':
     parser.add_argument('--stage-path', type=str, default='.', help='Folder in which to stage uncompressed data')
     parser.add_argument('--pipeline', type=str, help='Name of the Colza pipeline to which to send data')
     parser.add_argument('--files', type=str, nargs='+', help='Files to load')
+    parser.add_argument('--elasticnum', type=int, default='0', help='Process number that is elastic')
     args = parser.parse_args()
     pyssg.init()
     run(args)
