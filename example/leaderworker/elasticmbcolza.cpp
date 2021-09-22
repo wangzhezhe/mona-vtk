@@ -1,9 +1,7 @@
 
 
 /*
- * (C) 2020 The University of Chicago
- *
- * See COPYRIGHT in top-level directory.
+ dynamic sim + dynamic staging based on colza
  */
 #include <mpi.h>
 #include <spdlog/spdlog.h>

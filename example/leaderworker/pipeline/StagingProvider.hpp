@@ -147,6 +147,9 @@ public:
     auto leaderEndpoint = this->lookup(this->m_stagecommon_meta->m_thallium_leader_addr);
 
     tl::provider_handle ph(leaderEndpoint, 0);
+    // use the addr for new started services
+    // instead of getting the addr from the request at the server end
+    // addr for sending and recieveing reqs are different
     int result = addProcess.on(ph)(
       this->m_stagecommon_meta->m_thallium_self_addr, this->m_stagecommon_meta->m_mona_self_addr);
     if (result != 0)
@@ -489,7 +492,7 @@ public:
 
     // return current thallium addrs
     std::vector<std::string> thalliumAddrs;
-
+    
     {
       std::lock_guard<tl::mutex> lock(this->m_stageleader_meta->m_monaAddrmap_mtx);
       for (auto& p : this->m_stageleader_meta->m_mona_addresses_map)

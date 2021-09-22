@@ -106,9 +106,11 @@ colza::RequestResult<int32_t> MPIBackendPipeline::execute(uint64_t iteration)
       // reconstruct the MandelbulbList
       // std::cout << "debug parameters " << width << "," << height << "," << depth << ","
       //          << blockOffset << std::endl;
-      Mandelbulb mb(width, height, depth, blockOffset, 1.2, totalBlock);
-      mb.SetData(t.second.data);
-      MandelbulbList.push_back(mb);
+      //Mandelbulb mb(width, height, depth, blockOffset, 1.2, totalBlock);
+      //mb.SetData(t.second.data);
+      //MandelbulbList.push_back(mb);
+      MandelbulbList.emplace_back(width, height, depth, blockOffset, 1.2, totalBlock);
+      MandelbulbList.back().SetData(t.second.data);
     }
     std::cout << "iteration " << iteration << " size " << MandelbulbList.size() << std::endl;
   }

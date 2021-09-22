@@ -40,11 +40,11 @@ ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp
 target_link_libraries (elasticmb MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
 
 # the mb sim is elstic and it also includes coza for this case
-add_executable (elasticmbcolza
-${CMAKE_CURRENT_SOURCE_DIR}/elasticmbcolza.cpp 
-${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp
-)
-target_link_libraries (elasticmbcolza colza-client MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
+#add_executable (elasticmbcolza
+#${CMAKE_CURRENT_SOURCE_DIR}/elasticmbcolza.cpp 
+#${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp
+#)
+#target_link_libraries (elasticmbcolza colza-client MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
 
 
 # monabackend pipeline library

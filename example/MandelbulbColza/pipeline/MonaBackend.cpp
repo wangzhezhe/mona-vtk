@@ -176,9 +176,14 @@ colza::RequestResult<int32_t> MonaBackendPipeline::execute(uint64_t iteration)
       // std::cout << blockID << ",";
       size_t blockOffset = blockID * depth;
       // reconstruct the MandelbulbList
-      Mandelbulb mb(width, height, depth, blockOffset, 1.2, totalBlock);
-      mb.SetData(t.second.data);
-      MandelbulbList.push_back(mb);
+      
+      //Mandelbulb mb(width, height, depth, blockOffset, 1.2, totalBlock);
+      //mb.SetData(t.second.data);
+      //MandelbulbList.push_back(mb);
+      
+      //save the copy
+      MandelbulbList.emplace_back(width, height, depth, blockOffset, 1.2, totalBlock);
+      MandelbulbList.back().SetData(t.second.data);
     }
     // std::cout << std::endl;
   }
