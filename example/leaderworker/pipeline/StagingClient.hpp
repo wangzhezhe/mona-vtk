@@ -114,7 +114,7 @@ public:
     if (returnAddrs.size() > 0)
     {
       spdlog::info(
-        "staging view is updated from {} to {}", this->m_stagingView.size(), returnAddrs.size());
+        "iteration {} staging view is updated from {} to {}", iteration, this->m_stagingView.size(), returnAddrs.size());
       this->m_stagingView = returnAddrs;
       this->m_viewUpdated = 1;
     }
@@ -345,7 +345,7 @@ public:
     auto sender_addr = static_cast<std::string>(this->m_engineptr->self());
 
     // send the RPC
-    int result = this->m_cleanup.on(ph)(sender_addr, dataset_name, iteration);
+    int result = this->m_cleanup.on(ph)(dataset_name, iteration);
     if (result != 0)
     {
       throw std::runtime_error("failed to cleanup iteration rank id :" + std::to_string(iteration) +
@@ -395,6 +395,43 @@ public:
     //  monarank);
 
     return;
+  }
+
+  tl::async_response asyncstage(const std::string& dataset_name, uint64_t iteration,
+    uint64_t block_id, const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets,
+    const Type& dataType, const void* data, int monarank)
+  {
+
+    // choose a suitable server to create ph
+    int stagingSize = this->m_stagingView.size();
+    if (stagingSize == 0)
+    {
+      throw std::runtime_error(
+        "stage api, stagingSize is not supposed to be zero for rank " + std::to_string(monarank));
+    }
+    spdlog::debug(
+      "start iteration {} stage view size {} monarank {}", iteration, stagingSize, monarank);
+    int serverid = monarank % stagingSize;
+    auto ep = this->lookup(this->m_stagingView[serverid]);
+
+    tl::provider_handle ph(ep, 0);
+    auto sender_addr = static_cast<std::string>(this->m_engineptr->self());
+
+    std::vector<std::pair<void*, size_t> > segment(1);
+    segment[0].first = const_cast<void*>(data);
+    segment[0].second = ComputeDataSize(dimensions, dataType);
+    auto bulk = this->m_engineptr->expose(segment, tl::bulk_mode::read_only);
+
+    // synchronous call
+    // sender addr is used for rpc call to pull the data
+    auto response = this->m_stage.on(ph).async(
+      sender_addr, dataset_name, iteration, block_id, dimensions, offsets, dataType, bulk);
+
+
+    // spdlog::debug(
+    //  "ok for start iteration {} stage view size {} monarank {}", iteration, stagingSize,
+    //  monarank);
+    return response;
   }
 };
 

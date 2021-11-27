@@ -55,6 +55,7 @@ public:
     // call pipeline stage and execution
     define("stage", &StagingProvider::stage);
     define("execute", &StagingProvider::execute);
+    define("cleanup", &StagingProvider::cleanup);
 
     // expose to sim, this is only exposed by the leader process
     // the sim process will call these api to change the status of the pipeline
@@ -519,14 +520,22 @@ public:
     req.respond(result);
   }
 
+  void cleanup(const tl::request& req, std::string& dataset_name, uint64_t& iteration){
+    int result = this->m_stagecommon_meta->m_pipeline->cleanup(dataset_name,iteration);
+    req.respond(result);
+  }
+
   void execute(const tl::request& req, std::string& dataset_name, uint64_t& iteration)
   {
+    //TODO add another parameter to control the different execute functions
     //int result = this->m_stagecommon_meta->m_pipeline->execute(
     //  iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
-    int result = this->m_stagecommon_meta->m_pipeline->executesynthetic(
-     iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
+    //int result = this->m_stagecommon_meta->m_pipeline->executesynthetic(
+    // iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
     //int result = this->m_stagecommon_meta->m_pipeline->executesynthetic2(
     //  iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
+    int result = this->m_stagecommon_meta->m_pipeline->executedwater(
+    iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
 
     req.respond(result);
   }

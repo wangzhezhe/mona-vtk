@@ -52,10 +52,11 @@ target_link_libraries (elasticmb MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA tha
 include_directories(${CMAKE_SOURCE_DIR}/src)
 set (monabackend-src-files
      ./pipeline/MonaBackend.cpp
-     ./pipeline/MonaInSituAdaptor.cpp)
-add_library (monabackend-pipeline-leaderworker ${monabackend-src-files})
+     ./pipeline/MonaInSituAdaptor.cpp
+     ./dwaterserver/DWIInSituMonaAdaptor.cpp
+     )
+add_library (monabackend-pipeline-leaderworker SHARED ${monabackend-src-files})
 target_link_libraries (monabackend-pipeline-leaderworker
-colza-server 
 mona-vtk-icet
 mona-vtk
 ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst 
@@ -63,8 +64,9 @@ VTK::ParallelMPI
 VTK::CommonDataModel
 VTK::IOImage
 VTK::IOXML
-VTK::IOLegacy
-MPI::MPI_C)
+VTK::IOLegacy)
+
+
 
 # build the colza server
 add_executable (mbcolzaserver mbcolzaserver.cpp)
@@ -90,3 +92,4 @@ ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp)
 target_link_libraries (elasticmbstage MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
 
 add_executable (testDynamicProcessController ./pipeline/test/testDynamicProcessController.cpp)
+add_subdirectory(dwaterclient)

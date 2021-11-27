@@ -119,6 +119,8 @@ public:
 
   int cleanup(std::string& dataset_name, uint64_t iteration);
 
+  int executedwater(uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm);
+
   /**
    * @brief the mona communicator associated with current pipeline
    *
@@ -126,6 +128,7 @@ public:
   // MoNA communicator with only this process, set this to make the in-staging processing work
   mona_comm_t m_mona_comm_self = nullptr;
   bool m_first_init = true;
+  bool m_need_reset = true;
   std::string m_script_name = "";
 };
 

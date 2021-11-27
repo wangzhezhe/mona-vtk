@@ -198,20 +198,25 @@ int main(int argc, char** argv)
       // for the naive case, we add one if the wait Time is larger than a threshold
       // for the adaptive case, we caculate this value
 
-      if (step != 0 && lastWaitTime > 0.1)
+      // if (step != 0 && lastWaitTime > 0.1)
+      if (step != 0)
       {
-        /* static strategy
+        /* static strategy*/
         // write a file and the colza server can start
         // trigger another server before leave
-        stagingClient.updateExpectedProcess("join", 1);
-        std::string leaveFileName = "clientleave.config" + std::to_string(procRank);
+        // make sure the added number match with the value in scripts
+        stagingClient.updateExpectedProcess("join", 4);
+        std::string leaveConfigPath = getenv("LEAVECONFIGPATH");
+        // the LEAVECONFIGPATH contains the
+        static std::string leaveFileName =
+          leaveConfigPath + "clientleave.config" + std::to_string(procRank);
+        std::cout << "leaveFile is " << leaveFileName << std::endl;
         std::ofstream leaveFile;
         leaveFile.open(leaveFileName);
         leaveFile << "test\n";
         leaveFile.close();
-        */
 
-        /* using model estimation*/
+        /* using model estimation
         // caculate the value of k based on model estimation
 
         int addNum = controller.m_dmpc.dynamicAddProcessToStaging(
@@ -229,6 +234,7 @@ int main(int argc, char** argv)
           fileStream.close();
           spdlog::info("send siganal {} for staging", signalName);
         }
+        */
       }
     }
 
@@ -375,7 +381,6 @@ int main(int argc, char** argv)
     // we can start rescale and syncstage when execute finish
     // start to sync the staging service
     auto syncStageStart = tl::timer::wtime();
-
     if (leader)
     {
       spdlog::info("start syncstage for step {}", step);
@@ -415,10 +420,11 @@ int main(int argc, char** argv)
       std::vector<size_t> dimensions = { int2size_t(*(extents + 1)) + 1,
         int2size_t(*(extents + 3)) + 1, int2size_t(*(extents + 5)) + 1 };
       std::vector<int64_t> offsets = { MandelbulbList[i].GetZoffset(), 0, 0 };
-
-      auto type = Type::INT32;
-      stagingClient.stage(dataSetName, step, MandelbulbList[i].GetBlockID(), dimensions, offsets,
-        type, MandelbulbList[i].GetData(), procRank);
+      
+      // we do not need to stage the data when testing the overhead of the rescaling
+      //auto type = Type::INT32;
+      //stagingClient.stage(dataSetName, step, MandelbulbList[i].GetBlockID(), dimensions, offsets,
+      //  type, MandelbulbList[i].GetData(), procRank);
       /*
       std::cout << "step " << step << " blockid " << blockid << " dimentions " << dimensions[0]
                 << "," << dimensions[1] << "," << dimensions[2] << " offsets " << offsets[0]

@@ -8,6 +8,8 @@
 rm core
 ulimit -c unlimited
 
+export LEAVECONFIGPATH=./
+
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
 
@@ -111,14 +113,12 @@ done
 # use the trigger command to start
 # if there is client leave, start another colza server
 # TODO, we need to change this part gradually
-
 x=1
 while true;
 do
 # this can be a signal to say that a new server should be started
 # there might multiple config files
 # we continue create server if there exist config
-
 result=`ls clientleave.config* |wc -l`
 if [ $result -eq 0 ]
 then

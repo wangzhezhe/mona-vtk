@@ -1,0 +1,85 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=24
+#SBATCH --tasks-per-node=32
+#SBATCH --time=29:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+rm dynamic_server_leader.config
+ulimit -c unlimited
+rm core
+
+SERVERNODE=2
+SERVERPROCESS=4
+
+CLIENTNODE=2
+CLIENTPROCESS=16
+
+AVALIBLEPROCESS=20
+
+BUILDPATH=/global/cscratch1/sd/zw241/build_monavtk
+SCRIPTPATH=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/leaderworker/dwaterclient/render_dwi.py
+
+export ELASTICCONFIGPATH=$BUILDPATH
+
+#remember to link to the osmesa path, otherwise, there will be the render issue
+export ABT_THREAD_STACKSIZE=2097152
+#avoid to link to the lib in the mini-app dir, which might be outdated
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$COLZEXPATH/sw/mini-apps/lib
+export LD_LIBRARY_PATH=/global/common/sw/cray-sles15-x86_64/gcc-8.2.0/mesa-18.3.6-qozjngg/lib:$LD_LIBRARY_PATH
+
+cd $BUILDPATH
+cp $SCRIPTPATH .
+
+# start the data staging service
+srun -C haswell -N $SERVERNODE -n $SERVERPROCESS -c 16 -l --cpu_bind=cores --mem=100GB ./example/leaderworker/teststagingserver \
+            -a gni \
+            -t 4 \
+            -v info \
+            -g 0 &> dw_server_${SERVERPROCESS}.log &
+
+while [ ! -f dynamic_server_leader.config ]
+do
+  sleep 1 
+done
+
+# start the client for data staging operation
+srun -C haswell -N $CLIENTNODE -n $CLIENTPROCESS -c 4 -l --cpu_bind=cores ./example/leaderworker/dwaterclient/vtureader_elastic $AVALIBLEPROCESS \
+            &> dw_client_${CLIENTPROCESS}.log &
+
+# check the configuration file and adding new processes as needed
+
+x=1
+while true;
+do
+# this can be a signal to say that a new server should be started
+# there might multiple config files
+# we continue create server if there exist config
+
+result=`ls elasticjoin.config* |wc -l`
+if [ $result -eq 0 ]
+then
+  echo "no configure file, wait signal and sleep"
+  sleep 2
+else
+  # start one process and remove one
+  echo "config is detected $(date)"
+  # start one process and remove one
+  echo "start one process"
+  fileName=`ls elasticjoin.config* |sed -n '1p'`
+  echo "remove ${fileName}"
+  rm $fileName
+
+  srun -C haswell -N 1 -n 1 -c 16 -l --cpu_bind=cores --mem=100GB ./example/leaderworker/teststagingserver \
+            -a gni \
+            -t 4 \
+            -v info \
+            -j &> dw_server_add${x}.log &
+
+  echo "srun is started for $x and time $(date)"
+  x=$(( $x + 1 ))
+fi
+done
+
+wait

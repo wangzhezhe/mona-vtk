@@ -229,8 +229,11 @@ int main(int argc, char** argv)
         spdlog::info("Add server by command: {}", command);
         std::system(command.c_str());
         */
-
-        static std::string leaveFileName = "clientleave.config" + std::to_string(procRank);
+        // get the env about the leaveconfig path
+        std::string leaveConfigPath=getenv ("LEAVECONFIGPATH");
+        // the LEAVECONFIGPATH contains the
+        static std::string leaveFileName = leaveConfigPath+"clientleave.config" + std::to_string(procRank);
+        std::cout << "leaveFileName is " << leaveFileName << std::endl;
         std::ofstream leaveFile;
         leaveFile.open(leaveFileName);
         leaveFile << "test\n";

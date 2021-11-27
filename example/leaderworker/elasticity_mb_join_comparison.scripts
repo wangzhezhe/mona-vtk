@@ -40,7 +40,7 @@ CLIENT_DYNAMIC_NUM=0
 SERVERNODE=1
 # set this value to 2 at least
 # otherwise there are issue to add new process, there is an extra bcast call
-SERVERPROCESS=2
+SERVERPROCESS=4
 CONFIG=$SRCDIR/example/leaderworker/pipeline/monaconfig.json
 SCRIPTPAT1=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
 SCRIPTPAT2=$SRCDIR/example/MandelbulbColza/pipeline/gridwriter.py
@@ -104,7 +104,7 @@ sleep 1
 x=1
 while [ $x -le $CLIENT_DYNAMIC_NUM ]
 do
-  srun -C haswell -N 1 -l -n 1 -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbstage \
+  srun -C haswell -N 1 -l -n 4 -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbstage \
               -a gni \
               -v info \
               -t 4 \
@@ -142,7 +142,7 @@ else
   # start the another server if there is leave message
   # there are some issue if we start by system call
   # the original process can not recognized as leave in that case
-  srun -C haswell -N 1 -n 1 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
+  srun -C haswell -N 1 -n 4 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
            -a gni \
            -t 4 \
            -v debug \
