@@ -345,7 +345,7 @@ public:
     auto sender_addr = static_cast<std::string>(this->m_engineptr->self());
 
     // send the RPC
-    int result = this->m_cleanup.on(ph)(sender_addr, dataset_name, iteration);
+    int result = this->m_cleanup.on(ph)(dataset_name, iteration);
     if (result != 0)
     {
       throw std::runtime_error("failed to cleanup iteration rank id :" + std::to_string(iteration) +

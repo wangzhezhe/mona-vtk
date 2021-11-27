@@ -11,6 +11,7 @@
 #include <math.h>
 #include <spdlog/spdlog.h>
 #include <unistd.h>
+#include "../dwaterserver/DWIInSituMonaAdaptor.hpp"
 
 #define MONA_BACKEND_BARRIER_TAG1 2051
 #define MONA_BACKEND_BARRIER_TAG2 2052
@@ -144,6 +145,51 @@ int MonaBackendPipeline::executesynthetic(
   spdlog::debug("iteration {}: Done with synthetic time {}", iteration, executeEnd - executeStart);
 
   return 0;
+}
+
+int MonaBackendPipeline::executedwater(
+  uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm)
+{
+  //compose the data into the vector and then call the data render operation for dwater examples
+
+  spdlog::trace("Iteration {} executing dwater", iteration);
+
+  double t1 = tl::timer::wtime();
+
+  int totalBlock = 0;
+  int procSize, procRank;
+  mona_comm_size(m_mona_comm, &procSize);
+  mona_comm_rank(m_mona_comm, &procRank);
+  spdlog::info("{}: Iteration {}, rank={}, size={}", __FUNCTION__, iteration, procRank, procSize);
+
+  // this may takes long time for first step
+  // make sure all servers do same things
+  mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG2);
+  spdlog::trace("{}: After barrier", __FUNCTION__);
+
+  std::string scriptname = "render_dwi.py";
+
+  if (m_first_init)
+  {
+    spdlog::trace("{}: First init, requires initialization with mona_comm_self", __FUNCTION__);
+    InSituDW::DWMonaInitialize(scriptname, m_mona_comm_self);
+    spdlog::trace("{}: Done initializing with mona_comm_self", __FUNCTION__);
+  }
+
+  spdlog::trace("{}: Updating MoNA controller", __FUNCTION__);
+  InSituDW::DWMonaUpdateController(m_mona_comm);
+  spdlog::trace("{}: Done updating MoNA controller", __FUNCTION__);
+
+  m_first_init = false;
+  m_need_reset = false;
+
+  mona_comm_barrier(m_mona_comm, MONA_BACKEND_BARRIER_TAG2);
+  InSituDW::DWMonaCoProcessDynamic(this->m_datasets[iteration][dataset_name], iteration, iteration);
+
+  spdlog::trace("Iteration {} finish executing dwater", iteration);
+
+  return 0;
+
 }
 
 int MonaBackendPipeline::execute(

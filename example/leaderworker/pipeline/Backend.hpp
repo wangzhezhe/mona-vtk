@@ -107,6 +107,9 @@ public:
   virtual int executesynthetic2(
     uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm) = 0;
 
+  virtual int executedwater(
+    uint64_t& iteration, std::string& dataset_name, mona_comm_t m_mona_comm) = 0;
+
   virtual int cleanup(std::string& dataset_name, uint64_t iteration) = 0;
 };
 

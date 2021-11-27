@@ -853,8 +853,34 @@ int MonaCommunicator::GatherVoidArray(
 int MonaCommunicator::GatherVVoidArray(const void* sendBuffer, void* recvBuffer,
   vtkIdType sendLength, vtkIdType* recvLengths, vtkIdType* offsets, int type, int destProcessId)
 {
-    throw std::runtime_error("MonaCommunicator::GatherVVoidArray not implemented");
-    return 0;
+    DEBUG("{}: sendLength={}, type={}, destProcessId={}",
+          __FUNCTION__, sendLength, type, destProcessId);
+  if (this->LocalProcessId == destProcessId)
+  {
+    int result = 1;
+    char* dest = reinterpret_cast<char*>(recvBuffer);
+    int typeSize = 1;
+    switch (type)
+    {
+      vtkTemplateMacro(typeSize = sizeof(VTK_TT));
+    }
+    // Copy local data first in case buffers are the same.
+    memmove(dest + offsets[this->LocalProcessId] * typeSize, sendBuffer, sendLength * typeSize);
+    // Receive everything else.
+    for (int i = 0; i < this->NumberOfProcesses; i++)
+    {
+      if (this->LocalProcessId != i)
+      {
+        result &= this->ReceiveVoidArray(
+          dest + offsets[i] * typeSize, recvLengths[i], type, i, GATHERV_TAG);
+      }
+    }
+    return result;
+  }
+  else
+  {
+    return this->SendVoidArray(sendBuffer, sendLength, type, destProcessId, GATHERV_TAG);
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -876,17 +902,32 @@ int MonaCommunicator::ScatterVVoidArray(const void* sendBuffer, void* recvBuffer
 //-----------------------------------------------------------------------------
 int MonaCommunicator::AllGatherVoidArray(
   const void* sendBuffer, void* recvBuffer, vtkIdType length, int type)
-{
-    throw std::runtime_error("MonaCommunicator::AllGatherVoidArray not implemented");
-    return 0;
+{   
+    //this is called by the deepwater example
+    DEBUG("{}: length={}, type={}", __FUNCTION__, length, type);
+    int result = 1;
+    result &= this->GatherVoidArray(sendBuffer, recvBuffer, length, type, 0);
+    result &= this->BroadcastVoidArray(recvBuffer, length * this->NumberOfProcesses, type, 0);
+    return result;
 }
 
 //-----------------------------------------------------------------------------
 int MonaCommunicator::AllGatherVVoidArray(const void* sendBuffer, void* recvBuffer,
   vtkIdType sendLength, vtkIdType* recvLengths, vtkIdType* offsets, int type)
 {
-    throw std::runtime_error("MonaCommunicator::AllGatherVVoidArray not implemented");
-    return 0;
+  DEBUG("{}: sendlength={}, type={}", __FUNCTION__, sendLength, type);
+  int result = 1;
+  result &=
+    this->GatherVVoidArray(sendBuffer, recvBuffer, sendLength, recvLengths, offsets, type, 0);
+  // Find the maximum place in the array that contains data.
+  vtkIdType maxIndex = 0;
+  for (int i = 0; i < this->NumberOfProcesses; i++)
+  {
+    vtkIdType index = recvLengths[i] + offsets[i];
+    maxIndex = (maxIndex < index) ? index : maxIndex;
+  }
+  result &= this->BroadcastVoidArray(recvBuffer, maxIndex, type, 0);
+  return result;
 }
 
 //-----------------------------------------------------------------------------

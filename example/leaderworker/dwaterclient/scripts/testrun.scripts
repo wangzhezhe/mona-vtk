@@ -1,0 +1,50 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=2
+#SBATCH --tasks-per-node=32
+#SBATCH --time=10:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+rm dynamic_server_leader.config
+ulimit -c unlimited
+rm core
+
+
+SERVERNODE=1
+SERVERPROCESS=4
+
+CLIENTNODE=1
+CLIENTPROCESS=4
+
+BUILDPATH=/global/cscratch1/sd/zw241/build_monavtk
+SCRIPTPATH=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/leaderworker/dwaterclient/render_dwi.py
+
+
+#remember to link to the osmesa path, otherwise, there will be the render issue
+export ABT_THREAD_STACKSIZE=2097152
+#avoid to link to the lib in the mini-app dir, which might be outdated
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$COLZEXPATH/sw/mini-apps/lib
+export LD_LIBRARY_PATH=/global/common/sw/cray-sles15-x86_64/gcc-8.2.0/mesa-18.3.6-qozjngg/lib:$LD_LIBRARY_PATH
+
+
+cd $BUILDPATH
+cp $SCRIPTPATH .
+
+# start the data staging service
+srun -C haswell -N $SERVERNODE -n $SERVERPROCESS -c 8 -l --cpu_bind=cores ./example/leaderworker/teststagingserver \
+            -a gni \
+            -t 4 \
+            -v info \
+            -g 0 &> dw_server_${SERVERPROCESS}.log &
+
+while [ ! -f dynamic_server_leader.config ]
+do
+  sleep 1 
+done
+
+# start the client for data staging operation
+srun -C haswell -N $CLIENTNODE -n $CLIENTPROCESS -c 8 -l --cpu_bind=cores ./example/leaderworker/dwaterclient/vtureader \
+            &> dw_client_${CLIENTPROCESS}.log
+
+wait
