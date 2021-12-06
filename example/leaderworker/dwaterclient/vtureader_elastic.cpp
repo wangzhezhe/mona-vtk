@@ -18,6 +18,7 @@
 #include <spdlog/spdlog.h>
 #include <vector>
 
+#include "../DynamicProcessController.hpp"
 #include "../TypeSizes.hpp"
 #include "../pipeline/StagingClient.hpp"
 
@@ -62,13 +63,24 @@ int main(int argc, char** argv)
   // MPI init
   MPI_Init(&argc, &argv);
   int avalibleProcess = 0;
-  if (argc != 2)
+  if (argc != 3)
   {
     std::cerr << "Usage: unimos_server <avaliable process>" << std::endl;
     exit(0);
   }
 
   avalibleProcess = std::stoi(argv[1]);
+
+  std::string elasticPattern = argv[2];
+
+  if (elasticPattern == "naive" || elasticPattern == "adaptive")
+  {
+    // continue
+  }
+  else
+  {
+    throw std::runtime_error("failed pattern for " + elasticPattern);
+  }
 
   int rank;
   int procs;
@@ -137,7 +149,7 @@ int main(int argc, char** argv)
   // start one step(get one new tar file and decompress it in the temp dir)
   // remember to remove temp dir after finish operation
   std::string dwdataDir = "/global/cscratch1/sd/zw241/build_mona-vtk-matthieu/DeepWaterImpactData";
-  int totalStep = 25;
+  int totalStep = 26;
   int totalFilePerStep = 512;
   int workload = totalFilePerStep / procs;
   int residual = totalFilePerStep % procs;
@@ -176,7 +188,16 @@ int main(int argc, char** argv)
   int startStep = 0;
   int step = 0;
   double lastWaitTime = 0;
-  bool ifLastStepElastic = false;
+  bool ifLastStepAdded = false; // do not record value for the first iteration
+  float totalSizeEachStepLocal = 0;
+  float totalSizeEachStepGlobal = 0;
+  double executionTime = 0;
+  DynamicProcessController dc;
+  size_t currentStagingProcnum = 0;
+
+  // the execution time for the first started process need to consider the init error
+  double initError = 0;
+  double initExecTime = 0;
   for (step = startStep; step < totalStep; step++)
   {
     auto computeStart = tl::timer::wtime();
@@ -208,8 +229,20 @@ int main(int argc, char** argv)
 
       if (leader)
       {
-        spdlog::info("iteration {} execution time is {} wait time is {}", step - 1,
-          executionEnd - executionStart, executionEnd - computeEnd);
+        executionTime = executionEnd - executionStart;
+        if ((step - 1) == startIndex)
+        {
+          // recording the execution time for the init one
+          initExecTime = executionTime;
+        }
+        if ((step - 1) == (startIndex + 1))
+        {
+          // compute the init error
+          // we do not process for the second iteration
+          initError = initExecTime - executionTime;
+        }
+        spdlog::info("iteration {} execution time is {} wait time is {} init error {}", step - 1,
+          executionTime, executionEnd - computeEnd, initError);
         lastWaitTime = executionEnd - computeEnd;
       }
     }
@@ -230,38 +263,134 @@ int main(int argc, char** argv)
       }
     }
 
+    // record the data
+    // we let the step 0 execute twice in the config file
+    if (leader && (step > startIndex + 1))
+    {
+      // do not record the data for the first iteration
+      // execution time
+      // staging process number
+      // data size
+
+      // execution time executionTime
+      // process number
+      // data size totalSizeEachStepGlobal
+      // do not record data for the step that contains error
+      currentStagingProcnum = stagingClient.m_stagingView.size();
+      std::cout << "ifLastStepAdded is " << ifLastStepAdded << " executiontime " << executionTime
+                << " " << currentStagingProcnum << " " << totalSizeEachStepLocal << std::endl;
+      // do not further record data if we have enough data
+      // or the model exist
+      if (ifLastStepAdded == false)
+      {
+        std::cout << "---record current data---" << std::endl;
+        // it looks that useing the local data size is less possible to generate error
+        dc.recordData("sim", executionTime, currentStagingProcnum, totalSizeEachStepLocal);
+      }
+    }
+
     // adding new processes dynamically if the wait time is larger than zero
     // and there is avalible node capacity
     // only the leader process can adjust it
     if (leader)
     {
-      if (step != startStep && lastWaitTime > 0.5 && avalibleProcess > 0 &&
-        (ifLastStepElastic == false))
+      if (elasticPattern == "naive")
       {
-        // write a file and the colza server can start
-        // trigger another server before leave
-        stagingClient.updateExpectedProcess("join", 1);
-        // send the siganal
-        // get the env about the leaveconfig path
-        std::string elasticjoinFilePath = getenv("ELASTICCONFIGPATH");
-        // the LEAVECONFIGPATH contains the
-        static std::string elasticjoinFileName =
-          elasticjoinFilePath + "/elasticjoin.config" + std::to_string(rank);
-        std::cout << "elasticjoinFilePath is " << elasticjoinFilePath << std::endl;
-        std::ofstream signalFile;
-        signalFile.open(elasticjoinFileName);
-        signalFile << "test\n";
-        signalFile.close();
-        // trigger a service then break
-        avalibleProcess--;
-        spdlog::info("send signal step {} rank {} avalibleProcess {}", step, rank, avalibleProcess);
-        ifLastStepElastic = true;
-        // we do not make two adjacent elastic, since the first iteration always take long time
-        // for loadning necessary packages
+        if (step != startStep && lastWaitTime > 0.5 && avalibleProcess > 0 &&
+          (ifLastStepAdded == false))
+        {
+          // write a file and the colza server can start
+          // trigger another server before leave
+          stagingClient.updateExpectedProcess("join", 1);
+          // send the siganal
+          // get the env about the leaveconfig path
+          std::string elasticjoinFilePath = getenv("ELASTICCONFIGPATH");
+          // the LEAVECONFIGPATH contains the
+          std::string elasticjoinFileName =
+            elasticjoinFilePath + "/elasticjoin.config" + std::to_string(rank);
+          std::cout << "elasticjoinFilePath is " << elasticjoinFilePath << std::endl;
+          std::ofstream signalFile;
+          signalFile.open(elasticjoinFileName);
+          signalFile << "test\n";
+          signalFile.close();
+          // trigger a service then break
+          avalibleProcess--;
+          spdlog::info(
+            "send signal step {} rank {} avalibleProcess {}", step, rank, avalibleProcess);
+          ifLastStepAdded = true;
+          // we do not make two adjacent elastic, since the first iteration always take long time
+          // for loadning necessary packages
+        }
+        else
+        {
+          ifLastStepAdded = false;
+        }
+      }
+      else if (elasticPattern == "adaptive")
+      {
+        // estimate the proc number
+        // do not vary for the first three step
+        // first one is negligible
+        // other two can be in same size for data collection
+        if (step > (startStep + 2))
+        {
+          if ((ifLastStepAdded == false) && lastWaitTime > 3.0 && avalibleProcess > 0)
+          {
+            // for step == startStep, there is no execution, we did not put the data yet
+            // for step == startStep+1, it is on the first iteration, the data is not accurate
+            // it contains the initialization operations
+            // data size, target time
+            double expectedDataSize = 3.0 * totalSizeEachStepLocal;
+            // the compute time is 5
+            double expectedExecuTime = computeTime + 12;
+            int addNum = dc.dynamicAddProcessToStaging2d(
+              currentStagingProcnum, expectedDataSize, expectedExecuTime);
+            if (addNum < 0)
+            {
+              std::cout << "add Num is supposed to be large than 0" << std::endl;
+              addNum = 0;
+            }
+            int actualAdd = addNum;
+            if (addNum > avalibleProcess)
+            {
+              actualAdd = avalibleProcess;
+            }
+            std::cout << "step " << step << " expectedDataSize is " << expectedDataSize
+                      << " decide to add " << addNum << " processes, actual add " << actualAdd
+                      << std::endl;
+
+            stagingClient.updateExpectedProcess("join", actualAdd);
+            // process the actual added processes
+            for (int index = 0; index < actualAdd; index++)
+            {
+              std::string elasticjoinFilePath = getenv("ELASTICCONFIGPATH");
+              // the LEAVECONFIGPATH contains the
+              // do not add static here
+              std::string elasticjoinFileName =
+                elasticjoinFilePath + "/elasticjoin.config" + std::to_string(index);
+
+              std::cout << "elasticjoinFileName is " << elasticjoinFileName << std::endl;
+              std::ofstream signalFile;
+              signalFile.open(elasticjoinFileName);
+              signalFile << "test\n";
+              signalFile.close();
+              // trigger a service then break
+              avalibleProcess--;
+              spdlog::info("send signal step {} add {}th process, avalibleProcess {}", step, index,
+                avalibleProcess);
+              // the actualAdd might be zero
+              ifLastStepAdded = true;
+            }
+          }
+          else
+          {
+            ifLastStepAdded = false;
+          }
+        }
       }
       else
       {
-        ifLastStepElastic = false;
+        throw std::runtime_error("unsupported elasticPattern " + elasticPattern);
       }
     }
 
@@ -387,6 +516,7 @@ int main(int argc, char** argv)
     // go through the number of the offset
     // use the async rpc here
     asyncStageResps.clear();
+    totalSizeEachStepLocal = 0;
     for (int blockID = startIndex; blockID <= endIndex; blockID++)
     {
       if (blockID != startIndex)
@@ -437,6 +567,9 @@ int main(int argc, char** argv)
       stagingClient.stage(dataSetName, step, blockID, dimensions, offsets, type,
         marshaledBuffer->GetPointer(0), rank);
 
+      // calculate the size of the data
+      totalSizeEachStepLocal = totalSizeEachStepLocal + dataSize;
+
       // auto asyncStageResp = stagingClient.asyncstage(dataSetName, step, blockID, dimensions,
       //  offsets, type, marshaledBuffer->GetPointer(0), rank);
       // we only have one allocated mem buffer here we need to guarantee it finish
@@ -444,11 +577,20 @@ int main(int argc, char** argv)
       // could we use the async operation
       // asyncStageResps.push_back(std::move(asyncStageResp));
     }
-
     MPI_Barrier(MPI_COMM_WORLD);
+
+    // use the MB
+    totalSizeEachStepLocal = (totalSizeEachStepLocal * 1.0) / (1024.0 * 1024.0);
+    // calculate the totalSizeEachStepGlobal
+    MPI_Reduce(
+      &totalSizeEachStepLocal, &totalSizeEachStepGlobal, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
+
     auto dataStageEnd = tl::timer::wtime();
     if (leader)
     {
+      // it might not necessary to do the reduction here
+      // if the data is evenly distributed among all processes
+      spdlog::info("iteration {} data stage size is {} ", step, totalSizeEachStepGlobal);
       spdlog::info("iteration {} data stage time is {} ", step, dataStageEnd - dataStageStart);
     }
 

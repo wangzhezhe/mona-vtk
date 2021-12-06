@@ -3,11 +3,11 @@
 
 #include <iostream>
 #include <map>
-#include <memory>
-#include <vector>
-#include <string>
 #include <math.h>
+#include <memory>
 #include <spdlog/spdlog.h>
+#include <string>
+#include <vector>
 
 struct Model
 {
@@ -32,14 +32,64 @@ struct Model
   double m_p;
 };
 
+struct Model2d
+{
+  // index 0 is the process number
+  // index 1 is the data size
+  // index 2 is the execution time
+  Model2d(double p1[3], double p2[3], double p3[3])
+  {
+    std::cout << "model2d" << std::endl;
+    std::cout << "p1 " << p1[0] << "," << p1[1] << "," << p1[2] << std::endl;
+    std::cout << "p2 " << p2[0] << "," << p2[1] << "," << p2[2] << std::endl;
+    std::cout << "p3 " << p3[0] << "," << p3[1] << "," << p3[2] << std::endl;
+
+    double x1 = p1[0];
+    m_x1 = x1;
+    double y1 = p1[1];
+    double z1 = p1[2];
+
+    double y2 = p2[1];
+    double z2 = p2[2];
+
+    double x2 = p3[0];
+    double y3 = p3[1];
+    double z3 = p3[2];
+
+    this->m_bx1 = (z1 - z2) / (y1 - y2);
+    this->m_ax1 = z1 - this->m_bx1 * y1;
+    std::cout << z3 << " " << z2 << " " << x2 << " " << x1 << std::endl;
+
+    double newp2x = this->m_ax1;
+    double newp2y = y3;
+    double newp2z = m_ax1 + this->m_bx1 * newp2y;
+
+    y2 = newp2y;
+    z2 = newp2z;
+
+    this->m_by2 = ((log(z3) - log(z2)) * 1.0) / ((log(x2) - log(x1)) * 1.0);
+  }
+
+  Model2d(const Model2d& other) = default;
+
+  double m_x1;
+  double m_bx1;
+  double m_ax1;
+  double m_by2;
+};
+
 // the history data used for expecting model
 struct HistoryData
 {
-  HistoryData(double executionTime, int processNum)
+  HistoryData(double executionTime, size_t processNum, double dataSize = 0)
     : m_executionTime(executionTime)
-    , m_processNum(processNum){};
+    , m_processNum(processNum)
+    , m_dataSize(dataSize)
+  {
+  }
   double m_executionTime;
-  int m_processNum;
+  size_t m_processNum;
+  double m_dataSize;
 };
 
 struct DynamicProcessController
@@ -48,21 +98,22 @@ struct DynamicProcessController
   DynamicProcessController(){};
 
   ~DynamicProcessController(){};
-
+  std::map<std::string, std::unique_ptr<Model2d> > m_models2d;
   std::map<std::string, std::unique_ptr<Model> > m_models;
   // the vector to store historical data for model evaluation
   std::vector<HistoryData> m_historicalDataSim;
   std::vector<HistoryData> m_historicalDataStaging;
 
-  void recordData(std::string component, double executionTime, int processNum)
+  void recordData(
+    std::string component, double executionTime, size_t processNum, double dataSize = 0)
   {
     if (component.compare("sim") == 0)
     {
-      this->m_historicalDataSim.push_back(HistoryData(executionTime, processNum));
+      this->m_historicalDataSim.push_back(HistoryData(executionTime, processNum, dataSize));
     }
     else if (component.compare("staging") == 0)
     {
-      this->m_historicalDataStaging.push_back(HistoryData(executionTime, processNum));
+      this->m_historicalDataStaging.push_back(HistoryData(executionTime, processNum, dataSize));
     }
     else
     {
@@ -100,6 +151,25 @@ struct DynamicProcessController
     }
     return enoughdata;
   }
+
+  // when we use the model that contains two variables, we use this to decide if there are enough
+  // three elements are: [0]execution time, [1]processNum, [2]dataSize
+  bool enoughDataSim2d()
+  {
+    bool enoughdata = false;
+    int size = this->m_historicalDataSim.size();
+    if (size >= 3 &&
+      (this->m_historicalDataSim[2].m_processNum !=
+        this->m_historicalDataSim[1].m_processNum) &&
+      (this->m_historicalDataSim[1].m_processNum ==
+        this->m_historicalDataSim[0].m_processNum))
+    {
+      enoughdata = true;
+    }
+
+    return enoughdata;
+  }
+
   // current P is the current data staging number
   int dynamicAddProcessToStaging(
     const std::string modelName, const int& currentP, const double& targetExecTime)
@@ -143,9 +213,9 @@ struct DynamicProcessController
     {
       std::cout << "warning: newProcessNum: " << newProcessNum << " currentP: " << currentP
                 << std::endl;
-      //throw std::runtime_error(
+      // throw std::runtime_error(
       //  "model caculation error, the new process number should larger than current num");
-      //it is possible that current waitime is old and new added process did not play a row
+      // it is possible that current waitime is old and new added process did not play a row
       return 0;
     }
 
@@ -155,6 +225,91 @@ struct DynamicProcessController
   // how to let process itsself know it should leave?
   // all get the gjoin list and rank id, then the first one in gjoin list should move
   // or for testing, from last to the first
+
+  int dynamicAddProcessToStaging2d(
+    const int& currentP, double datasize, double targetedExecutionTime)
+  {
+
+    // TODO logtarget_x = (log(targetedExecutionTime) - log(ax1 + bx1*datasize) +  by2*log(x1))/by2
+    std::string modelName = "default";
+    Model2d* p = nullptr;
+    if (this->m_models2d.find(modelName) == m_models2d.end())
+    {
+      // the model does not exist
+      spdlog::info("m_models2d not exist, create m_models2d based on existing data");
+      if (this->enoughDataSim2d())
+      {
+        // estimate model
+        // set the default upper value as 128
+        // we only try to adjust staging data here
+        int size = this->m_historicalDataSim.size();
+
+        // reorganize the data into the parameter ok for Model2d
+        // for p1 p2 and p3
+        // three elements are: [0]execution time, [1]processNum, [2]dataSize
+        /*
+        double m_executionTime;
+        size_t m_processNum;
+        size_t m_dataSize;
+        */
+        double p1[3] = { this->m_historicalDataSim[0].m_processNum,
+          this->m_historicalDataSim[0].m_dataSize,
+          this->m_historicalDataSim[0].m_executionTime };
+
+        double p2[3] = { this->m_historicalDataSim[1].m_processNum,
+          this->m_historicalDataSim[1].m_dataSize,
+          this->m_historicalDataSim[1].m_executionTime };
+
+        double p3[3] = { this->m_historicalDataSim[2].m_processNum,
+          this->m_historicalDataSim[2].m_dataSize,
+          this->m_historicalDataSim[2].m_executionTime };
+
+        this->m_models2d[modelName] = std::make_unique<Model2d>(p1, p2, p3);
+        p = this->m_models2d[modelName].get();
+
+        // compute the targeted execution time
+      }
+      else
+      {
+        spdlog::info("staging data not exist, no enough data, return 1");
+        return 1;
+      }
+    }
+    else
+    {
+      // if we find the model
+      p = this->m_models2d[modelName].get();
+    }
+
+    if (p == nullptr)
+    {
+      throw std::runtime_error("the pointer p is not supposed to be empty");
+    }
+
+    double bx1 = p->m_bx1;
+    double ax1 = p->m_ax1;
+    double by2 = p->m_by2;
+    double x1 = p->m_x1;
+    double target_y = datasize;
+
+    std::cout << "debug model parameters " << bx1 << " " << ax1 << " " << by2 << " " << x1 << " "
+              << target_y << std::endl;
+
+    double k =
+      (1.0 * log(targetedExecutionTime) - 1.0 * log(ax1 + bx1 * target_y) + 1.0 * by2 * log(x1)) /
+      (1.0 * by2);
+
+    double target_x = exp(k);
+
+    if (target_x < currentP)
+    {
+      std::cout << " k is " << k << " do not support decreasing the process number target_x is " << target_x
+                << " currentP is " << currentP << std::endl;
+
+      return 0;
+    }
+    return ceil(target_x - 1.0 * currentP);
+  }
 };
 
 #endif
