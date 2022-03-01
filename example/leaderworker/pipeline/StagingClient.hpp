@@ -313,6 +313,7 @@ public:
 
     if (leader == false)
     {
+      // only the leader is in charge of processing the data in this case
       return asyncResponses;
     }
     // for the leader

@@ -34,6 +34,29 @@ struct Model
 
 struct Model2d
 {
+  // if we init the model with some prior knowledge, we use this constructor
+  // proc num, datasize, exectime
+  Model2d(double p1[3], double p2[3])
+  {
+
+    if (abs(p1[0] - p2[0]) > 0.00001)
+    {
+      throw std::runtime_error("the two init points used in the model should equal for x");
+    }
+
+    this->m_x1 = p1[0];
+
+    double z11 = p1[2];
+    double z12 = p2[2];
+
+    double y1 = p1[1];
+    double y2 = p2[1];
+
+    std::cout << "z11 z12 y1 y2 " << z11 << " " << z12 << " " << y1 << " " << y2 << std::endl;
+    this->m_bx1 = (z11 - z12) / (y1 - y2);
+    this->m_ax1 = z11 - this->m_bx1 * y1;
+  }
+
   // index 0 is the process number
   // index 1 is the data size
   // index 2 is the execution time
@@ -67,15 +90,56 @@ struct Model2d
     y2 = newp2y;
     z2 = newp2z;
 
-    this->m_by2 = ((log(z3) - log(z2)) * 1.0) / ((log(x2) - log(x1)) * 1.0);
+    this->m_by3 = ((log(z3) - log(z2)) * 1.0) / ((log(x2) - log(x1)) * 1.0);
   }
 
   Model2d(const Model2d& other) = default;
 
-  double m_x1;
-  double m_bx1;
-  double m_ax1;
-  double m_by2;
+  void addPoint(double p3[3])
+  {
+    if (abs(p3[0] - this->m_x1) < 0.00001)
+    {
+      throw std::runtime_error("added node should be different with the m_x1");
+    }
+
+    double x2 = p3[0];
+    double y3 = p3[1];
+    double z23 = p3[2];
+
+    double z13 = this->m_ax1 + this->m_bx1 * y3;
+
+    this->m_by3 = ((log(z13) - log(z23))) / ((log(this->m_x1) - log(x2)));
+    // double logay3=log(z13)-by3*log(this->m_x1);
+    this->m_p3added = true;
+  }
+
+  int getExpectedProcNum(double datasize, double expectedExec)
+  {
+
+    double yn = datasize;
+    double zmn = expectedExec;
+
+    double byn = this->m_by3;
+
+    double z1n = this->m_ax1 + this->m_bx1 * yn;
+
+    //std::cout << "debug m_x1 " << m_x1 << " m_bx1 " << m_bx1 << " m_ax1 " << m_ax1 << " m_by3 "
+    //          << m_by3 << " z1n " << z1n << std::endl;
+    
+    //std::cout  << "z1n, byn, this->m_ax1 " << z1n << " " << byn << " " << this->m_ax1 << std::endl;
+    double log_ayn = log(z1n) - byn * log(this->m_x1);
+    //std::cout << "debug log_ayn" << log(z1n) << "," << log(this->m_x1) << std::endl;
+
+    double log_xm = (log(zmn) - log_ayn) / byn;
+    //std::cout <<"log_ayn, log_xm, x_m " << log_ayn << " " << log_xm << " " << exp(log_xm) << std::endl;
+    return int(exp(log_xm));
+  }
+
+  double m_x1 = 0;
+  double m_bx1 = 0;
+  double m_ax1 = 0;
+  double m_by3 = 0;
+  bool m_p3added = false;
 };
 
 // the history data used for expecting model
@@ -157,12 +221,19 @@ struct DynamicProcessController
   bool enoughDataSim2d()
   {
     bool enoughdata = false;
+    // if model exist, return true
+    std::string modelName = "default";
+    if (this->m_models2d.find(modelName) != m_models2d.end())
+    {
+      std::cout << "enoughDataSim2d check, model exist" << std::endl;
+      return true;
+    }
     int size = this->m_historicalDataSim.size();
     if (size >= 3 &&
-      (this->m_historicalDataSim[2].m_processNum !=
-        this->m_historicalDataSim[1].m_processNum) &&
-      (this->m_historicalDataSim[1].m_processNum ==
-        this->m_historicalDataSim[0].m_processNum))
+      (this->m_historicalDataSim[size - 1].m_processNum !=
+        this->m_historicalDataSim[size - 2].m_processNum) &&
+      (this->m_historicalDataSim[size - 2].m_processNum ==
+        this->m_historicalDataSim[size - 3].m_processNum))
     {
       enoughdata = true;
     }
@@ -252,17 +323,17 @@ struct DynamicProcessController
         size_t m_processNum;
         size_t m_dataSize;
         */
-        double p1[3] = { this->m_historicalDataSim[0].m_processNum,
-          this->m_historicalDataSim[0].m_dataSize,
-          this->m_historicalDataSim[0].m_executionTime };
+        double p1[3] = { this->m_historicalDataSim[size - 3].m_processNum,
+          this->m_historicalDataSim[size - 3].m_dataSize,
+          this->m_historicalDataSim[size - 3].m_executionTime };
 
-        double p2[3] = { this->m_historicalDataSim[1].m_processNum,
-          this->m_historicalDataSim[1].m_dataSize,
-          this->m_historicalDataSim[1].m_executionTime };
+        double p2[3] = { this->m_historicalDataSim[size - 2].m_processNum,
+          this->m_historicalDataSim[size - 2].m_dataSize,
+          this->m_historicalDataSim[size - 2].m_executionTime };
 
-        double p3[3] = { this->m_historicalDataSim[2].m_processNum,
-          this->m_historicalDataSim[2].m_dataSize,
-          this->m_historicalDataSim[2].m_executionTime };
+        double p3[3] = { this->m_historicalDataSim[size - 1].m_processNum,
+          this->m_historicalDataSim[size - 1].m_dataSize,
+          this->m_historicalDataSim[size - 1].m_executionTime };
 
         this->m_models2d[modelName] = std::make_unique<Model2d>(p1, p2, p3);
         p = this->m_models2d[modelName].get();
@@ -288,23 +359,23 @@ struct DynamicProcessController
 
     double bx1 = p->m_bx1;
     double ax1 = p->m_ax1;
-    double by2 = p->m_by2;
+    double by3 = p->m_by3;
     double x1 = p->m_x1;
     double target_y = datasize;
 
-    std::cout << "debug model parameters " << bx1 << " " << ax1 << " " << by2 << " " << x1 << " "
-              << target_y << std::endl;
-
     double k =
-      (1.0 * log(targetedExecutionTime) - 1.0 * log(ax1 + bx1 * target_y) + 1.0 * by2 * log(x1)) /
-      (1.0 * by2);
+      (1.0 * log(targetedExecutionTime) - 1.0 * log(ax1 + bx1 * target_y) + 1.0 * by3 * log(x1)) /
+      (1.0 * by3);
 
     double target_x = exp(k);
 
+    std::cout << "debug model parameters " << bx1 << " " << ax1 << " " << by3 << " " << x1 << " "
+              << target_y << " " << target_x << std::endl;
+
     if (target_x < currentP)
     {
-      std::cout << " k is " << k << " do not support decreasing the process number target_x is " << target_x
-                << " currentP is " << currentP << std::endl;
+      std::cout << " k is " << k << " do not support decreasing the process number target_x is "
+                << target_x << " currentP is " << currentP << std::endl;
 
       return 0;
     }

@@ -314,19 +314,11 @@ uint32_t get_credentials_from_ssg_file()
 {
   uint32_t cookie = 0;
 #ifdef USE_GNI
-  int num_addrs = 1;
-  ssg_group_id_t gid;
-  int ret = ssg_group_id_load(g_ssg_file.c_str(), &num_addrs, &gid);
-  if (ret != SSG_SUCCESS)
-  {
-    spdlog::critical("Could not load group id from file");
-    exit(-1);
-  }
+
   int64_t credential_id = -1;
-  ret = ssg_group_id_get_cred(gid, &credential_id);
+  int ret = ssg_get_group_cred_from_file(g_ssg_file.c_str(), &credential_id);
   if (credential_id == -1)
     return cookie;
-  // ssg_group_destroy(gid);
 
   drc_info_handle_t drc_credential_info;
 

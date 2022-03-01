@@ -20,3 +20,7 @@ adopted for the evaluate function at the ./pipeline/StagingProvider.hpp.
 
 Besides, the simulation uses the `elasticmbleaderworker.cpp`, and we need to make sure the proper strategy is adopted. For example, if we try to evaluate the static strategy, we can use the `controller.naiveLeave2` function in the 
 `elasticmbleaderworker.cpp`, if we try to evaluate the adaptive strategy, we can use the `controller.dynamicLeave` function.
+
+### dwater example
+
+The scripts in `dwaterclient/scripts/` listed scripts for running the analtyics with the dwater simulation. `testrunElasticnaive.scripts` is the script that adopts the naive strategy and `testrunElasticadaptive.scripts` is the script that adopts the adaptive elasticity strategy.

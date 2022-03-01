@@ -48,14 +48,6 @@ int main(int argc, char** argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   // Initialize SSG
-  int ret = ssg_init();
-  if (ret != SSG_SUCCESS)
-  {
-    spdlog::critical("Could not initialize SSG");
-    exit(-1);
-  }
-  ssg_group_id_t gid;
-
   uint32_t cookie = 0;
   if (!g_join)
   {
@@ -65,19 +57,13 @@ int main(int argc, char** argv)
   }
   else
   {
-    int num_addrs = SSG_ALL_MEMBERS;
-    ret = ssg_group_id_load(g_ssg_file.c_str(), &num_addrs, &gid);
-    if (ret != SSG_SUCCESS)
-    {
-      spdlog::critical("Could not load group id from file");
-      exit(-1);
-    }
-    ssg_group_id_get_cred(gid, &g_drc_credential);
+    int ret = ssg_get_group_cred_from_file(g_ssg_file.c_str(), &g_drc_credential);
     spdlog::trace("Credential id read from SSG file: {}", g_drc_credential);
     if (g_drc_credential != -1)
       cookie = get_credential_cookie(g_drc_credential);
   }
-
+  
+  ssg_group_id_t gid;
   hg_init_info hii;
   memset(&hii, 0, sizeof(hii));
   std::string cookie_str = std::to_string(cookie);

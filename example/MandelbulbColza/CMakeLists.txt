@@ -68,8 +68,9 @@ target_link_libraries (mbserver colza-server MPI::MPI_C ${DRC_LIBRARIES})
 add_executable (mbadmin ${CMAKE_CURRENT_SOURCE_DIR}/mbadmin.cpp)
 target_link_libraries (mbadmin colza-admin ${DRC_LIBRARIES})
 
-add_executable (testssg ${CMAKE_CURRENT_SOURCE_DIR}/testssg.cpp)
-target_link_libraries (testssg colza-client MPI::MPI_C ${DRC_LIBRARIES})
+#ssg API is updated
+#add_executable (testssg ${CMAKE_CURRENT_SOURCE_DIR}/testssg.cpp)
+#target_link_libraries (testssg colza-client MPI::MPI_C ${DRC_LIBRARIES})
 
 
 #install

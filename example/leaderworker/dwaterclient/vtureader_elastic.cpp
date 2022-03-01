@@ -47,6 +47,7 @@ extern "C"
 static std::string g_server_leader_config = "dynamic_server_leader.config";
 static std::string g_drc_file = "dynamic_drc.config";
 static std::string dataSetName = "dwater";
+int granularity = 2;
 
 std::unique_ptr<tl::engine> globalServerEnginePtr;
 
@@ -68,8 +69,9 @@ int main(int argc, char** argv)
     std::cerr << "Usage: unimos_server <avaliable process>" << std::endl;
     exit(0);
   }
-
-  avalibleProcess = std::stoi(argv[1]);
+  
+  //granularity represents how many processes are started on one node
+  avalibleProcess = std::stoi(argv[1])*granularity;
 
   std::string elasticPattern = argv[2];
 
@@ -193,6 +195,11 @@ int main(int argc, char** argv)
   float totalSizeEachStepGlobal = 0;
   double executionTime = 0;
   DynamicProcessController dc;
+  // init the new model with the prior knowledge
+  double p1[3] = { 4.0, 169.613, 5.7534 };
+  double p2[3] = { 4.0, 728.73883, 24.9022 };
+  Model2d mdprior(p1, p2);
+
   size_t currentStagingProcnum = 0;
 
   // the execution time for the first started process need to consider the init error
@@ -279,13 +286,24 @@ int main(int argc, char** argv)
       currentStagingProcnum = stagingClient.m_stagingView.size();
       std::cout << "ifLastStepAdded is " << ifLastStepAdded << " executiontime " << executionTime
                 << " " << currentStagingProcnum << " " << totalSizeEachStepLocal << std::endl;
-      // do not further record data if we have enough data
-      // or the model exist
+      // the execution time is accurate (without the initial overhead when ifLastStepAdded is false)
       if (ifLastStepAdded == false)
       {
-        std::cout << "---record current data---" << std::endl;
+        // do not add data to model if there is enough data
+        // bool enoughdata = dc.enoughDataSim2d();
+        // if (enoughdata == false)
+        //{
+        //  std::cout << "---record current data---" << std::endl;
         // it looks that useing the local data size is less possible to generate error
-        dc.recordData("sim", executionTime, currentStagingProcnum, totalSizeEachStepLocal);
+        //  dc.recordData("sim", executionTime, currentStagingProcnum, totalSizeEachStepLocal);
+        //}
+        // when the new point is not added and new proc num is different with info in model
+        if (mdprior.m_p3added == false && (abs(currentStagingProcnum - mdprior.m_x1) > 0.00001))
+        {
+          double p3[3] = { currentStagingProcnum, totalSizeEachStepLocal, executionTime };
+          std::cout << "step " << step << " mdprior add p3: " << p3[0] << "," << p3[1] << "," << p3[2] << std::endl;
+          mdprior.addPoint(p3);
+        }
       }
     }
 
@@ -301,23 +319,27 @@ int main(int argc, char** argv)
         {
           // write a file and the colza server can start
           // trigger another server before leave
-          stagingClient.updateExpectedProcess("join", 1);
+          stagingClient.updateExpectedProcess("join", granularity);
           // send the siganal
           // get the env about the leaveconfig path
           std::string elasticjoinFilePath = getenv("ELASTICCONFIGPATH");
-          // the LEAVECONFIGPATH contains the
-          std::string elasticjoinFileName =
-            elasticjoinFilePath + "/elasticjoin.config" + std::to_string(rank);
-          std::cout << "elasticjoinFilePath is " << elasticjoinFilePath << std::endl;
-          std::ofstream signalFile;
-          signalFile.open(elasticjoinFileName);
-          signalFile << "test\n";
-          signalFile.close();
-          // trigger a service then break
-          avalibleProcess--;
-          spdlog::info(
-            "send signal step {} rank {} avalibleProcess {}", step, rank, avalibleProcess);
-          ifLastStepAdded = true;
+          // one node contains 2 processes
+          for (int g = 0; g < 1; g++)
+          {
+            std::string elasticjoinFileName =
+              elasticjoinFilePath + "/elasticjoin.config" + std::to_string(g);
+            std::cout << "elasticjoinFileName is " << elasticjoinFileName << std::endl;
+            std::ofstream signalFile;
+            signalFile.open(elasticjoinFileName);
+            signalFile << "test\n";
+            signalFile.close();
+            // trigger a service then break
+            avalibleProcess = avalibleProcess - granularity;
+            spdlog::info(
+              "send signal step {} rank {} avalibleProcess {}", step, rank, avalibleProcess);
+            ifLastStepAdded = true;
+          }
+
           // we do not make two adjacent elastic, since the first iteration always take long time
           // for loadning necessary packages
         }
@@ -332,7 +354,8 @@ int main(int argc, char** argv)
         // do not vary for the first three step
         // first one is negligible
         // other two can be in same size for data collection
-        if (step > (startStep + 2))
+        // if (step > (startStep + 2))
+        if (step > (startStep)) // do not worry if there are prior knowledge
         {
           if ((ifLastStepAdded == false) && lastWaitTime > 3.0 && avalibleProcess > 0)
           {
@@ -340,28 +363,48 @@ int main(int argc, char** argv)
             // for step == startStep+1, it is on the first iteration, the data is not accurate
             // it contains the initialization operations
             // data size, target time
-            double expectedDataSize = 3.0 * totalSizeEachStepLocal;
+             double expectedDataSize = 2.0 * totalSizeEachStepLocal;
+            // double expectedDataSize = 2.5 * totalSizeEachStepLocal;
+            // double expectedDataSize = 3.0 * totalSizeEachStepLocal;
             // the compute time is 5
-            double expectedExecuTime = computeTime + 12;
-            int addNum = dc.dynamicAddProcessToStaging2d(
-              currentStagingProcnum, expectedDataSize, expectedExecuTime);
+            // when considering staging time? is it useful?
+            double expectedExecuTime = computeTime + 8;
+            // int addNum = dc.dynamicAddProcessToStaging2d(
+            //  currentStagingProcnum, expectedDataSize, expectedExecuTime);
+            int addNum = granularity;
+
+            if (mdprior.m_p3added)
+            {
+              // update the addNum when the new proccess are added
+              addNum = mdprior.getExpectedProcNum(expectedDataSize, expectedExecuTime);
+              std::cout << "step " << step << " mdprior getExpect return " << addNum << std::endl;
+            }
+
             if (addNum < 0)
             {
               std::cout << "add Num is supposed to be large than 0" << std::endl;
               addNum = 0;
             }
-            int actualAdd = addNum;
+
+            // compute remaining part
+            int actualAdd = addNum - currentStagingProcnum;
+            
+            // make sure it is multiple value of granularity
+            if(actualAdd%2!=0){
+              actualAdd = actualAdd +1;
+            }
             if (addNum > avalibleProcess)
             {
               actualAdd = avalibleProcess;
             }
             std::cout << "step " << step << " expectedDataSize is " << expectedDataSize
-                      << " decide to add " << addNum << " processes, actual add " << actualAdd
+                      << " decide to use " << addNum << " processes, actual add " << actualAdd
                       << std::endl;
-
+            // the actuall added is the process here
             stagingClient.updateExpectedProcess("join", actualAdd);
-            // process the actual added processes
-            for (int index = 0; index < actualAdd; index++)
+            // the actual added node is depedent on the granularity
+            int actualStartNode = (actualAdd / granularity);
+            for (int index = 0; index < actualStartNode; index++)
             {
               std::string elasticjoinFilePath = getenv("ELASTICCONFIGPATH");
               // the LEAVECONFIGPATH contains the
@@ -375,8 +418,8 @@ int main(int argc, char** argv)
               signalFile << "test\n";
               signalFile.close();
               // trigger a service then break
-              avalibleProcess--;
-              spdlog::info("send signal step {} add {}th process, avalibleProcess {}", step, index,
+              avalibleProcess = avalibleProcess - granularity;
+              spdlog::info("send signal step {} add {}th node, avalibleProcess {}", step, index,
                 avalibleProcess);
               // the actualAdd might be zero
               ifLastStepAdded = true;

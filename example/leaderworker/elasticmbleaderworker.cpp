@@ -196,7 +196,8 @@ int main(int argc, char** argv)
     // avaliable slot also decrease, since at the first two step, we let it to be the 1
     // the upper bound here for dynamic anticipation should be g_num_initial_join-2
     // spdlog::info("start dynamicLeave for iteration {} ", step);
-
+    
+    /* elasticity opertaion*/
     if (step != 0 && lastWaitTime > 0.1)
     {
       leave = controller.naiveLeave2(step, 1, procSize, procRank);
@@ -222,13 +223,13 @@ int main(int argc, char** argv)
 
         // it looks using the system call does not trigger things (not sure the reason)
         // even if the existing process exist, so we still use the config file
-        /*
-        std::string startStagingCommand = "/bin/bash ./addprocess.sh";
-        std::string command = startStagingCommand + " " + std::to_string(1);
+        
+        //std::string startStagingCommand = "/bin/bash ./addprocess.sh";
+        //std::string command = startStagingCommand + " " + std::to_string(1);
         // use systemcall to start ith server
-        spdlog::info("Add server by command: {}", command);
-        std::system(command.c_str());
-        */
+        //spdlog::info("Add server by command: {}", command);
+        //std::system(command.c_str());
+        
         // get the env about the leaveconfig path
         std::string leaveConfigPath=getenv ("LEAVECONFIGPATH");
         // the LEAVECONFIGPATH contains the
@@ -243,6 +244,7 @@ int main(int argc, char** argv)
         break;
       }
     }
+    
 
     // syncSimOperation
 

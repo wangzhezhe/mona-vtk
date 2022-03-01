@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=24
+#SBATCH --nodes=16
 #SBATCH --tasks-per-node=32
-#SBATCH --time=29:00
+#SBATCH --time=20:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
 
@@ -16,7 +16,7 @@ SERVERPROCESS=4
 CLIENTNODE=2
 CLIENTPROCESS=16
 
-AVALIBLEPROCESS=20
+AVALIBLENODE=12
 
 BUILDPATH=/global/cscratch1/sd/zw241/build_monavtk
 SCRIPTPATH=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/leaderworker/dwaterclient/render_dwi.py
@@ -46,7 +46,7 @@ done
 
 # start the client for data staging operation
 srun -C haswell -N $CLIENTNODE -n $CLIENTPROCESS -c 4 -l --cpu_bind=cores ./example/leaderworker/dwaterclient/vtureader_elastic \
-            $AVALIBLEPROCESS \
+            $AVALIBLENODE \
             adaptive &> dw_client_${CLIENTPROCESS}.log &
 
 # check the configuration file and adding new processes as needed
@@ -72,7 +72,8 @@ else
   echo "remove ${fileName}"
   rm $fileName
 
-  srun -C haswell -N 1 -n 1 -c 16 -l --cpu_bind=cores --mem=100GB ./example/leaderworker/teststagingserver \
+# set the granularity as 2, adding 1 process is inobvious
+  srun -C haswell -N 1 -n 2 -c 16 -l --cpu_bind=cores --mem=100GB ./example/leaderworker/teststagingserver \
             -a gni \
             -t 4 \
             -v info \

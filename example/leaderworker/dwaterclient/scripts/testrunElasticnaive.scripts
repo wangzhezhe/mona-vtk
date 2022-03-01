@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=4
+#SBATCH --nodes=16
 #SBATCH --tasks-per-node=32
 #SBATCH --time=29:00
 #SBATCH --licenses=cscratch1
@@ -16,7 +16,7 @@ SERVERPROCESS=4
 CLIENTNODE=2
 CLIENTPROCESS=16
 
-AVALIBLEPROCESS=0
+AVALIBLENODE=12
 
 BUILDPATH=/global/cscratch1/sd/zw241/build_monavtk
 SCRIPTPATH=/global/homes/z/zw241/cworkspace/src/mona-vtk/example/leaderworker/dwaterclient/render_dwi.py
@@ -46,7 +46,7 @@ done
 
 # start the client for data staging operation
 srun -C haswell -N $CLIENTNODE -n $CLIENTPROCESS -c 4 -l --cpu_bind=cores ./example/leaderworker/dwaterclient/vtureader_elastic \
-            $AVALIBLEPROCESS \
+            $AVALIBLENODE \
             naive &> dw_client_${CLIENTPROCESS}.log &
 
 # check the configuration file and adding new processes as needed
@@ -71,8 +71,8 @@ else
   fileName=`ls elasticjoin.config* |sed -n '1p'`
   echo "remove ${fileName}"
   rm $fileName
-
-  srun -C haswell -N 1 -n 1 -c 16 -l --cpu_bind=cores --mem=100GB ./example/leaderworker/teststagingserver \
+  # attent the n parameter here, it should be same with the granularity in the client program
+  srun -C haswell -N 1 -n 2 -c 16 -l --cpu_bind=cores --mem=100GB ./example/leaderworker/teststagingserver \
             -a gni \
             -t 4 \
             -v info \

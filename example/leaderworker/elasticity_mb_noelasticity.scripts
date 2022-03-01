@@ -5,6 +5,9 @@
 #SBATCH --time=5:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
+
+# this is the no elasticity script
+# the configuration can be adjusted for different cases
 rm core
 ulimit -c unlimited
 
@@ -12,7 +15,6 @@ export LEAVECONFIGPATH=./
 
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
-export LD_LIBRARY_PATH=/global/common/sw/cray-sles15-x86_64/gcc-8.2.0/mesa-18.3.6-qozjngg/lib:$LD_LIBRARY_PATH
 
 cd $BUILDDIR
 rm dynamic_drc.config
@@ -22,8 +24,8 @@ rm *.png
 rm elasticmb_*.log
 rm clientleave.config*
 
-rm elasticmb_elasticclient_*.log
-rm elasticmb_elasticserver_*.log
+rm elasticmb_noelasticclient_*.log
+rm elasticmb_noelasticserver_*.log
 
 # key envs
 PROTOCOL=gni
@@ -58,7 +60,7 @@ srun -C haswell -N $SERVERNODE -n $SERVERPROCESS -c 8 -l --cpu_bind=cores --time
             -a gni \
             -t 4 \
             -v debug \
-            -g 0 &> elasticmb_elasticserver_$SERVERPROCESS.log &
+            -g 0 &> elasticmb_noelasticserver_$SERVERPROCESS.log &
 
 echo "srun is called for elasticserver init at $(date)"
 
@@ -72,7 +74,7 @@ done
 result=0
 while [ $result -ne $SERVERPROCESS ]
 do
-    result=$(cat elasticmb_elasticserver_"$SERVERPROCESS".log | grep "Server running at" | wc -l)
+    result=$(cat elasticmb_noelasticserver_"$SERVERPROCESS".log | grep "Server running at" | wc -l)
     echo "$result server loaded backend"
     sleep 1  
 done
@@ -85,7 +87,7 @@ srun -C haswell -N $CLIENT_INIT_NODE -l -n $CLIENT_INIT_NUM -c 8 --cpu_bind=core
               -t 4 \
               -i 10 \
               --initjoin $CLIENT_DYNAMIC_NUM \
-              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> elasticmb_elasticclient_init.log &
+              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> elasticmb_noelasticclient_init.log &
 
 # when there is multiple thread, start the dynamic case
 # check the drc file existance
@@ -107,43 +109,8 @@ do
               -t 4 \
               -i 10 \
               --initjoin $CLIENT_DYNAMIC_NUM -j \
-              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> elasticmb_elasticclient_add$x.log &
+              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> elasticmb_noelasticclient_add$x.log &
   x=$(( $x + 1 ))
-done
-
-# use the trigger command to start
-# if there is client leave, start another colza server
-# TODO, we need to change this part gradually
-x=1
-while true;
-do
-# this can be a signal to say that a new server should be started
-# there might multiple config files
-# we continue create server if there exist config
-result=`ls clientleave.config* |wc -l`
-if [ $result -eq 0 ]
-then
-  sleep 1
-else
-  # start one process and remove one
-  echo "config is detected $(date)"
-  echo "start one process"
-  fileName=`ls clientleave.config* |sed -n '1p'`
-  echo "remove ${fileName}"
-  rm $fileName
-  echo "remove filename ${fileName} $(date)"
-
-  # start the another server if there is leave message
-  # there are some issue if we start by system call
-  # the original process can not recognized as leave in that case
-  srun -C haswell -N 1 -n 1 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
-           -a gni \
-           -t 4 \
-           -v debug \
-           -j &> elasticmb_elasticserver_add$x.log &
-  echo "srun is called for elasticserver$x at $(date)"
-  x=$(( $x + 1 ))
-fi
 done
 
 wait

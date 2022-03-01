@@ -122,6 +122,9 @@ int main(int argc, char** argv)
   // start one step(get one new tar file and decompress it in the temp dir)
   // remember to remove temp dir after finish operation
   std::string dwdataDir = "/global/cscratch1/sd/zw241/build_mona-vtk-matthieu/DeepWaterImpactData";
+    std::string configFile =
+    "/global/homes/z/zw241/cworkspace/src/mona-vtk/example/leaderworker/dwaterclient/config.txt";
+    
   int totalStep = 25;
   int totalFilePerStep = 512;
   int workload = totalFilePerStep / procs;

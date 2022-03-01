@@ -79,8 +79,8 @@ struct Controller
       }
     }
   }
+  
   // the pending process num at the leader must be udpated firstly
-
   bool naiveLeave(int iteration, int leaveNum, int monaRank)
   {
     bool leave = false;
