@@ -7,6 +7,11 @@ find_package (colza REQUIRED)
 find_package (thallium REQUIRED)
 find_package (PkgConfig REQUIRED)
 
+
+#find_package(spdlog REQUIRED)
+#message("spdlog include dir: " ${SPDLOG_INCLUDE_DIR})
+#include_directories(${SPDLOG_INCLUDE_DIR})
+
 # search for mona by pkg
 pkg_check_modules (MONA REQUIRED IMPORTED_TARGET mona)
 # search for ssg by pkg
@@ -16,9 +21,6 @@ pkg_check_modules (TCLAP REQUIRED IMPORTED_TARGET tclap)
 
 # search for nlohmann/json
 find_package (nlohmann_json REQUIRED)
-
-# search for spdlog
-find_package(spdlog REQUIRED)
 
 if(NOT PARAVIEW_USE_MPI)
   message(SEND_ERROR "ParaView must be built with MPI enabled")
@@ -37,6 +39,7 @@ set (monabackend-src-files
 
 # monabackend pipeline library
 add_library (monabackend-pipeline ${monabackend-src-files})
+
 target_link_libraries (monabackend-pipeline 
 colza-server 
 mona-vtk-icet
