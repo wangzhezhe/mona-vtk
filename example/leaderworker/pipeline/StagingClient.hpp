@@ -46,9 +46,9 @@ public:
   tl::remote_procedure m_updateExpectedProcessNum;
   tl::remote_procedure m_removeProcess;
   tl::remote_procedure m_shutdownprocess;
+  tl::remote_procedure m_exit;
 
   // define lookup
-
   tl::endpoint lookup(const std::string& address)
   {
     auto it = m_addrToEndpoints.find(address);
@@ -86,6 +86,7 @@ public:
     , m_execute(engineptr->define("execute"))
     , m_cleanup(engineptr->define("cleanup"))
     , m_syncview(engineptr->define("syncview"))
+    , m_exit(engineptr->define("exit"))
     , m_updateExpectedProcessNum(engineptr->define("updateExpectedProcessNum"))
     , m_removeProcess(engineptr->define("removeProcess"))
     , m_shutdownprocess(engineptr->define("shutdownprocess").disable_response())
@@ -113,8 +114,8 @@ public:
 
     if (returnAddrs.size() > 0)
     {
-      spdlog::info(
-        "iteration {} staging view is updated from {} to {}", iteration, this->m_stagingView.size(), returnAddrs.size());
+      spdlog::info("iteration {} staging view is updated from {} to {}", iteration,
+        this->m_stagingView.size(), returnAddrs.size());
       this->m_stagingView = returnAddrs;
       this->m_viewUpdated = 1;
     }
@@ -356,6 +357,50 @@ public:
     return;
   }
 
+  void exit(int exitnum, bool leader)
+  {
+    // exit a specific server
+    // this is only called by the leader
+    if (leader == false)
+    {
+      //exit is only called by leader
+      return;
+    }
+
+    int stagingSize = this->m_stagingView.size();
+    if (exitnum > (stagingSize - 1))
+    {
+      spdlog::info("exit number is larger than staging server number");
+      return;
+    }
+
+    // server id from the 1 to the exit num
+    // we do not remove the rank 0 server
+    int count = 0;
+    int index = 0;
+    while (index++ < stagingSize && count < exitnum)
+    {
+      if (this->m_stagingView[index] == m_stagingLeader)
+      {
+        continue;
+      }
+
+      std::cout << "client exit the server: " << this->m_stagingView[index] << std::endl;
+      auto ep = this->lookup(this->m_stagingView[index]);
+
+      tl::provider_handle ph(ep, 0);
+      // send the RPC
+      int result = this->m_exit.on(ph)();
+      if (result != 0)
+      {
+        throw std::runtime_error("failed to exit serverid " + std::to_string(index));
+      }
+      count++;
+    }
+
+    return;
+  }
+
   void stage(const std::string& dataset_name, uint64_t iteration, uint64_t block_id,
     const std::vector<size_t>& dimensions, const std::vector<int64_t>& offsets, const Type& type,
     const void* data, int monarank)
@@ -427,7 +472,6 @@ public:
     // sender addr is used for rpc call to pull the data
     auto response = this->m_stage.on(ph).async(
       sender_addr, dataset_name, iteration, block_id, dimensions, offsets, dataType, bulk);
-
 
     // spdlog::debug(
     //  "ok for start iteration {} stage view size {} monarank {}", iteration, stagingSize,

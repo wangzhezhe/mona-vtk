@@ -67,6 +67,9 @@ public:
     // this is for simple testing
     define("helloRPC", &StagingProvider::hello);
 
+    // exit the current server
+    define("exit", &StagingProvider::exit);
+
     this->m_stagecommon_meta = std::make_unique<StagingCommonMeta>(StagingCommonMeta());
     this->m_stagecommon_meta->m_thallium_self_addr = (std::string)(this->get_engine().self());
     this->m_stagecommon_meta->m_mona = mona;
@@ -153,6 +156,30 @@ public:
     // addr for sending and recieveing reqs are different
     int result = addProcess.on(ph)(
       this->m_stagecommon_meta->m_thallium_self_addr, this->m_stagecommon_meta->m_mona_self_addr);
+    if (result != 0)
+    {
+      throw std::runtime_error("failt to register to leader");
+    }
+    return;
+  }
+
+  // for non leader, try to deregister
+  void addrDerigster()
+  {
+    // send self mona to the 
+    if(m_stagecommon_meta -> m_ifleader == true){
+      throw std::runtime_error("leader process should not be derigister itsself");
+      return;
+    }
+    // use the default provider 0 in this case
+    tl::remote_procedure removeProcess = this->get_engine().define("removeProcess");
+
+    auto leaderEndpoint = this->lookup(this->m_stagecommon_meta->m_thallium_leader_addr);
+
+    tl::provider_handle ph(leaderEndpoint, 0);
+
+    int result = removeProcess.on(ph)(
+      this->m_stagecommon_meta->m_thallium_self_addr);
     if (result != 0)
     {
       throw std::runtime_error("failt to register to leader");
@@ -493,7 +520,7 @@ public:
 
     // return current thallium addrs
     std::vector<std::string> thalliumAddrs;
-    
+
     {
       std::lock_guard<tl::mutex> lock(this->m_stageleader_meta->m_monaAddrmap_mtx);
       for (auto& p : this->m_stageleader_meta->m_mona_addresses_map)
@@ -520,22 +547,23 @@ public:
     req.respond(result);
   }
 
-  void cleanup(const tl::request& req, std::string& dataset_name, uint64_t& iteration){
-    int result = this->m_stagecommon_meta->m_pipeline->cleanup(dataset_name,iteration);
+  void cleanup(const tl::request& req, std::string& dataset_name, uint64_t& iteration)
+  {
+    int result = this->m_stagecommon_meta->m_pipeline->cleanup(dataset_name, iteration);
     req.respond(result);
   }
 
   void execute(const tl::request& req, std::string& dataset_name, uint64_t& iteration)
   {
-    //TODO add another parameter to control the different execute functions
-    //int result = this->m_stagecommon_meta->m_pipeline->execute(
-    //  iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
-    //int result = this->m_stagecommon_meta->m_pipeline->executesynthetic(
+    // TODO add another parameter to control the different execute functions
+    // int result = this->m_stagecommon_meta->m_pipeline->execute(
+    //   iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
+    int result = this->m_stagecommon_meta->m_pipeline->executesynthetic(
+      iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
+    // int result = this->m_stagecommon_meta->m_pipeline->executesynthetic2(
+    //   iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
+    // int result = this->m_stagecommon_meta->m_pipeline->executedwater(
     // iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
-    //int result = this->m_stagecommon_meta->m_pipeline->executesynthetic2(
-    //  iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
-    int result = this->m_stagecommon_meta->m_pipeline->executedwater(
-    iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
 
     req.respond(result);
   }
@@ -543,6 +571,17 @@ public:
   void hello(const tl::request& req)
   {
     std::cout << "------RPC call recieved for hello for testing----" << std::endl;
+    req.respond(0);
+  }
+
+  void exit(const tl::request& req)
+  {
+    std::cout << "---exit the server---" << std::endl;
+
+    // update the addrlist before finalize!!
+    // call the deregister rpc before executing the finalize operation
+    addrDerigster();
+    this->get_engine().finalize();
     req.respond(0);
   }
 };

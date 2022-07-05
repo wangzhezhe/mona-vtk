@@ -174,6 +174,8 @@ int main(int argc, char** argv)
 
   engine.wait_for_finalize();
 
+  spdlog::info("Server finalize api is called");
+
   MPI_Finalize();
 
   return 0;
