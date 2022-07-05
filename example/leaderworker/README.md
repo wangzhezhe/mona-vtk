@@ -24,3 +24,15 @@ Besides, the simulation uses the `elasticmbleaderworker.cpp`, and we need to mak
 ### dwater example
 
 The scripts in `dwaterclient/scripts/` listed scripts for running the analtyics with the dwater simulation. `testrunElasticnaive.scripts` is the script that adopts the naive strategy and `testrunElasticadaptive.scripts` is the script that adopts the adaptive elasticity strategy.
+
+
+### install from the spack
+
+```
+git clone https://github.com/spack/spack.git
+spack env create colza-env spack.yaml
+spack env activate colza-env
+spack repo add sw/mochi-spack-packages
+spack find compilers
+spack install
+```

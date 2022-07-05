@@ -7,11 +7,6 @@ find_package (colza REQUIRED)
 find_package (thallium REQUIRED)
 find_package (PkgConfig REQUIRED)
 
-
-#find_package(spdlog REQUIRED)
-#message("spdlog include dir: " ${SPDLOG_INCLUDE_DIR})
-#include_directories(${SPDLOG_INCLUDE_DIR})
-
 # search for mona by pkg
 pkg_check_modules (MONA REQUIRED IMPORTED_TARGET mona)
 # search for ssg by pkg
@@ -42,9 +37,11 @@ add_library (monabackend-pipeline ${monabackend-src-files})
 
 target_link_libraries (monabackend-pipeline 
 colza-server 
+spdlog::spdlog_header_only
 mona-vtk-icet
 mona-vtk
-ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel MPI::MPI_C)
+ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel MPI::MPI_C )
+
 
 # buld the mpibackend pipeline library
 set (mpibackend-src-files
@@ -53,29 +50,31 @@ set (mpibackend-src-files
 
 # mpibackend pipeline library (we link mona things since we use one insitu adaptor file)
 # but the mona things is not used in MPI case
+
 add_library (mpibackend-pipeline ${mpibackend-src-files})
 target_link_libraries (mpibackend-pipeline 
 colza-server 
+spdlog::spdlog_header_only
 ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst VTK::ParallelMPI VTK::CommonDataModel MPI::MPI_C)
 
 
 # client
 add_executable (mbclient mbclient.cpp)
-target_link_libraries (mbclient colza-client MPI::MPI_C nlohmann_json::nlohmann_json ${DRC_LIBRARIES})
+target_link_libraries (mbclient colza-client spdlog::spdlog_header_only MPI::MPI_C nlohmann_json::nlohmann_json ${DRC_LIBRARIES})
 
 # server
 add_executable (mbserver mbserver.cpp)
-target_link_libraries (mbserver colza-server MPI::MPI_C ${DRC_LIBRARIES})
+target_link_libraries (mbserver colza-server spdlog::spdlog_header_only MPI::MPI_C ${DRC_LIBRARIES})
 
 # admin
 add_executable (mbadmin ${CMAKE_CURRENT_SOURCE_DIR}/mbadmin.cpp)
-target_link_libraries (mbadmin colza-admin ${DRC_LIBRARIES})
+target_link_libraries (mbadmin colza-admin spdlog::spdlog_header_only ${DRC_LIBRARIES})
 
 #ssg API is updated
-#add_executable (testssg ${CMAKE_CURRENT_SOURCE_DIR}/testssg.cpp)
-#target_link_libraries (testssg colza-client MPI::MPI_C ${DRC_LIBRARIES})
+add_executable (testssg ${CMAKE_CURRENT_SOURCE_DIR}/testssg.cpp)
+target_link_libraries (testssg colza-client spdlog::spdlog_header_only MPI::MPI_C ${DRC_LIBRARIES})
 
 
 #install
-install (TARGETS mbadmin mbserver mbclient DESTINATION bin/example/MandelbulbColza/)
-install (TARGETS mpibackend-pipeline monabackend-pipeline DESTINATION lib)
+#install (TARGETS mbadmin mbserver mbclient DESTINATION bin/example/MandelbulbColza/)
+#install (TARGETS mpibackend-pipeline monabackend-pipeline DESTINATION lib)

@@ -1,0 +1,108 @@
+#!/bin/bash
+#SBATCH --qos=debug
+#SBATCH --nodes=6
+#SBATCH --tasks-per-node=32
+#SBATCH --time=5:00
+#SBATCH --licenses=cscratch1
+#SBATCH --constraint=haswell
+
+rm core
+ulimit -c unlimited
+
+export LEAVECONFIGPATH=./
+
+
+export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
+export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+
+cd $BUILDDIR
+
+cp $SRCDIR/example/leaderworker/pipeline/test/addprocess.sh .
+rm test_exitstageserver*.log
+rm testclient.log
+rm test_elasticserver_add*.log
+# key envs
+PROTOCOL=gni
+
+SERVERNODE=2
+SERVERNUMINIT=8
+CLIENT_DYNAMIC_NUM=0
+
+# block config
+BLOCKLENW=64
+BLOCKLENH=64
+BLOCKLEND=64
+BLOCKNUM=256
+
+
+rm dynamic_drc.config
+
+rm dynamic_server_leader.config
+rm dynamic_sim_leader.config
+
+# no gjoin for initilization here
+# we start the process separately
+# the gjoin is only used for leader
+# we set is as 0 here, there is no joined server in this exp
+srun -C haswell -N $SERVERNODE -l -n $SERVERNUMINIT -c 4 --cpu_bind=cores --time=5:00 ./example/leaderworker/teststagingserver \
+              -a gni \
+              -v debug \
+              -t 4 \
+              -g 0 &> test_exitstageserver.log &
+
+# when the drc and the server addr exist
+while [ ! -f dynamic_server_leader.config ]
+do
+  sleep 1 
+done
+
+
+# start the client
+srun -C haswell -N 1 -l -n 4 -c 4 --cpu_bind=cores --time=5:00 ./example/leaderworker/testclient \
+              -a gni \
+              -v debug \
+              -t 4 \
+              -i 6 \
+              --initjoin $CLIENT_DYNAMIC_NUM \
+              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> testclient.log &
+
+
+# for cori claster, one process runs on one node
+# it does not allow the shared process between same node
+# by different srun command
+# check the siganal
+# add the server process if the siganal is detected
+x=1
+while true;
+do
+# this can be a signal to say that a new server should be started
+# there might multiple config files
+# we continue create server if there exist config
+result=`ls clientleave.config* |wc -l`
+if [ $result -eq 0 ]
+then
+  sleep 1
+else
+  # start one process and remove one
+  echo "config is detected $(date)"
+  echo "start one process"
+  fileName=`ls clientleave.config* |sed -n '1p'`
+  echo "remove ${fileName}"
+  rm $fileName
+  echo "remove filename ${fileName} $(date)"
+
+  # start the another server if there is leave message
+  # there are some issue if we start by system call
+  # the original process can not recognized as leave in that case
+  srun -C haswell -N 1 -n 1 -c 4 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
+           -a gni \
+           -t 4 \
+           -v debug \
+           -j &> test_elasticserver_add$x.log &
+  echo "srun is called for elasticserver$x at $(date)"
+  x=$(( $x + 1 ))
+fi
+done
+
+
+wait

@@ -4,7 +4,8 @@ spack:
   - py-mochi-margo @main %gcc@11.2.0
   - py-mochi-ssg @main +drc %gcc@11.2.0
   - py-mochi-colza @main %gcc@11.2.0
-  concretization: together
+  concretizer:
+    unify: true
   compilers:
   - compiler:
       paths:
@@ -293,4 +294,13 @@ spack:
       externals:
       - spec: zlib@1.2.11
         prefix: /usr
+    spdlog:
+      buildable: false
+      version: []
+      target: []
+      compiler: []
+      providers: {}
+      externals:
+      - spec: spdlog@1.10.0
+        prefix: /global/cscratch1/sd/zw241/build_spdlog/install
   view: true

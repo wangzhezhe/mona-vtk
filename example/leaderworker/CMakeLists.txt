@@ -30,14 +30,14 @@ add_executable (testsim
 ${CMAKE_CURRENT_SOURCE_DIR}/testsim.cpp 
 ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp
 )
-target_link_libraries (testsim MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
+target_link_libraries (testsim MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json spdlog::spdlog_header_only)
 
 # this is the test for elasticity for only mb sim program
 add_executable (elasticmb 
 ${CMAKE_CURRENT_SOURCE_DIR}/elasticmb.cpp 
 ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp
 )
-target_link_libraries (elasticmb MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
+target_link_libraries (elasticmb MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json spdlog::spdlog_header_only)
 
 # the mb sim is elstic and it also includes coza for this case
 #add_executable (elasticmbcolza
@@ -59,6 +59,7 @@ add_library (monabackend-pipeline-leaderworker SHARED ${monabackend-src-files})
 target_link_libraries (monabackend-pipeline-leaderworker
 mona-vtk-icet
 mona-vtk
+spdlog::spdlog_header_only
 ParaView::icet ParaView::RemotingViews ParaView::PythonCatalyst 
 VTK::ParallelMPI 
 VTK::CommonDataModel
@@ -70,26 +71,43 @@ VTK::IOLegacy)
 
 # build the colza server
 add_executable (mbcolzaserver mbcolzaserver.cpp)
-target_link_libraries (mbcolzaserver colza-server MPI::MPI_C ${DRC_LIBRARIES})
+target_link_libraries (mbcolzaserver colza-server MPI::MPI_C ${DRC_LIBRARIES} spdlog::spdlog_header_only)
 
 # build the leader worker server for testing
 add_executable (teststagingserver ./pipeline/test/teststagingserver.cpp)
 target_link_libraries (teststagingserver MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium 
 monabackend-pipeline-leaderworker
+spdlog::spdlog_header_only
 )
 
 add_executable (testsimsync ./pipeline/test/testsimsync.cpp)
-target_link_libraries (testsimsync MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
+target_link_libraries (testsimsync MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json spdlog::spdlog_header_only)
 
 add_executable (elasticmbleaderworker 
 ${CMAKE_CURRENT_SOURCE_DIR}/elasticmbleaderworker.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp)
-target_link_libraries (elasticmbleaderworker MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
+target_link_libraries (elasticmbleaderworker MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json spdlog::spdlog_header_only)
+
+
+add_executable (elastictestbcast 
+${CMAKE_CURRENT_SOURCE_DIR}/elastictestbcast.cpp
+${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp)
+target_link_libraries (elastictestbcast MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json spdlog::spdlog_header_only)
+
+
+add_executable (testclient 
+./pipeline/test/testclient.cpp
+${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp)
+target_link_libraries (testclient MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json spdlog::spdlog_header_only)
 
 add_executable (elasticmbstage 
 ${CMAKE_CURRENT_SOURCE_DIR}/elasticmbstage.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/ControllerClient.cpp)
-target_link_libraries (elasticmbstage MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json)
+target_link_libraries (elasticmbstage MPI::MPI_C ${DRC_LIBRARIES} PkgConfig::MONA thallium nlohmann_json::nlohmann_json spdlog::spdlog_header_only)
 
 add_executable (testDynamicProcessController ./pipeline/test/testDynamicProcessController.cpp)
+target_link_libraries(testDynamicProcessController PRIVATE spdlog::spdlog_header_only)
+
+
+
 add_subdirectory(dwaterclient)

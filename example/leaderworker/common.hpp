@@ -36,6 +36,7 @@ struct LeaderMeta
   // special metaData for leader process
   tl::mutex m_pendingProcessNum_mtx; // this value shows how many process need
                                      // to send to rpc to leader process
+                                     // this is not an accurate name
   int pendingProcessNum = 0;
   tl::mutex m_monaAddrmap_mtx;
   //the key is the thllium addr

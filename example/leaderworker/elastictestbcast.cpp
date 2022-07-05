@@ -1,7 +1,6 @@
 
 /*
- only the data staging is dynamic and elastic
- based on leader worker mechanism for this case
+ dynamic sim + dynamic staging based on leader worker mechanism
  */
 #include <mpi.h>
 #include <spdlog/spdlog.h>
@@ -88,6 +87,8 @@ int main(int argc, char** argv)
   bool leader = false;
   // only the first created one is the leader
   // the new joined one is not the leader
+  // the rank of new joined one can also be zero
+  // so we use two condition to make sure there is unique leader
   if (rank == 0 && (g_join == false))
   {
     leader = true;
@@ -186,75 +187,33 @@ int main(int argc, char** argv)
   double lastComputeSubmit =
     tl::timer::wtime(); // this value will be updated when the compute is submitted next time
   int avalibleDynamicProcess = g_num_initial_join;
-  // TODO get the wait time
+  bool leave = false;
   double lastWaitTime = 0;
-  double lastcomputationTime = 0;
+  double lastExecuteTime = 0;
+  double lastComputeTime = 0;
   while (step < g_num_iterations)
   {
+    // switch the process functionality
+    // we do nothing at the first step here
+    // remove process here (this should leave after the execution) of previous step
+    // avaliable slot also decrease, since at the first two step, we let it to be the 1
+    // the upper bound here for dynamic anticipation should be g_num_initial_join-2
+    // spdlog::info("start dynamicLeave for iteration {} ", step);
 
-    if (leader)
-    {
-      // the dedicated process will give siganal to associated one
-      // for the naive case, we add one if the wait Time is larger than a threshold
-      // for the adaptive case, we caculate this value
-
-      // if (step != 0 && lastWaitTime > 0.1)
-      if (step != 0)
-      {
-        /* static strategy
-        // write a file and the colza server can start
-        // trigger another server before leave
-        // make sure the added number match with the value in scripts
-        stagingClient.updateExpectedProcess("join", 4);
-        std::string leaveConfigPath = getenv("LEAVECONFIGPATH");
-        // the LEAVECONFIGPATH contains the
-        static std::string leaveFileName =
-          leaveConfigPath + "clientleave.config" + std::to_string(procRank);
-        std::cout << "leaveFile is " << leaveFileName << std::endl;
-        std::ofstream leaveFile;
-        leaveFile.open(leaveFileName);
-        leaveFile << "test\n";
-        leaveFile.close();
-        */
-        /* using model estimation */
-        // caculate the value of k based on model estimation
-        
-        std::cout << "debug start dynamicAddProcessToStaging " << step << std::endl;
-        int addNum = controller.m_dmpc.dynamicAddProcessToStaging(
-          "default", stagingClient.m_stagingView.size(), lastcomputationTime);
-        std::cout << "debug ok dynamicAddProcessToStaging " << step << std::endl;
-
-        stagingClient.updateExpectedProcess("join", addNum);
-        spdlog::info("add {} process for step {}", addNum, step);
-        // send the siganal
-        for (int k = 0; k < addNum; k++)
-        {
-          std::string signalName = "clientleave.config" + std::to_string(k);
-          std::ofstream fileStream;
-          fileStream.open(signalName);
-          fileStream << "test\n";
-          fileStream.close();
-          spdlog::info("send siganal {} for staging", signalName);
-        }
-        
-      }
-    }
-
-    // syncSimOperation
+    /* elasticity opertaion*/
 
     // for step 0, the sim is synced before the while loop
     auto syncSimStart = tl::timer::wtime();
     spdlog::info("start sync for iteration {} ", step);
-
-    // we do not call the sync operation if sim does not change
+    // TODO return the mona comm and get the step we should process
+    // get the step that needs to be processes after the sync operation
+    // the step should be syncronized from the leader
+    // we can get this message based on synced mona
+    controller.m_controller_client->sync(step, leader);
+    // ok to sync the sim program
 
     // the controller.m_controller_client->m_mona_comm is updated here
-    // we only sync for the first step, since the sim is static for this case
-    if (step == 0)
-    {
-      controller.m_controller_client->sync(step, leader);
-      controller.m_controller_client->getMonaComm(mona);
-    }
+    controller.m_controller_client->getMonaComm(mona);
 
     // mona comm check size and procs
     mona_comm_size(controller.m_controller_client->m_mona_comm, &procSize);
@@ -264,203 +223,30 @@ int main(int argc, char** argv)
 
     mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
 
-    if (leader)
-    {
-      spdlog::debug("iteration {} : rank={}, size={} simsynctime {}", step, procRank, procSize,
-        syncSimEnd - syncSimStart);
-    }
-
-    // compute part
-    // to do some actual work based on current info
-    // for the mb case, caculate how many data blocks should be maintaind in current size
-    auto caculateStart = tl::timer::wtime();
-    unsigned reminder = 0;
-    if (g_total_block_number % procSize != 0)
-    {
-      // the last process will process the reminder
-      reminder = (g_total_block_number) % unsigned(procSize);
-    }
-
-    unsigned nblocks_per_proc = g_total_block_number / procSize;
-    if (procRank < reminder)
-    {
-      // some process need to procee more than one
-      nblocks_per_proc = nblocks_per_proc + 1;
-    }
-    // this value will vary when there is process join/leave
-    // compare the nblocks_per_proc to see if it change
-    MandelbulbList.clear();
-
-    // caculate the order
-    double order = 4.0 + ((double)step) * 8.0 / 100.0;
-
-    // update the data list
-    // we may need to do some data marshal here, when the i is small, the time is shor
-    // when the i is large, the time is long, there is unbalance here
-    // the index should be 0, n-1, 1, n-2, ...
-    // the block id base may also need to be updated?
-    // init the list
-    int rank_offset = procSize;
-    int blockid = procRank;
-    for (int i = 0; i < nblocks_per_proc; i++)
-    {
-      if (blockid >= g_total_block_number)
-      {
-        continue;
-      }
-      int block_offset = blockid * g_block_depth;
-      // the block offset need to be recaculated, we can not use the resize function
-      MandelbulbList.push_back(Mandelbulb(g_block_width, g_block_height, g_block_depth,
-        block_offset, 1.2, blockid, g_total_block_number));
-      blockid = blockid + rank_offset;
-    }
-    auto caculateEnd1 = tl::timer::wtime();
-
-    // compute list (this is time consuming part)
-    std::vector<tl::managed<tl::thread> > ths;
-    for (int i = 0; i < nblocks_per_proc; i++)
-    {
-      // tl::managed<tl::thread> th = globalServerEnginePtr->get_handler_pool().make_thread(
-      // [&]() { MandelbulbList[i].compute(order); });
-      // ths.push_back(std::move(th));
-      MandelbulbList[i].compute(order);
-    }
-    // how to wait the finish of this thread?
-    // for (auto& mth : ths)
-    //{
-    //  mth->join();
-    //}
-
-    // wait finish
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
-    auto caculateEnd2 = tl::timer::wtime();
+    spdlog::info("iteration {} : rank={}, size={} simsynctime {}", step, procRank, procSize,
+      syncSimEnd - syncSimStart);
 
     if (leader)
     {
-      spdlog::info("iteration {} nblocks_per_proc {} compute time is {} and {}, sum {}", step,
-        nblocks_per_proc, caculateEnd2 - caculateEnd1, caculateEnd1 - caculateStart,
-        caculateEnd2 - caculateStart);
-      lastcomputationTime = caculateEnd2 - caculateStart;
+      step++;
     }
 
-    // waitTime
-    auto waitSart = tl::timer::wtime();
+    // sync the step
+    auto syncStep = tl::timer::wtime();
 
-    for (int i = 0; i < asyncResponses.size(); i++)
-    {
-      // wait the execution finish
-      int ret = asyncResponses[i].wait();
-      if (ret != 0)
-      {
-        throw std::runtime_error("failed for execution");
-      }
-    }
-
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
-    auto waitEend = tl::timer::wtime();
-
-    if (leader)
-    {
-      double stageComputation = waitEend - lastComputeSubmit;
-      spdlog::info("wait time for iteration {}: {} total stage computation {} ", step,
-        waitEend - waitSart, stageComputation);
-
-      lastWaitTime = waitEend - waitSart;
-
-      // TODO try to record the data for model using
-      // only record it from the second iteration, there is no staging operation at the first one
-      if (step > 0)
-      {
-        spdlog::info("iteration {} recordData {}, {}", step, stagingClient.m_stagingView.size(),
-          stageComputation);
-
-        // the size is still the last recorded size of staging part
-        controller.m_dmpc.recordData(
-          "staging", stageComputation, stagingClient.m_stagingView.size());
-      }
-    }
-
-    // we can start rescale and syncstage when execute finish
-    // start to sync the staging service
-    auto syncStageStart = tl::timer::wtime();
-    if (leader)
-    {
-      spdlog::info("start syncstage for step {}", step);
-
-      stagingClient.leadersync(step);
-    }
-    // use the new updated client comm
-    stagingClient.workerSyncMona(leader, step, rank, controller.m_controller_client->m_mona_comm);
-
-    // this may takes long time for first step
-    // make sure all servers do same things
-
+    spdlog::debug("current step value {} ", step);
     mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
 
-    // mona comm bcast
-    auto syncStageEnd = tl::timer::wtime();
-    if (leader)
+    ret = mona_comm_bcast(
+      controller.m_controller_client->m_mona_comm, &step, sizeof(step), 0, MONA_TESTSIM_BCAST_TAG);
+    if (ret != NA_SUCCESS)
     {
-      spdlog::info("iteration {} syncstage time is {} ", step, syncStageEnd - syncStageStart);
+      throw std::runtime_error("failed to execute bcast to get step value");
     }
+    auto syncStepEnd = tl::timer::wtime();
 
-    // colza stage
-    auto stageStart = tl::timer::wtime();
-
-    std::string dataSetName = "mydata";
-
-    for (int i = 0; i < MandelbulbList.size(); i++)
-    {
-
-      // stage the data at current iteration
-      int* extents = MandelbulbList[i].GetExtents();
-      // the extends value is from 0 to 29
-      // the dimension value should be extend value +1
-      // the sequence is depth, height, width
-      // there is +1 in the depth direaction
-      // the actual data is 1 larger for data allocation
-      std::vector<size_t> dimensions = { int2size_t(*(extents + 1)) + 1,
-        int2size_t(*(extents + 3)) + 1, int2size_t(*(extents + 5)) + 1 };
-      std::vector<int64_t> offsets = { MandelbulbList[i].GetZoffset(), 0, 0 };
-      
-      // we do not need to stage the data when testing the overhead of the rescaling
-      //auto type = Type::INT32;
-      //stagingClient.stage(dataSetName, step, MandelbulbList[i].GetBlockID(), dimensions, offsets,
-      //  type, MandelbulbList[i].GetData(), procRank);
-      /*
-      std::cout << "step " << step << " blockid " << blockid << " dimentions " << dimensions[0]
-                << "," << dimensions[1] << "," << dimensions[2] << " offsets " << offsets[0]
-                << "," << offsets[1] << "," << offsets[2] << " listvalueSize "
-                << MandelbulbList[i].DataSize() << std::endl;
-      */
-    }
-
-    // the execute can be async and we wait the execute finish before the next sync
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
-
-    auto stageEnd = tl::timer::wtime();
-
-    if (leader)
-    {
-      spdlog::info("iteration {} stage time {}", step, stageEnd - stageStart);
-    }
-    // start the execute
-    asyncResponses = stagingClient.execute(step, dataSetName, leader);
-    lastComputeSubmit = tl::timer::wtime();
-
-    step++;
-    // sync the step (do not need this if sim is not elastic)
-  }
-
-  // wait the last execution after the remove operation
-  for (int i = 0; i < asyncResponses.size(); i++)
-  {
-    // wait the execution finish
-    int ret = asyncResponses[i].wait();
-    if (ret != 0)
-    {
-      throw std::runtime_error("failed for execution wait for last iteration");
-    }
+    // this time is trival
+    spdlog::debug("get the step value {} from the master takes {}", step, syncStepEnd - syncStep);
   }
 
   spdlog::debug("Engine finalized, now finalizing MoNA...");

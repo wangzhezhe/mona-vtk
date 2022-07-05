@@ -1,21 +1,18 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=10
+#SBATCH --nodes=6
 #SBATCH --tasks-per-node=32
-#SBATCH --time=3:00
+#SBATCH --time=5:00
 #SBATCH --licenses=cscratch1
 #SBATCH --constraint=haswell
-
-# one pattern is to join gradually
-# another pattern is to join based on the policy
-# only the staging services is elastic in this case
-# the simulation program is not elastic in this case
-
 rm core
 ulimit -c unlimited
 
+export LEAVECONFIGPATH=./
+
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
+export LD_LIBRARY_PATH=/global/common/sw/cray-sles15-x86_64/gcc-8.2.0/mesa-18.3.6-qozjngg/lib:$LD_LIBRARY_PATH
 
 cd $BUILDDIR
 rm dynamic_drc.config
@@ -33,14 +30,13 @@ PROTOCOL=gni
 
 CLIENT_INIT_NODE=4
 CLIENT_INIT_NUM=32
-# we set this value as 0 to disable the simulation elasticity
-CLIENT_DYNAMIC_NUM=0
+CLIENT_DYNAMIC_NUM=1
 
 # server nodes
 SERVERNODE=1
 # set this value to 2 at least
 # otherwise there are issue to add new process, there is an extra bcast call
-SERVERPROCESS=4
+SERVERPROCESS=2
 CONFIG=$SRCDIR/example/leaderworker/pipeline/monaconfig.json
 SCRIPTPAT1=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
 SCRIPTPAT2=$SRCDIR/example/MandelbulbColza/pipeline/gridwriter.py
@@ -57,13 +53,14 @@ cp $SCRIPTPAT1 .
 cp $SCRIPTPAT2 .
 cp $SRCDIR/example/leaderworker/pipeline/test/addprocess.sh .
 
-# start the server firstly, no join
+# start the colza server firstly, no join
 srun -C haswell -N $SERVERNODE -n $SERVERPROCESS -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
             -a gni \
             -t 4 \
             -v debug \
             -g 0 &> elasticmb_elasticserver_$SERVERPROCESS.log &
- 
+
+echo "srun is called for elasticserver init at $(date)"
 
 # make sure the leader start
 while [ ! -f dynamic_server_leader.config ]
@@ -82,13 +79,14 @@ done
 
 
 # start the sim clients
-srun -C haswell -N $CLIENT_INIT_NODE -l -n $CLIENT_INIT_NUM -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbstage \
+srun -C haswell -N $CLIENT_INIT_NODE -l -n $CLIENT_INIT_NUM -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elastictestbcast \
               -a gni \
               -v debug \
               -t 4 \
-              -i 10 \
+              -i 15 \
               --initjoin $CLIENT_DYNAMIC_NUM \
               -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> elasticmb_elasticclient_init.log &
+
 
 # when there is multiple thread, start the dynamic case
 # check the drc file existance
@@ -104,53 +102,14 @@ sleep 1
 x=1
 while [ $x -le $CLIENT_DYNAMIC_NUM ]
 do
-  srun -C haswell -N 1 -l -n 4 -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbstage \
+  srun -C haswell -N 1 -l -n 1 -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elastictestbcast \
               -a gni \
-              -v info \
+              -v debug \
               -t 4 \
-              -i 10 \
+              -i 15 \
               --initjoin $CLIENT_DYNAMIC_NUM -j \
               -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> elasticmb_elasticclient_add$x.log &
   x=$(( $x + 1 ))
-done
-
-# use the trigger command to start
-# if there is client leave, start another colza server
-# TODO, we need to change this part gradually
-
-x=1
-while true;
-do
-# this can be a signal to say that a new server should be started
-# there might multiple config files
-# we continue create server if there exist config
-
-result=`ls clientleave.config* |wc -l`
-if [ $result -eq 0 ]
-then
-  echo "no config file, wait signal and sleep"
-  sleep 2
-else
-  # start one process and remove one
-  echo "config is detected $(date)"
-  # start one process and remove one
-  echo "start one process"
-  fileName=`ls clientleave.config* |sed -n '1p'`
-  echo "remove ${fileName}"
-  rm $fileName
-
-  # start the another server if there is leave message
-  # there are some issue if we start by system call
-  # the original process can not recognized as leave in that case
-  srun -C haswell -N 1 -n 4 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
-           -a gni \
-           -t 4 \
-           -v debug \
-           -j &> elasticmb_elasticserver_add$x.log &
-
-  echo "srun is started for $x and time $(date)"
-  x=$(( $x + 1 ))
-fi
 done
 
 wait

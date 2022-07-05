@@ -233,7 +233,7 @@ void ControllerClient::expectedUpdatingProcess(int num)
 {
   if (num < 0)
   {
-    throw std::runtime_error("expected process num  to be udpated should larger than 0");
+    throw std::runtime_error("expected process num to be udpated should larger than 0");
   }
   std::lock_guard<tl::mutex> lock(this->m_leader_meta->m_pendingProcessNum_mtx);
   this->m_leader_meta->pendingProcessNum = num;

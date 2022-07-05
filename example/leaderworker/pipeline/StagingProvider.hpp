@@ -166,8 +166,9 @@ public:
   // for non leader, try to deregister
   void addrDerigster()
   {
-    // send self mona to the 
-    if(m_stagecommon_meta -> m_ifleader == true){
+    // send self mona to the
+    if (m_stagecommon_meta->m_ifleader == true)
+    {
       throw std::runtime_error("leader process should not be derigister itsself");
       return;
     }
@@ -178,11 +179,10 @@ public:
 
     tl::provider_handle ph(leaderEndpoint, 0);
 
-    int result = removeProcess.on(ph)(
-      this->m_stagecommon_meta->m_thallium_self_addr);
+    int result = removeProcess.on(ph)(this->m_stagecommon_meta->m_thallium_self_addr);
     if (result != 0)
     {
-      throw std::runtime_error("failt to register to leader");
+      throw std::runtime_error("fail to deregister from leader");
     }
     return;
   }
@@ -555,6 +555,9 @@ public:
 
   void execute(const tl::request& req, std::string& dataset_name, uint64_t& iteration)
   {
+
+    auto executeStart = tl::timer::wtime();
+
     // TODO add another parameter to control the different execute functions
     // int result = this->m_stagecommon_meta->m_pipeline->execute(
     //   iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
@@ -564,8 +567,10 @@ public:
     //   iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
     // int result = this->m_stagecommon_meta->m_pipeline->executedwater(
     // iteration, dataset_name, this->m_stagecommon_meta->m_mona_comm);
+    auto executeEnd = tl::timer::wtime();
 
-    req.respond(result);
+    double executeTime = executeEnd - executeStart;
+    req.respond(executeTime);
   }
 
   void hello(const tl::request& req)

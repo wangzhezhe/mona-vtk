@@ -94,7 +94,6 @@ int main(int argc, char** argv)
   if (ret != SSG_SUCCESS)
     throw std::runtime_error("Could not open SSG group file");
   auto midengine = engine.get_margo_instance();
-  ret = ssg_group_observe(midengine, gid);
   if (ret != SSG_SUCCESS)
     throw std::runtime_error("Could not observe the SSG group from file");
   // get string addresses

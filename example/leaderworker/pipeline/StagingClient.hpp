@@ -357,28 +357,28 @@ public:
     return;
   }
 
-  void exit(int exitnum, bool leader)
+  bool exit(int exitnum, bool leader)
   {
     // exit a specific server
     // this is only called by the leader
     if (leader == false)
     {
       //exit is only called by leader
-      return;
+      return false;
     }
 
     int stagingSize = this->m_stagingView.size();
     if (exitnum > (stagingSize - 1))
     {
       spdlog::info("exit number is larger than staging server number");
-      return;
+      return false;
     }
 
     // server id from the 1 to the exit num
     // we do not remove the rank 0 server
     int count = 0;
-    int index = 0;
-    while (index++ < stagingSize && count < exitnum)
+    int index = stagingSize - 1;
+    while (index-- > 0 && count < exitnum)
     {
       if (this->m_stagingView[index] == m_stagingLeader)
       {
@@ -398,7 +398,7 @@ public:
       count++;
     }
 
-    return;
+    return true;
   }
 
   void stage(const std::string& dataset_name, uint64_t iteration, uint64_t block_id,

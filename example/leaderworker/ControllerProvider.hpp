@@ -44,7 +44,10 @@ public:
     define("sim_addMonaAddr", &ControllerProvider::addMonaAddr);
     define("sim_removeMonaAddr", &ControllerProvider::removeMonaAddr);
     define("sim_updateMonaAddrList", &ControllerProvider::updateMonaAddrList);
+    //define("sim_getexpectedNum", &ControllerProvider::getexpectedNum);
+
     define("sim_helloRPC", &ControllerProvider::hello);
+
     if (leader)
     {
       this->m_leader_meta = std::make_unique<LeaderMeta>(LeaderMeta());

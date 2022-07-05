@@ -295,7 +295,7 @@ static void MonaSendrecv(IceTCommunicator self, const void* sendbuf, int sendcou
   }
 
   mona_comm_sendrecv(comm, (void*)sendbuf, sendcount * sendtypesize, dest, sendtag, recvbuf,
-    recvcount * recvtypesize, src, recvtag, NULL, NULL, NULL);
+    recvcount * recvtypesize, src, recvtag, NULL);
 }
 
 static void MonaGather(IceTCommunicator self, const void* sendbuf, int sendcount, IceTEnum datatype,

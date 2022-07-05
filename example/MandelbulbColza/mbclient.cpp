@@ -14,6 +14,7 @@
 #include <ssg-mpi.h>
 #include <ssg.h>
 #include <tclap/CmdLine.h>
+#include <unistd.h>
 
 #ifdef USE_GNI
 extern "C"

@@ -24,12 +24,14 @@ struct Controller
     // the new joined process need to load the leader info from the config
     m_controller_client = std::make_unique<ControllerClient>(
       ControllerClient(engineptr, provider_id, leader_meta, common_meta, leaderAddrConfig));
-
+    
+    // only process this information for the leader procs
     if (leader_meta != nullptr)
     {
       // for the master case
       // set the initial process number that we need to sync
       // this is supposed to called once by leader process
+      // and other proces get this information from the leader procs
       m_controller_client->expectedUpdatingProcess(procs);
       spdlog::info("rank {} create master controller, update expected process", rank);
     }
@@ -42,6 +44,7 @@ struct Controller
     // if this is new added, the expected process number have been set
     // every one register its process, include the leader itsself
     spdlog::info("rank {} registerProcessToLeader", rank);
+    // the pending process num in the leader will be modified here
     m_controller_client->registerProcessToLeader(mona_addr);
     spdlog::info("rank {} registerProcessToLeader ok", rank);
   };
@@ -118,12 +121,10 @@ struct Controller
         m_controller_client->expectedUpdatingProcess(leaveNum);
       }
       mona_comm_barrier(m_controller_client->m_mona_comm, MONA_TESTLEAVE_BARRIER_TAG);
-
       // do the leave operation
       if (monaRank >= procs - leaveNum)
       {
         // call the leave RPC, send the req to the leader to deregister the addr
-
         spdlog::debug("mona rank {} call the process leave", monaRank);
         m_controller_client->removeProcess();
         leave = true;

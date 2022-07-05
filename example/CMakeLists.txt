@@ -1,8 +1,12 @@
 #set include dir for mochiController
-add_subdirectory(basic)
-add_subdirectory(icetExample)
-add_subdirectory(MandelbulbCatalystExample)
+#add_subdirectory(basic)
+#add_subdirectory(icetExample)
+#add_subdirectory(MandelbulbCatalystExample)
+
 add_subdirectory(MandelbulbColza)
+
 #add_subdirectory(GrayScottColza)
 #add_subdirectory(dyanmicsim)
 add_subdirectory(leaderworker)
+
+#add_subdirectory(spdexample)

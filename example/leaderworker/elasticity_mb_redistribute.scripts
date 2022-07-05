@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --qos=debug
-#SBATCH --nodes=10
+#SBATCH --nodes=8
 #SBATCH --tasks-per-node=32
 #SBATCH --time=5:00
 #SBATCH --licenses=cscratch1
@@ -8,7 +8,8 @@
 rm core
 ulimit -c unlimited
 
-export LEAVECONFIGPATH=./
+# the dir for detecting the upcomming signals for process adding/removing
+export CONFIGPATH=./
 
 export BUILDDIR=/global/cscratch1/sd/zw241/build_monavtk
 export SRCDIR=/global/homes/z/zw241/cworkspace/src/mona-vtk
@@ -21,6 +22,7 @@ rm dynamic_server_leader.config
 rm *.png
 rm elasticmb_*.log
 rm clientleave.config*
+rm testsim_add*.log
 
 rm elasticmb_elasticclient_*.log
 rm elasticmb_elasticserver_*.log
@@ -29,14 +31,17 @@ rm elasticmb_elasticserver_*.log
 PROTOCOL=gni
 
 CLIENT_INIT_NODE=4
+# there are issues when setting to 32 or 24
 CLIENT_INIT_NUM=32
-CLIENT_DYNAMIC_NUM=5
+CLIENT_DYNAMIC_NUM=2
+
+STEP=15
 
 # server nodes
-SERVERNODE=1
+SERVERNODE=2
 # set this value to 2 at least
 # otherwise there are issue to add new process, there is an extra bcast call
-SERVERPROCESS=2
+SERVERPROCESS=1
 CONFIG=$SRCDIR/example/leaderworker/pipeline/monaconfig.json
 SCRIPTPAT1=$SRCDIR/example/MandelbulbColza/pipeline/mbrender_64_iso.py
 SCRIPTPAT2=$SRCDIR/example/MandelbulbColza/pipeline/gridwriter.py
@@ -54,11 +59,11 @@ cp $SCRIPTPAT2 .
 cp $SRCDIR/example/leaderworker/pipeline/test/addprocess.sh .
 
 # start the colza server firstly, no join
-srun -C haswell -N $SERVERNODE -n $SERVERPROCESS -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
+srun -C haswell -N 1 -n 1 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
             -a gni \
             -t 4 \
             -v debug \
-            -g 0 &> elasticmb_elasticserver_$SERVERPROCESS.log &
+            -g 1 &> elasticmb_elasticserver_1.log &
 
 echo "srun is called for elasticserver init at $(date)"
 
@@ -67,6 +72,13 @@ while [ ! -f dynamic_server_leader.config ]
 do
   sleep 1 
 done
+
+# join the existing group for initial part
+srun -C haswell -N 1 -n 1 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
+            -a gni \
+            -t 4 \
+            -v debug \
+            -j &> elasticmb_elasticserver_2.log &
 
 #make sure the server load the pipeline
 result=0
@@ -81,9 +93,9 @@ done
 # start the sim clients
 srun -C haswell -N $CLIENT_INIT_NODE -l -n $CLIENT_INIT_NUM -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbleaderworker \
               -a gni \
-              -v info \
+              -v debug \
               -t 4 \
-              -i 10 \
+              -i $STEP \
               --initjoin $CLIENT_DYNAMIC_NUM \
               -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> elasticmb_elasticclient_init.log &
 
@@ -103,9 +115,9 @@ while [ $x -le $CLIENT_DYNAMIC_NUM ]
 do
   srun -C haswell -N 1 -l -n 1 -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbleaderworker \
               -a gni \
-              -v info \
+              -v debug \
               -t 4 \
-              -i 10 \
+              -i $STEP \
               --initjoin $CLIENT_DYNAMIC_NUM -j \
               -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> elasticmb_elasticclient_add$x.log &
   x=$(( $x + 1 ))
@@ -115,11 +127,13 @@ done
 # if there is client leave, start another colza server
 # TODO, we need to change this part gradually
 x=1
+y=1
 while true;
 do
 # this can be a signal to say that a new server should be started
 # there might multiple config files
 # we continue create server if there exist config
+# the wc -l only get the first one
 result=`ls clientleave.config* |wc -l`
 if [ $result -eq 0 ]
 then
@@ -127,7 +141,8 @@ then
 else
   # start one process and remove one
   echo "config is detected $(date)"
-  echo "start one process"
+  echo "start one staging process"
+  # only get the first one
   fileName=`ls clientleave.config* |sed -n '1p'`
   echo "remove ${fileName}"
   rm $fileName
@@ -136,6 +151,7 @@ else
   # start the another server if there is leave message
   # there are some issue if we start by system call
   # the original process can not recognized as leave in that case
+  # join the group after initial, do not need to set gnum
   srun -C haswell -N 1 -n 1 -c 8 -l --cpu_bind=cores --time=10:00 ./example/leaderworker/teststagingserver \
            -a gni \
            -t 4 \
@@ -144,6 +160,33 @@ else
   echo "srun is called for elasticserver$x at $(date)"
   x=$(( $x + 1 ))
 fi
+
+# check if it is necessary to add the simulation program
+result=`ls clientadd.config* |wc -l`
+if [ $result -eq 0 ]
+then
+  sleep 1
+else
+  # start one process and remove one
+  echo "clientadd is detected $(date)"
+  echo "start one sim process"
+  fileName=`ls clientadd.config* |sed -n '1p'`
+  echo "remove ${fileName}"
+  rm $fileName
+  echo "remove filename ${fileName} $(date)"
+  
+  srun -C haswell -N 1 -l -n 1 -c 8 --cpu_bind=cores --time=10:00 ./example/leaderworker/elasticmbleaderworker \
+              -a gni \
+              -v info \
+              -t 4 \
+              -i $STEP \
+              --initjoin $CLIENT_DYNAMIC_NUM -j \
+              -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> testsim_add$y.log &
+  echo "srun is called for testsim$y at $(date)"
+  y=$(( $y + 1 ))
+fi
+
+# while down
 done
 
 wait

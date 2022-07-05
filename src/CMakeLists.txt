@@ -1,3 +1,4 @@
+
 # list of source files
 set(mona-vtk-src MonaCommunicator.cpp
                   MonaController.cpp
@@ -22,7 +23,7 @@ set (MOCHIVTK_VERSION "${remi-vers}.${MOCHIVTK_VERSION_PATCH}")
 
 add_library(mona-vtk ${mona-vtk-src})
 target_link_libraries (mona-vtk mona
-	${VTK_LIBRARIES})
+	${VTK_LIBRARIES} spdlog::spdlog_header_only)
 target_include_directories (mona-vtk PUBLIC $<INSTALL_INTERFACE:include>)
 
 # local include's BEFORE, in case old incompatable .h files in prefix/include
@@ -36,7 +37,7 @@ set_target_properties (mona-vtk
 
 add_library(mona-vtk-icet ${mona-icet-src})
 # use the icet that is build by the paraview
-target_link_libraries (mona-vtk-icet mona ParaView::icet)
+target_link_libraries (mona-vtk-icet mona ParaView::icet spdlog::spdlog_header_only)
 
 set_target_properties (mona-vtk-icet
     PROPERTIES VERSION ${MOCHIVTK_VERSION}
