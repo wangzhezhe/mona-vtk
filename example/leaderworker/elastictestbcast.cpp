@@ -164,7 +164,7 @@ int main(int argc, char** argv)
   // provider should start initilzted firstly before the client
   // this is for the elasticity of the sim program
   ControllerProvider controllerProvider(*globalServerEnginePtr, 0, leader);
-
+  
   MPI_Barrier(MPI_COMM_WORLD);
   // create the controller
   // the rank 0 is not added into the worker
@@ -172,7 +172,7 @@ int main(int argc, char** argv)
   Controller controller(globalServerEnginePtr.get(), std::string(mona_addr_buf.data()), 0,
     procs + g_num_initial_join, controllerProvider.m_leader_meta.get(),
     controllerProvider.m_common_meta.get(), g_sim_leader_file, rank);
-
+    
   // the client used for sync staging view
   StagingClient stagingClient(globalServerEnginePtr.get(), g_server_leader_config);
 
@@ -209,7 +209,7 @@ int main(int argc, char** argv)
     // get the step that needs to be processes after the sync operation
     // the step should be syncronized from the leader
     // we can get this message based on synced mona
-    controller.m_controller_client->sync(step, leader);
+    controller.m_controller_client->sync(step, leader, rank);
     // ok to sync the sim program
 
     // the controller.m_controller_client->m_mona_comm is updated here

@@ -66,10 +66,18 @@ static void parse_command_line(int argc, char** argv, int rank);
 
 std::unique_ptr<tl::engine> globalServerEnginePtr;
 
-#define MONA_TESTSIM_BARRIER_TAG 2021
+#define MONA_TESTSIM_BARRIER_TAG1 2016
+#define MONA_TESTSIM_BARRIER_TAG2 2017
+#define MONA_TESTSIM_BARRIER_TAG3 2018
+#define MONA_TESTSIM_BARRIER_TAG4 2019
+#define MONA_TESTSIM_BARRIER_TAG5 2020
+#define MONA_TESTSIM_BARRIER_TAG6 2021
+
+
 #define MONA_TESTSIM_BCAST_TAG1 2022
 #define MONA_TESTSIM_BCAST_TAG2 2023
 #define MONA_TESTSIM_BCAST_TAG3 2024
+
 
 int main(int argc, char** argv)
 {
@@ -179,6 +187,12 @@ int main(int argc, char** argv)
   Controller controller(globalServerEnginePtr.get(), std::string(mona_addr_buf.data()), 0,
     procs + g_num_initial_join, controllerProvider.m_leader_meta.get(),
     controllerProvider.m_common_meta.get(), g_sim_leader_file, rank);
+
+  if(leader){
+    // for the leader process, store its m_leader_mona_addr
+    controller.m_controller_client->m_common_meta->m_leader_mona_addr = std::string(mona_addr_buf.data());
+  }
+
 
   // the client used for sync staging view
   StagingClient stagingClient(globalServerEnginePtr.get(), g_server_leader_config);
@@ -346,11 +360,13 @@ int main(int argc, char** argv)
     // get the step that needs to be processes after the sync operation
     // the step should be syncronized from the leader
     // we can get this message based on synced mona
-    controller.m_controller_client->sync(step, leader);
+    controller.m_controller_client->sync(step, leader, procRank);
     // ok to sync the sim program
+    spdlog::debug("sync ok for iteration {} ", step);
 
     // the controller.m_controller_client->m_mona_comm is updated here
     controller.m_controller_client->getMonaComm(mona);
+    spdlog::debug("getMonaComm ok for iteration {} ", step);
 
     // mona comm check size and procs
     mona_comm_size(controller.m_controller_client->m_mona_comm, &procSize);
@@ -358,11 +374,16 @@ int main(int argc, char** argv)
 
     auto syncSimEnd = tl::timer::wtime();
 
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
+    spdlog::debug("iteration {} : newrank={}, size={} ", step, procRank, procSize);
+
+    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG1);
 
     if (leader)
     {
-      spdlog::info("iteration {} : rank={}, size={} simsynctime {}", step, procRank, procSize,
+      //the rank of the leader may change after adding the new process
+      //it is not always the 0
+      //how does other ranks knows the leader rank?
+      spdlog::info("iteration {} : newrank={}, size={} simsynctime {}", step, procRank, procSize,
         syncSimEnd - syncSimStart);
     }
 
@@ -370,6 +391,7 @@ int main(int argc, char** argv)
     // there might be new added sim processes
     auto syncStep = tl::timer::wtime();
     spdlog::debug("current step value {} ", step);
+
     ret = mona_comm_bcast(
       controller.m_controller_client->m_mona_comm, &step, sizeof(step), 0, MONA_TESTSIM_BCAST_TAG2);
     if (ret != NA_SUCCESS)
@@ -447,13 +469,14 @@ int main(int argc, char** argv)
     //}
 
     // add synthetic time to adjust the simulation computation time
-    if (step >= 5 && step <= 9)
+    //if (step >= 5 && step <= 9)
+    if (step >= 4 && step <= 5)
     {
       sleep(8);
     }
 
     // wait finish
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
+    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG2);
     auto caculateEnd2 = tl::timer::wtime();
 
     if (leader)
@@ -481,7 +504,7 @@ int main(int argc, char** argv)
     mona_comm_bcast(controller.m_controller_client->m_mona_comm, &lastExecuteTime,
       sizeof(lastExecuteTime), 0, MONA_TESTSIM_BCAST_TAG3);
 
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
+    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG3);
     auto waitEend = tl::timer::wtime();
 
     // all process should record the waitTime, this is different compared with previous evaluation
@@ -522,7 +545,7 @@ int main(int argc, char** argv)
     // this may takes long time for first step
     // make sure all servers do same things
 
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
+    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG4);
 
     // mona comm bcast
     auto syncStageEnd = tl::timer::wtime();
@@ -562,7 +585,7 @@ int main(int argc, char** argv)
     }
 
     // the execute can be async and we wait the execute finish before the next sync
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
+    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG5);
 
     auto stageEnd = tl::timer::wtime();
 
@@ -591,7 +614,7 @@ int main(int argc, char** argv)
     }
 
     // make sure the master step is same for all proc
-    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG);
+    mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG6);
   }
 
   // wait the last execution after the remove operation

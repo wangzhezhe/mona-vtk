@@ -27,7 +27,7 @@ int ControllerClient::getPendingProcess()
   return this->m_leader_meta->pendingProcessNum;
 }
 
-void ControllerClient::sync(int iteration, bool leader)
+void ControllerClient::sync(int iteration, bool leader, int offset)
 {
   if (leader)
   {
@@ -92,45 +92,52 @@ void ControllerClient::sync(int iteration, bool leader)
 
         // TODO use cache here
         // TODO define it in the constructor
-        spdlog::debug("leader sent updated list to {} ", p.first);
+        spdlog::debug("leader start send updated list to {} ", p.first);
         // TODO use a cache here
         tl::endpoint workerEndpoint = this->lookup(p.first);
+        
+        //the leader process also need to tell others what is the rank 0 one
+        std::string leaderMonaAddr = this->m_common_meta->m_leader_mona_addr;
 
-        // TODO if it belongs to the m_first_added_set, then use all the list addr
-        if (this->m_leader_meta->m_first_added_set.size() > 0)
+        if (leaderMonaAddr == "")
         {
-          if (this->m_leader_meta->m_first_added_set.find(p.first) !=
-            this->m_leader_meta->m_first_added_set.end())
+          throw std::runtime_error("leader mona addr is not supposed to be empty");
+        }
+        // if it belongs to the m_first_added_set, then use all the list addr
+        if (this->m_leader_meta->m_first_added_set.find(p.first) !=
+          this->m_leader_meta->m_first_added_set.end())
+        {
+          // just checking
+          // when current addr is not in the added set
+          // it should not be the monaListA
+          spdlog::debug("iteration {} leader start sending updatedMonaListAll", iteration);
+          if (updatedMonaListAll.get() != nullptr)
           {
-            // just checking
-            // when current addr is not in the added set
-            // it should not be the monaListA
-            if (updatedMonaListAll.get() != nullptr)
-            {
-              // use the MonaListAll in this case
-              updateMonaAddrListRPC.on(workerEndpoint)(*(updatedMonaListAll.get()));
-              // if (result != 0)
-              //{
-              //  throw std::runtime_error("failed to notify to worker " + p.first);
-              //}
-              spdlog::debug("iteration {} leader sent updatedMonaListAll ok", iteration);
-            }
-            else
-            {
-              throw std::runtime_error("updatedMonaListAll is not supposed to be empty");
-            }
+            // use the MonaListAll in this case
+            updateMonaAddrListRPC.on(workerEndpoint)(*(updatedMonaListAll.get()), leaderMonaAddr);
+            // if (result != 0)
+            //{
+            //  throw std::runtime_error("failed to notify to worker " + p.first);
+            //}
+            spdlog::debug("iteration {} leader sent updatedMonaListAll ok", iteration);
+          }
+          else
+          {
+            throw std::runtime_error("updatedMonaListAll is not supposed to be empty");
           }
         }
         else
         {
+          // for others that exist
           // TODO use async call here
-          updateMonaAddrListRPC.on(workerEndpoint)(updatedMonaList);
+          spdlog::debug("iteration {} leader sent updatedMonaList to {}", iteration,
+            std::string(workerEndpoint));
+          updateMonaAddrListRPC.on(workerEndpoint)(updatedMonaList, leaderMonaAddr);
           spdlog::debug("iteration {} leader sent updatedMonaList ok", iteration);
         }
       }
 
       // also update things to itself's common data
-
       for (int i = 0; i < updatedMonaList.m_mona_added_list.size(); i++)
       {
         this->m_common_meta->m_monaaddr_set.insert(updatedMonaList.m_mona_added_list[i]);
@@ -157,7 +164,9 @@ void ControllerClient::sync(int iteration, bool leader)
   spdlog::info("iteration {} wait the sync addr list to be updated", iteration);
   while (this->m_common_meta->m_mona_addrlist_updated == false)
   {
+    // maybe set a random to make sure every thread do not start at the same time
     usleep(500000);
+    // tl::thread::sleep(*(this->m_clientengine_ptr), 300);
     tl::thread::yield();
   }
 
@@ -177,9 +186,57 @@ void ControllerClient::sync(int iteration, bool leader)
 void ControllerClient::getMonaComm(mona_instance_t mona)
 {
   // get m_member_addrs from the set
+
+  // always put the leader's mona addr as the first one
+  // just use a cache to store the master's addr
+  // for the first iteration, it is correct one
   std::vector<na_addr_t> m_member_addrs;
+  bool firstIter = true;
   for (auto& p : this->m_common_meta->m_monaaddr_set)
   {
+    if (firstIter)
+    {
+      // for the first one
+      // if we did not record it, then record
+      if (this->m_common_meta->m_leader_mona_addr == "")
+      {
+        // TODO existing issue, if this one is new added
+        // the first one is still itsself
+        // it does not know the leader mona addr
+        this->m_common_meta->m_leader_mona_addr = p;
+      }
+      else
+      {
+        // there is cache for that
+        // if current p is not first one
+        // insert the leader addr firstly
+        if (p != this->m_common_meta->m_leader_mona_addr)
+        {
+          // if current p is not the original leader
+          // insert the original leader firstly
+          na_addr_t addr = NA_ADDR_NULL;
+          na_return_t ret =
+            mona_addr_lookup(mona, this->m_common_meta->m_leader_mona_addr.c_str(), &addr);
+          if (ret != NA_SUCCESS)
+          {
+            throw std::runtime_error("failed for mona_addr_lookup for leader mona");
+          }
+
+          m_member_addrs.push_back(addr);
+        }
+        // if current p is the original leader
+        // do nothing
+      }
+    }
+    else
+    {
+      // for the non-first one
+      // if current p is leader one, it have been inserted
+      if (p == this->m_common_meta->m_leader_mona_addr)
+      {
+        continue;
+      }
+    }
 
     na_addr_t addr = NA_ADDR_NULL;
     na_return_t ret = mona_addr_lookup(mona, p.c_str(), &addr);
@@ -189,6 +246,8 @@ void ControllerClient::getMonaComm(mona_instance_t mona)
     }
 
     m_member_addrs.push_back(addr);
+
+    firstIter = false;
   }
 
   na_return_t ret =

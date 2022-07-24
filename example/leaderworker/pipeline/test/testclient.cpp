@@ -262,7 +262,7 @@ int main(int argc, char** argv)
     // get the step that needs to be processes after the sync operation
     // the step should be syncronized from the leader
     // we can get this message based on synced mona
-    controller.m_controller_client->sync(step, leader);
+    controller.m_controller_client->sync(step, leader,procRank);
     // ok to sync the sim program
 
     // the controller.m_controller_client->m_mona_comm is updated here

@@ -252,7 +252,7 @@ int main(int argc, char** argv)
     // we only sync for the first step, since the sim is static for this case
     if (step == 0)
     {
-      controller.m_controller_client->sync(step, leader);
+      controller.m_controller_client->sync(step, leader, procRank);
       controller.m_controller_client->getMonaComm(mona);
     }
 

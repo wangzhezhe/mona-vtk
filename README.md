@@ -92,7 +92,7 @@ We can load these depedencies if all packages are installed successfully. The sa
 Then we can build the mona-vtk the cmake command like this:
 
 ```
-cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_DIR=$SCRATCH/build_paraview_matthieu_release/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_matthieu_release/ -DBUILD_SHARED_LIBS=ON 
+cmake ~/cworkspace/src/mona-vtk/ -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DVTK_DIR=$SCRATCH/build_paraview_matthieu_release/ -DENABLE_EXAMPLE=ON -DParaView_DIR=$SCRATCH/build_paraview_matthieu_release/ -DBUILD_SHARED_LIBS=ON -Dspdlog_DIR=$SCRATCH/build_spdlog/install/lib64/cmake/spdlog/
 ```
 
 if we use openmpi that is not integrated with the cc and CC, we can use

@@ -257,7 +257,7 @@ int main(int argc, char** argv)
     // get the step that needs to be processes after the sync operation
     // the step should be syncronized from the leader
     // we can get this message based on synced mona
-    controller.m_controller_client->sync(step, leader);
+    controller.m_controller_client->sync(step, leader, rank);
 
     auto syncEnd1 = tl::timer::wtime();
 

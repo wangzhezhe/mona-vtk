@@ -106,7 +106,7 @@ public:
    */
   // const thallium::engine& engine() const;
 
-  void sync(int iteration, bool leader);
+  void sync(int iteration, bool leader, int offset);
 
   void registerProcessToLeader(std::string mona_addr);
 

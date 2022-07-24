@@ -51,6 +51,8 @@ struct LeaderMeta
   std::vector<std::string> m_added_list;
   std::vector<std::string> m_removed_list;
   std::set<std::string> m_first_added_set;
+
+
 };
 
 // meta information hold by every process
@@ -63,6 +65,10 @@ struct CommonMeta
   mona_instance_t m_mona;
   std::string m_mona_self_addr;
   std::set<std::string> m_monaaddr_set;
+
+  //to make sure the leader mona addr is always the rank 0
+  //in the view of mona comm
+  std::string m_leader_mona_addr = "";
 };
 
 #endif
