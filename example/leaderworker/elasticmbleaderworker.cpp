@@ -376,6 +376,7 @@ int main(int argc, char** argv)
 
     spdlog::debug("iteration {} : newrank={}, size={} ", step, procRank, procSize);
 
+    //it hangs there sometimes, there are issues in getting Mona Comm?
     mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG1);
 
     if (leader)

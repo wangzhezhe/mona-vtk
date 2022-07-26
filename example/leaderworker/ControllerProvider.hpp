@@ -44,7 +44,6 @@ public:
     define("sim_addMonaAddr", &ControllerProvider::addMonaAddr);
     define("sim_removeMonaAddr", &ControllerProvider::removeMonaAddr);
     define("sim_updateMonaAddrList", &ControllerProvider::updateMonaAddrList);
-    //define("sim_getexpectedNum", &ControllerProvider::getexpectedNum);
 
     define("sim_helloRPC", &ControllerProvider::hello);
 
@@ -139,7 +138,8 @@ public:
   // new created communicator
   // for the new joined proc
   // it has no way to know which one is the leader
-  void updateMonaAddrList(const tl::request& req, UpdatedMonaList& updatedMonaList, std::string& leaderMonaAddr)
+  void updateMonaAddrList(
+    const tl::request& req, UpdatedMonaList& updatedMonaList, std::string& leaderMonaAddr)
   {
 
     // when every client recieve the RPC
@@ -151,12 +151,17 @@ public:
 
     for (int i = 0; i < updatedMonaList.m_mona_added_list.size(); i++)
     {
-      this->m_common_meta->m_monaaddr_set.insert(updatedMonaList.m_mona_added_list[i]);
+      // this->m_common_meta->m_monaaddr_set.insert(updatedMonaList.m_mona_added_list[i]);
+      this->m_common_meta->m_monaaddr_list.push_back(updatedMonaList.m_mona_added_list[i]);
     }
 
     for (int i = 0; i < updatedMonaList.m_mona_remove_list.size(); i++)
     {
-      this->m_common_meta->m_monaaddr_set.erase(updatedMonaList.m_mona_remove_list[i]);
+      // this->m_common_meta->m_monaaddr_set.erase(updatedMonaList.m_mona_remove_list[i]);
+      this->m_common_meta->m_monaaddr_list.erase(
+        std::remove(this->m_common_meta->m_monaaddr_list.begin(),
+          this->m_common_meta->m_monaaddr_list.end(), updatedMonaList.m_mona_remove_list[i]),
+        this->m_common_meta->m_monaaddr_list.end());
     }
 
     // update its m_mona_addrlist_updated
@@ -166,9 +171,10 @@ public:
       this->m_common_meta->m_mona_addrlist_updated = true;
     }
 
-    //if the leader_mona_addr does not exist
-    //then try to put it here
-    if(this->m_common_meta->m_leader_mona_addr==""){
+    // if the leader_mona_addr does not exist
+    // then try to put it here
+    if (this->m_common_meta->m_leader_mona_addr == "")
+    {
       this->m_common_meta->m_leader_mona_addr = leaderMonaAddr;
     }
 

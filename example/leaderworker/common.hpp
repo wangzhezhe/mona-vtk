@@ -42,17 +42,15 @@ struct LeaderMeta
   //the key is the thllium addr
   //the value is the mona addr
   //we do not separate hash value in this case
-  //Attention! when we notiy all the worker, we need to use the thallium addr instead of mona addr
+  //Attention! when we notify all the worker, we need to use the thallium addr instead of mona addr
   std::map<std::string, std::string> m_mona_addresses_map;
-
+  
   //TODO we also need store the thallium addr, they are used for transering key messages
   //which is onpair with the mona things
   //the added list and removed list is for mona addr
   std::vector<std::string> m_added_list;
   std::vector<std::string> m_removed_list;
   std::set<std::string> m_first_added_set;
-
-
 };
 
 // meta information hold by every process
@@ -64,7 +62,11 @@ struct CommonMeta
   std::string m_self_uuid;
   mona_instance_t m_mona;
   std::string m_mona_self_addr;
-  std::set<std::string> m_monaaddr_set;
+  // maybe use a array instead of set here
+  // std::set<std::string> m_monaaddr_set;
+
+  // to make sure the element in increased by timestep sequence
+  std::vector<std::string> m_monaaddr_list;
 
   //to make sure the leader mona addr is always the rank 0
   //in the view of mona comm

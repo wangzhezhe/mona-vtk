@@ -55,23 +55,39 @@ void ControllerClient::sync(int iteration, bool leader, int offset)
       UpdatedMonaList updatedMonaList(
         this->m_leader_meta->m_added_list, this->m_leader_meta->m_removed_list);
       std::unique_ptr<UpdatedMonaList> updatedMonaListAll;
+
+      // update the leader's meta data, make sure its view is the latest one
+      // this need to be done firstly since we need to make addr_list
+      // in a consistent sequence for all members
+      // the new added one need to copy its mona_addr_list direactly
+      for (int i = 0; i < updatedMonaList.m_mona_added_list.size(); i++)
+      {
+        // this->m_common_meta->m_monaaddr_set.insert(updatedMonaList.m_mona_added_list[i]);
+        this->m_common_meta->m_monaaddr_list.push_back(updatedMonaList.m_mona_added_list[i]);
+      }
+
+      for (int i = 0; i < updatedMonaList.m_mona_remove_list.size(); i++)
+      {
+        // this->m_common_meta->m_monaaddr_set.erase(updatedMonaList.m_mona_remove_list[i]);
+
+        this->m_common_meta->m_monaaddr_list.erase(
+          std::remove(this->m_common_meta->m_monaaddr_list.begin(),
+            this->m_common_meta->m_monaaddr_list.end(), updatedMonaList.m_mona_remove_list[i]),
+          this->m_common_meta->m_monaaddr_list.end());
+      }
+
       // When there are process that are added firstly
       // we set the updatedmonalist as all existing mona addrs
-      // otherwise, this list is nullptr
       if (this->m_leader_meta->m_first_added_set.size() > 0)
       {
         spdlog::debug("debug iteration {} m_first_added_set {}", iteration,
           this->m_leader_meta->m_first_added_set.size());
-        std::vector<std::string> added;
+
+        // get whole updated monaaddr_list direactly
+        std::vector<std::string> added = this->m_common_meta->m_monaaddr_list;
         // this is empty
         std::vector<std::string> removed;
 
-        for (auto& p : this->m_leader_meta->m_mona_addresses_map)
-        {
-          // put all mona addr into this
-          added.push_back(p.second);
-        }
-        // there is new joined process here
         updatedMonaListAll = std::make_unique<UpdatedMonaList>(UpdatedMonaList(added, removed));
       }
 
@@ -84,6 +100,7 @@ void ControllerClient::sync(int iteration, bool leader, int offset)
         if (this->m_self_addr.compare(p.first) == 0)
         {
           // do not updates to itsself
+          // its have been updated
           continue;
         }
 
@@ -95,14 +112,15 @@ void ControllerClient::sync(int iteration, bool leader, int offset)
         spdlog::debug("leader start send updated list to {} ", p.first);
         // TODO use a cache here
         tl::endpoint workerEndpoint = this->lookup(p.first);
-        
-        //the leader process also need to tell others what is the rank 0 one
+
+        // the leader process also need to tell others what is the rank 0 one
         std::string leaderMonaAddr = this->m_common_meta->m_leader_mona_addr;
 
         if (leaderMonaAddr == "")
         {
           throw std::runtime_error("leader mona addr is not supposed to be empty");
         }
+
         // if it belongs to the m_first_added_set, then use all the list addr
         if (this->m_leader_meta->m_first_added_set.find(p.first) !=
           this->m_leader_meta->m_first_added_set.end())
@@ -137,17 +155,6 @@ void ControllerClient::sync(int iteration, bool leader, int offset)
         }
       }
 
-      // also update things to itself's common data
-      for (int i = 0; i < updatedMonaList.m_mona_added_list.size(); i++)
-      {
-        this->m_common_meta->m_monaaddr_set.insert(updatedMonaList.m_mona_added_list[i]);
-      }
-
-      for (int i = 0; i < updatedMonaList.m_mona_remove_list.size(); i++)
-      {
-        this->m_common_meta->m_monaaddr_set.erase(updatedMonaList.m_mona_remove_list[i]);
-      }
-
       this->m_common_meta->m_mona_addrlist_updated = true;
       // till this point, all workers should be notified, we set the mona list as empty
       this->m_leader_meta->m_added_list.clear();
@@ -177,7 +184,7 @@ void ControllerClient::sync(int iteration, bool leader, int offset)
   }
   // extract current mona addr
   spdlog::info("iteration {} size of the mona addr {} ", iteration,
-    this->m_common_meta->m_monaaddr_set.size());
+    this->m_common_meta->m_monaaddr_list.size());
   // maybe add a barrier here for future using
 }
 
@@ -191,53 +198,23 @@ void ControllerClient::getMonaComm(mona_instance_t mona)
   // just use a cache to store the master's addr
   // for the first iteration, it is correct one
   std::vector<na_addr_t> m_member_addrs;
-  bool firstIter = true;
-  for (auto& p : this->m_common_meta->m_monaaddr_set)
+
+  // set the leader as the first one manually
+  na_addr_t addr = NA_ADDR_NULL;
+  na_return_t ret = mona_addr_lookup(mona, this->m_common_meta->m_leader_mona_addr.c_str(), &addr);
+  if (ret != NA_SUCCESS)
   {
-    if (firstIter)
-    {
-      // for the first one
-      // if we did not record it, then record
-      if (this->m_common_meta->m_leader_mona_addr == "")
-      {
-        // TODO existing issue, if this one is new added
-        // the first one is still itsself
-        // it does not know the leader mona addr
-        this->m_common_meta->m_leader_mona_addr = p;
-      }
-      else
-      {
-        // there is cache for that
-        // if current p is not first one
-        // insert the leader addr firstly
-        if (p != this->m_common_meta->m_leader_mona_addr)
-        {
-          // if current p is not the original leader
-          // insert the original leader firstly
-          na_addr_t addr = NA_ADDR_NULL;
-          na_return_t ret =
-            mona_addr_lookup(mona, this->m_common_meta->m_leader_mona_addr.c_str(), &addr);
-          if (ret != NA_SUCCESS)
-          {
-            throw std::runtime_error("failed for mona_addr_lookup for leader mona");
-          }
+    throw std::runtime_error("failed for mona_addr_lookup for leader");
+  }
 
-          m_member_addrs.push_back(addr);
-        }
-        // if current p is the original leader
-        // do nothing
-      }
-    }
-    else
-    {
-      // for the non-first one
-      // if current p is leader one, it have been inserted
-      if (p == this->m_common_meta->m_leader_mona_addr)
-      {
-        continue;
-      }
-    }
+  m_member_addrs.push_back(addr);
 
+  for (auto& p : this->m_common_meta->m_monaaddr_list)
+  {
+    if (p == this->m_common_meta->m_leader_mona_addr)
+    {
+      continue;
+    }
     na_addr_t addr = NA_ADDR_NULL;
     na_return_t ret = mona_addr_lookup(mona, p.c_str(), &addr);
     if (ret != NA_SUCCESS)
@@ -246,12 +223,9 @@ void ControllerClient::getMonaComm(mona_instance_t mona)
     }
 
     m_member_addrs.push_back(addr);
-
-    firstIter = false;
   }
 
-  na_return_t ret =
-    mona_comm_create(mona, m_member_addrs.size(), m_member_addrs.data(), &(this->m_mona_comm));
+  ret = mona_comm_create(mona, m_member_addrs.size(), m_member_addrs.data(), &(this->m_mona_comm));
   if (ret != 0)
   {
     spdlog::debug("{}: MoNA communicator creation failed", __FUNCTION__);

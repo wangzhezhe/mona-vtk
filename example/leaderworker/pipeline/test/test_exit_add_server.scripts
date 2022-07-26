@@ -67,7 +67,7 @@ srun -C haswell -N 1 -l -n 4 -c 4 --cpu_bind=cores --time=5:00 ./example/leaderw
               -b $BLOCKNUM -w $BLOCKLENW -p $BLOCKLEND -e $BLOCKLENH &> testclient.log &
 
 
-# for cori claster, one process runs on one node
+# for cori cluster, one process runs on one node
 # it does not allow the shared process between same node
 # by different srun command
 # check the siganal

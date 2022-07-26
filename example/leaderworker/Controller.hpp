@@ -122,6 +122,9 @@ struct Controller
       }
       mona_comm_barrier(m_controller_client->m_mona_comm, MONA_TESTLEAVE_BARRIER_TAG);
       // do the leave operation
+      // todo, how to control this, if the current
+      // new added one is not at the last position
+      // how to make it to be the one that should leave
       if (monaRank >= procs - leaveNum)
       {
         // call the leave RPC, send the req to the leader to deregister the addr
