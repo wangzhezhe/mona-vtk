@@ -73,11 +73,9 @@ std::unique_ptr<tl::engine> globalServerEnginePtr;
 #define MONA_TESTSIM_BARRIER_TAG5 2020
 #define MONA_TESTSIM_BARRIER_TAG6 2021
 
-
 #define MONA_TESTSIM_BCAST_TAG1 2022
 #define MONA_TESTSIM_BCAST_TAG2 2023
 #define MONA_TESTSIM_BCAST_TAG3 2024
-
 
 int main(int argc, char** argv)
 {
@@ -188,11 +186,12 @@ int main(int argc, char** argv)
     procs + g_num_initial_join, controllerProvider.m_leader_meta.get(),
     controllerProvider.m_common_meta.get(), g_sim_leader_file, rank);
 
-  if(leader){
+  if (leader)
+  {
     // for the leader process, store its m_leader_mona_addr
-    controller.m_controller_client->m_common_meta->m_leader_mona_addr = std::string(mona_addr_buf.data());
+    controller.m_controller_client->m_common_meta->m_leader_mona_addr =
+      std::string(mona_addr_buf.data());
   }
-
 
   // the client used for sync staging view
   StagingClient stagingClient(globalServerEnginePtr.get(), g_server_leader_config);
@@ -226,14 +225,14 @@ int main(int argc, char** argv)
     if (step != 0)
     {
 
-      // if (leader)
-      //{
-      spdlog::info(
-        "step {} lastComputeTime {} lastExecuteTime {}", step, lastComputeTime, lastExecuteTime);
-      //}
+      if (leader)
+      {
+        spdlog::info(
+          "step {} lastComputeTime {} lastExecuteTime {}", step, lastComputeTime, lastExecuteTime);
+      }
 
       // the case to add new staging services
-      if (step >= 1 && ((lastExecuteTime - lastComputeTime) > 1.0))
+      if (step >= 1 && ((lastExecuteTime - lastComputeTime) > 1.5))
       {
         spdlog::info("step {} consider sim leave", step);
         // the leader node do not leave forever
@@ -246,7 +245,13 @@ int main(int argc, char** argv)
         // to set an bound here for remsining process that can leave
         if (procSize > 32)
         {
-          leave = controller.naiveLeave2(step, 1, procSize, procRank);
+          // leave = controller.naiveLeave2(step, 1, procSize, procRank);
+
+          // bool dynamicLeave2(int iteration, int stagingNum, int simNum, int simRank,
+          // int& avalibleDynamicProcess, double targetExec)
+
+          leave = controller.dynamicLeave2(step, stagingClient.m_stagingView.size(), procSize,
+            procRank, avalibleDynamicProcess, lastComputeTime);
         }
 
         // leave = controller.dynamicLeave(
@@ -284,7 +289,7 @@ int main(int argc, char** argv)
           // get the env about the leaveconfig path
           std::string leaveConfigPath = getenv("CONFIGPATH");
           // the LEAVECONFIGPATH contains the
-          static std::string leaveFileName =
+          std::string leaveFileName =
             leaveConfigPath + "clientleave.config" + std::to_string(procRank);
           std::cout << "leaveFileName is " << leaveFileName << std::endl;
           std::ofstream leaveFile;
@@ -305,7 +310,7 @@ int main(int argc, char** argv)
       // there is one mismatch between leader and worker for step here
       // the better condition should be that both lastComputeTime and lastExecuteTime is larger than
       // zero
-      if (leader && step >= 2 && ((lastComputeTime - lastExecuteTime) > 1.0))
+      if (leader && step >= 2 && ((lastComputeTime - lastExecuteTime) > 1.5))
       {
         // free one process
         // exit one data staging service
@@ -320,7 +325,21 @@ int main(int argc, char** argv)
         if (stagingSize > 2)
         {
           int addnum = 1;
+          // recompute this number for the case that use the model
+          // compute the expected number
+          // if it is less than staging size
+          // exit the staging
+          int expectedStg = controller.m_dmpc.expectedStagingNum(lastComputeTime);
+
+          if (expectedStg < stagingSize)
+          {
+            addnum = stagingSize - expectedStg;
+          }
+
+          spdlog::info("add sim operation at step {} addnum is {}", step, addnum);
+
           bool exitok = stagingClient.exit(addnum, leader);
+
           // update expected server number
           if (leader && exitok)
           {
@@ -328,17 +347,16 @@ int main(int argc, char** argv)
             // once by the leader rank
             // the expected data staging process
             // need to decrease one for the staging service
-            stagingClient.updateExpectedProcess("leave", 1);
+            stagingClient.updateExpectedProcess("leave", addnum);
             // need to add one for the sim for metadata, there is one pending for sim
-            controller.m_controller_client->expectedUpdatingProcess(1);
+            controller.m_controller_client->expectedUpdatingProcess(addnum);
 
             // send a siganal to start a new sim process
             std::string addConfigPath = getenv("CONFIGPATH");
             // the LEAVECONFIGPATH contains the
             for (int i = 0; i < addnum; i++)
             {
-              static std::string addFileName =
-                addConfigPath + "clientadd.config" + std::to_string(i);
+              std::string addFileName = addConfigPath + "clientadd.config" + std::to_string(i);
               std::cout << "addFileName is " << addFileName << std::endl;
               std::ofstream addFile;
               addFile.open(addFileName);
@@ -347,6 +365,9 @@ int main(int argc, char** argv)
               // trigger a service then break
               spdlog::info("send add sim signal at step {}", step);
             }
+
+            // add avalibleDynamicProcess back
+            avalibleDynamicProcess = avalibleDynamicProcess + addnum;
           }
         }
       }
@@ -376,14 +397,14 @@ int main(int argc, char** argv)
 
     spdlog::debug("iteration {} : newrank={}, size={} ", step, procRank, procSize);
 
-    //it hangs there sometimes, there are issues in getting Mona Comm?
+    // it hangs there sometimes, there are issues in getting Mona Comm?
     mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG1);
 
     if (leader)
     {
-      //the rank of the leader may change after adding the new process
-      //it is not always the 0
-      //how does other ranks knows the leader rank?
+      // the rank of the leader may change after adding the new process
+      // it is not always the 0
+      // how does other ranks knows the leader rank?
       spdlog::info("iteration {} : newrank={}, size={} simsynctime {}", step, procRank, procSize,
         syncSimEnd - syncSimStart);
     }
@@ -470,8 +491,8 @@ int main(int argc, char** argv)
     //}
 
     // add synthetic time to adjust the simulation computation time
-    //if (step >= 5 && step <= 9)
-    if (step >= 4 && step <= 5)
+    // if (step >= 4 && step <= 5)
+    if (step >= 5 && step <= 9)
     {
       sleep(8);
     }
@@ -521,6 +542,8 @@ int main(int argc, char** argv)
       // only record it from the second iteration, there is no staging operation at the first one
       if (step > 0)
       {
+        // the time for sync operation is also accumulated into this part
+        // is it necessary?
         spdlog::info("iteration {} recordData {}, {}", step, stagingClient.m_stagingView.size(),
           stageComputation);
 
@@ -541,19 +564,23 @@ int main(int argc, char** argv)
       stagingClient.leadersync(step);
     }
     // use the new updated client comm
-    stagingClient.workerSyncMona(leader, step, rank, controller.m_controller_client->m_mona_comm);
+    // be carefult to use the procRank, which is the mona based rank
+    stagingClient.workerSyncMona(leader, step, procRank, controller.m_controller_client->m_mona_comm);
 
     // this may takes long time for first step
     // make sure all servers do same things
+    
+    spdlog::info("iteration {} workerSyncMona ok ", step);
+
 
     mona_comm_barrier(controller.m_controller_client->m_mona_comm, MONA_TESTSIM_BARRIER_TAG4);
 
     // mona comm bcast
     auto syncStageEnd = tl::timer::wtime();
-    if (leader)
-    {
+    //if (leader)
+    //{
       spdlog::info("iteration {} syncstage time is {} ", step, syncStageEnd - syncStageStart);
-    }
+    //}
 
     // colza stage
     auto stageStart = tl::timer::wtime();
@@ -575,8 +602,13 @@ int main(int argc, char** argv)
       std::vector<int64_t> offsets = { MandelbulbList[i].GetZoffset(), 0, 0 };
 
       auto type = Type::INT32;
-      stagingClient.stage(dataSetName, step, MandelbulbList[i].GetBlockID(), dimensions, offsets,
-        type, MandelbulbList[i].GetData(), procRank);
+      
+      spdlog::info("iteration {} stage start {} ", step, i);
+      
+      //there are mona look up error after shrinking the proc back here 
+      //at second period, not sure the reason
+      //stagingClient.stage(dataSetName, step, MandelbulbList[i].GetBlockID(), dimensions, offsets,
+      //  type, MandelbulbList[i].GetData(), procRank);
       /*
       std::cout << "step " << step << " blockid " << blockid << " dimentions " << dimensions[0]
                 << "," << dimensions[1] << "," << dimensions[2] << " offsets " << offsets[0]

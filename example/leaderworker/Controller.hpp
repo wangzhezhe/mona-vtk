@@ -10,8 +10,8 @@
 
 namespace tl = thallium;
 
-#define MONA_TESTLEAVE_BARRIER_TAG 2023
-#define MONA_TESTLEAVE_BCAST_TAG 2024
+#define MONA_TESTLEAVE_BARRIER_TAG 2025
+#define MONA_TESTLEAVE_BCAST_TAG 2026
 
 struct Controller
 {
@@ -24,7 +24,7 @@ struct Controller
     // the new joined process need to load the leader info from the config
     m_controller_client = std::make_unique<ControllerClient>(
       ControllerClient(engineptr, provider_id, leader_meta, common_meta, leaderAddrConfig));
-    
+
     // only process this information for the leader procs
     if (leader_meta != nullptr)
     {
@@ -82,7 +82,7 @@ struct Controller
       }
     }
   }
-  
+
   // the pending process num at the leader must be udpated firstly
   bool naiveLeave(int iteration, int leaveNum, int monaRank)
   {
@@ -112,7 +112,7 @@ struct Controller
   bool naiveLeave2(int iteration, int leaveNum, int procs, int monaRank)
   {
     bool leave = false;
-    //if (iteration % 2 == 0 && iteration != 0)
+    // if (iteration % 2 == 0 && iteration != 0)
     if (iteration != 0)
     {
       if (monaRank == 0)
@@ -135,7 +135,90 @@ struct Controller
     }
     return leave;
   }
-  // different rank have differnet operations to control the process leaving
+
+  // use the offline parameter estimateions
+  bool dynamicLeave2(int iteration, int stagingNum, int simNum, int simRank,
+    int& avalibleDynamicProcess, double targetExec)
+  {
+    if (iteration == 0 || avalibleDynamicProcess == 0)
+    {
+      // we do nothing at the first iteration since the proc value is not initilized
+      return false;
+    }
+
+    // decide leavenumber for master and bcast to all clients
+    bool leave = false;
+    int leaveNum = 0;
+    if (simRank == 0)
+    {
+      // leader proc decide the leave number
+      // compute expected staging number
+      int expectedSnum = m_dmpc.expectedStagingNum(targetExec);
+      spdlog::info("iteration {} we caculate the expectedSnum {}, stagingNum {}", iteration,
+        expectedSnum, stagingNum);
+      if (expectedSnum <= stagingNum)
+      {
+        // the sim procs do not need to leave in this situation
+        // bcast 0
+        leaveNum = 0;
+      }
+      else
+      {
+
+        // how many sim should leave and how many stage should add back
+        leaveNum = expectedSnum - stagingNum;
+      }
+
+      if (leaveNum > avalibleDynamicProcess)
+      {
+        leaveNum = avalibleDynamicProcess;
+        avalibleDynamicProcess = 0;
+      }
+      else
+      {
+        avalibleDynamicProcess -= leaveNum;
+      }
+
+      spdlog::info(
+        "iteration {} we caculate the process leave number {}, avalibleDynamicProcess {}",
+        iteration, leaveNum, avalibleDynamicProcess);
+
+      // tell leader that we plan to add process to data staging service
+      m_controller_client->expectedUpdatingProcess(leaveNum);
+
+      mona_comm_bcast(this->m_controller_client->m_mona_comm, &leaveNum, sizeof(leaveNum), 0,
+        MONA_TESTLEAVE_BCAST_TAG);
+
+      return false;
+    }
+
+    // non-leader
+    // mona_comm_barrier(m_controller_client->m_mona_comm, MONA_TESTLEAVE_BARRIER_TAG);
+    // why there is garbage value when the leave number is 0 ???
+    mona_comm_bcast(this->m_controller_client->m_mona_comm, &leaveNum, sizeof(leaveNum), 0,
+      MONA_TESTLEAVE_BCAST_TAG);
+
+    spdlog::info("iteration {} get leaveNum {}", iteration, leaveNum);
+
+    // for non-leader processes
+    if (leaveNum == 0 || leaveNum > 5)
+    {
+      return false;
+    }
+    // do the leave operation for non zero process
+    if (simRank >= simNum - leaveNum)
+    {
+      // call the leave RPC, send the req to the leader to deregister the addr
+      spdlog::info(
+        "mona rank {} call the process leave, simNum {} leaveNum {}", simRank, simNum, leaveNum);
+      m_controller_client->removeProcess();
+      leave = true;
+    }
+    return leave;
+  }
+
+  // use the online parameter estimations
+  //  different rank have differnet operations to control the process leaving
   bool dynamicLeave(
     int iteration, int stagingNum, int simNum, int simRank, int& avalibleDynamicProcess)
   {

@@ -294,12 +294,15 @@ public:
 
     for (int i = 0; i < updatedMonaList.m_mona_added_list.size(); i++)
     {
-      this->m_stagecommon_meta->m_monaaddr_set.insert(updatedMonaList.m_mona_added_list[i]);
+      this->m_stagecommon_meta->m_monaaddr_list.push_back(updatedMonaList.m_mona_added_list[i]);
     }
 
     for (int i = 0; i < updatedMonaList.m_mona_remove_list.size(); i++)
     {
-      this->m_stagecommon_meta->m_monaaddr_set.erase(updatedMonaList.m_mona_remove_list[i]);
+      this->m_stagecommon_meta->m_monaaddr_list.erase(
+        std::remove(this->m_stagecommon_meta->m_monaaddr_list.begin(),
+          this->m_stagecommon_meta->m_monaaddr_list.end(), updatedMonaList.m_mona_remove_list[i]),
+        this->m_stagecommon_meta->m_monaaddr_list.end());
     }
 
     if (updatedMonaList.m_mona_added_list.size() != 0 ||
@@ -308,7 +311,7 @@ public:
       // update the mona_comm
       // mona things are actually updated
       std::vector<na_addr_t> m_member_addrs;
-      for (auto& p : this->m_stagecommon_meta->m_monaaddr_set)
+      for (auto& p : this->m_stagecommon_meta->m_monaaddr_list)
       {
 
         na_addr_t addr = NA_ADDR_NULL;
@@ -400,6 +403,52 @@ public:
       UpdatedMonaList updatedMonaList(
         this->m_stageleader_meta->m_added_list, this->m_stageleader_meta->m_removed_list);
       std::unique_ptr<UpdatedMonaList> updatedMonaListAll;
+
+      // update leader's meta firstly
+      for (int i = 0; i < updatedMonaList.m_mona_added_list.size(); i++)
+      {
+        this->m_stagecommon_meta->m_monaaddr_list.push_back(updatedMonaList.m_mona_added_list[i]);
+      }
+
+      for (int i = 0; i < updatedMonaList.m_mona_remove_list.size(); i++)
+      {
+
+        this->m_stagecommon_meta->m_monaaddr_list.erase(
+          std::remove(this->m_stagecommon_meta->m_monaaddr_list.begin(),
+            this->m_stagecommon_meta->m_monaaddr_list.end(), updatedMonaList.m_mona_remove_list[i]),
+          this->m_stagecommon_meta->m_monaaddr_list.end());
+      }
+
+      // recreate the mona comm when it is necessary
+      if (this->m_stageleader_meta->m_first_added_set.size() > 0 ||
+        updatedMonaList.m_mona_added_list.size() > 0 ||
+        updatedMonaList.m_mona_remove_list.size() > 0)
+      {
+        // mona things are actually updated
+        std::vector<na_addr_t> m_member_addrs;
+        for (auto& p : this->m_stagecommon_meta->m_monaaddr_list)
+        {
+
+          na_addr_t addr = NA_ADDR_NULL;
+          na_return_t ret = mona_addr_lookup(this->m_stagecommon_meta->m_mona, p.c_str(), &addr);
+          if (ret != NA_SUCCESS)
+          {
+            throw std::runtime_error("failed for mona_addr_lookup");
+          }
+
+          m_member_addrs.push_back(addr);
+        }
+
+        na_return_t ret = mona_comm_create(this->m_stagecommon_meta->m_mona, m_member_addrs.size(),
+          m_member_addrs.data(), &(this->m_stagecommon_meta->m_mona_comm));
+        if (ret != 0)
+        {
+          spdlog::debug("{}: MoNA communicator creation failed", __FUNCTION__);
+          throw std::runtime_error("failed to init mona communicator");
+        }
+        spdlog::debug("recreate the mona_comm, addr size {}", m_member_addrs.size());
+      }
+
       // When there are process that are added firstly
       // we set the updatedmonalist as all existing mona addrs
       // otherwise, this list is nullptr
@@ -407,15 +456,10 @@ public:
       {
         spdlog::debug("debug iteration {} m_first_added_set {}", iteration,
           this->m_stageleader_meta->m_first_added_set.size());
-        std::vector<std::string> added;
+        std::vector<std::string> added = this->m_stagecommon_meta->m_monaaddr_list;
         // this is empty
         std::vector<std::string> removed;
 
-        for (auto& p : this->m_stageleader_meta->m_mona_addresses_map)
-        {
-          // put all mona addr into this
-          added.push_back(p.second);
-        }
         // there is new joined process here
         updatedMonaListAll = std::make_unique<UpdatedMonaList>(UpdatedMonaList(added, removed));
       }
@@ -470,47 +514,6 @@ public:
         }
       }
 
-      // also update things to itself's common data
-      for (int i = 0; i < updatedMonaList.m_mona_added_list.size(); i++)
-      {
-        this->m_stagecommon_meta->m_monaaddr_set.insert(updatedMonaList.m_mona_added_list[i]);
-      }
-
-      for (int i = 0; i < updatedMonaList.m_mona_remove_list.size(); i++)
-      {
-        this->m_stagecommon_meta->m_monaaddr_set.erase(updatedMonaList.m_mona_remove_list[i]);
-      }
-
-      // recreate the mona comm when it is necessary
-      if (this->m_stageleader_meta->m_first_added_set.size() > 0 ||
-        updatedMonaList.m_mona_added_list.size() > 0 ||
-        updatedMonaList.m_mona_remove_list.size() > 0)
-      {
-        // mona things are actually updated
-        std::vector<na_addr_t> m_member_addrs;
-        for (auto& p : this->m_stagecommon_meta->m_monaaddr_set)
-        {
-
-          na_addr_t addr = NA_ADDR_NULL;
-          na_return_t ret = mona_addr_lookup(this->m_stagecommon_meta->m_mona, p.c_str(), &addr);
-          if (ret != NA_SUCCESS)
-          {
-            throw std::runtime_error("failed for mona_addr_lookup");
-          }
-
-          m_member_addrs.push_back(addr);
-        }
-
-        na_return_t ret = mona_comm_create(this->m_stagecommon_meta->m_mona, m_member_addrs.size(),
-          m_member_addrs.data(), &(this->m_stagecommon_meta->m_mona_comm));
-        if (ret != 0)
-        {
-          spdlog::debug("{}: MoNA communicator creation failed", __FUNCTION__);
-          throw std::runtime_error("failed to init mona communicator");
-        }
-        spdlog::debug("recreate the mona_comm, addr size {}", m_member_addrs.size());
-      }
-
       this->m_stageleader_meta->m_added_list.clear();
       this->m_stageleader_meta->m_removed_list.clear();
       // clean the first added vector
@@ -520,7 +523,6 @@ public:
 
     // return current thallium addrs
     std::vector<std::string> thalliumAddrs;
-
     {
       std::lock_guard<tl::mutex> lock(this->m_stageleader_meta->m_monaAddrmap_mtx);
       for (auto& p : this->m_stageleader_meta->m_mona_addresses_map)

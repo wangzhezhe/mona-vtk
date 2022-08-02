@@ -5,17 +5,17 @@
 
 tl::endpoint ControllerClient::lookup(const std::string& address)
 {
-  auto it = m_addrToEndpoints.find(address);
-  if (it == m_addrToEndpoints.end())
-  {
+  //auto it = m_addrToEndpoints.find(address);
+  //if (it == m_addrToEndpoints.end())
+  //{
     // do not lookup here to avoid the potential mercury race condition
     // throw std::runtime_error("failed to find addr, cache the endpoint at the constructor\n");
     auto endpoint = this->m_clientengine_ptr->lookup(address);
-    std::string tempAddr = address;
-    this->m_addrToEndpoints[tempAddr] = endpoint;
+    //std::string tempAddr = address;
+    //this->m_addrToEndpoints[tempAddr] = endpoint;
     return endpoint;
-  }
-  return it->second;
+  //}
+  //return it->second;
 }
 
 // this is called by every one

@@ -4,6 +4,7 @@
 #include "./Backend.hpp"
 #include <map>
 #include <set>
+#include <vector>
 #include <thallium.hpp>
 #include <thallium/serialization/stl/string.hpp>
 #include <thallium/serialization/stl/vector.hpp>
@@ -83,7 +84,9 @@ struct StagingCommonMeta
   std::string m_mona_self_addr;
 
   // store the current list for mona addr
-  std::set<std::string> m_monaaddr_set;
+  //std::set<std::string> m_monaaddr_set;
+  std::vector<std::string> m_monaaddr_list;
+
   bool m_ifleader = false;
 
   // the pipeline that provide data store, stage and execution

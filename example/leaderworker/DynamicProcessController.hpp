@@ -241,6 +241,17 @@ struct DynamicProcessController
     return enoughdata;
   }
 
+  int expectedStagingNum(const double& targetExecTime){
+    double m_a = 17.3360;
+    double m_b = -0.5455;
+    double newProcessNum = exp((log(targetExecTime) - log(m_a)) / m_b);
+    spdlog::info(
+      "newprocessnum: {} check newProcessNum estimate parameters targetExecTime {} a {} b {} ",
+      newProcessNum, targetExecTime, m_a, m_b);
+      
+    return ceil(newProcessNum);
+  }
+
   // current P is the current data staging number
   int dynamicAddProcessToStaging(
     const std::string modelName, const int& currentP, const double& targetExecTime)

@@ -61,7 +61,7 @@ void testCalculation2dPriorInfo()
   Model2d md(p1, p2);
 
   // check enough data
-  if (md.m_p3added==true)
+  if (md.m_p3added == true)
   {
     throw std::runtime_error("model should not be ready");
   }
@@ -70,7 +70,7 @@ void testCalculation2dPriorInfo()
   // add new point
   md.addPoint(p3);
   // check enough data
-  if (md.m_p3added==false)
+  if (md.m_p3added == false)
   {
     throw std::runtime_error("model should be ready");
   }
@@ -93,10 +93,29 @@ void testCalculation2dPriorInfo()
   std::cout << "get proc num4: " << procNum << std::endl;
 }
 
+void testexpectedStagingNum()
+{
+  std::cout << "---testexpectedStagingNum---" << std::endl;
+
+  double target = 18;
+  int count = 7;
+  DynamicProcessController dc;
+
+  while (count--)
+  {
+    int procNum = dc.expectedStagingNum(target);
+
+    std::cout << "target time " << target << " proc " << procNum << std::endl;
+    
+    target = target - 2;
+  }
+}
+
 int main()
 {
   testCalculation();
   testCalculation2d();
   testCalculation2dPriorInfo();
+  testexpectedStagingNum();
   return 0;
 }

@@ -51,17 +51,17 @@ public:
   // define lookup
   tl::endpoint lookup(const std::string& address)
   {
-    auto it = m_addrToEndpoints.find(address);
-    if (it == m_addrToEndpoints.end())
-    {
+    //auto it = m_addrToEndpoints.find(address);
+    //if (it == m_addrToEndpoints.end())
+    //{
       // do not lookup here to avoid the potential mercury race condition
       // throw std::runtime_error("failed to find addr, cache the endpoint at the constructor\n");
       auto endpoint = this->m_engineptr->lookup(address);
-      std::string tempAddr = address;
-      this->m_addrToEndpoints[tempAddr] = endpoint;
+      //std::string tempAddr = address;
+      //this->m_addrToEndpoints[tempAddr] = endpoint;
       return endpoint;
-    }
-    return it->second;
+    //}
+    //return it->second;
   }
 
   std::string loadLeaderAddr(std::string leaderAddrConfig)
@@ -120,16 +120,17 @@ public:
       this->m_viewUpdated = 1;
     }
   }
-
+  
   void workerSync(bool leader, int iteration, int rank)
   {
     if (leader)
     {
       // bcast updated
+      // there are issues if there are new comming sim during the process
       if (this->m_viewUpdated == 0)
       {
-        // na_return_t ret = mona_comm_bcast(controller.m_controller_client->m_mona_comm,
-        //  &this->m_viewUpdated, sizeof(int), monarank, MONA_SYNCVIEW_BCAST_TAG1);
+         //na_return_t ret = mona_comm_bcast(controller.m_controller_client->m_mona_comm,
+         // &this->m_viewUpdated, sizeof(int), monarank, MONA_SYNCVIEW_BCAST_TAG1);
         MPI_Bcast(&this->m_viewUpdated, 1, MPI_INT, 0, MPI_COMM_WORLD);
       }
       else if (this->m_viewUpdated == 1)
@@ -217,7 +218,7 @@ public:
           mona_comm_bcast(mona_comm, &group_size, sizeof(int), 0, MONA_SYNCVIEW_BCAST_TAG1);
         // MPI_Bcast(&group_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
         // use the packet addr
-        std::vector<char> packed_addresses(group_size * 256);
+        std::vector<char> packed_addresses(group_size * 256,'\0');
         for (int i = 0; i < group_size; i++)
         {
           spdlog::info("iteration {} pack addr {}", iteration, this->m_stagingView[i]);
@@ -238,18 +239,22 @@ public:
     else
     {
       // bcast updated
+      // the upstream may come from either the group or the view
       int viewUpdated = 0;
       na_return_t ret =
         mona_comm_bcast(mona_comm, &viewUpdated, sizeof(int), 0, MONA_SYNCVIEW_BCAST_TAG1);
       // MPI_Bcast(&viewUpdated, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-      // if not updated return
+      
       if (viewUpdated != 0)
       {
+        //either get 0 or the group size
         int group_size = viewUpdated;
-        // use the packet addr
-        std::vector<char> packed_addresses(group_size * 256);
 
+        spdlog::info("iteration {} worker group_size {}", iteration, group_size);
+
+        // use the packet addr
+        std::vector<char> packed_addresses(group_size * 256,'\0');
+        
         ret = mona_comm_bcast(
           mona_comm, packed_addresses.data(), packed_addresses.size(), 0, MONA_SYNCVIEW_BCAST_TAG2);
 
