@@ -1,3 +1,20 @@
+
+### Related papers
+
+M. Dorier, Z. Wang, U. Ayachit, S. Snyder, R. Ross and M. Parashar, "Colza: Enabling Elastic In Situ Visualization for High-performance Computing Simulations," 2022 IEEE International Parallel and Distributed Processing Symposium (IPDPS), Lyon, France, 2022, pp. 538-548, doi: 10.1109/IPDPS53621.2022.00059.
+
+Dorier, Matthieu, Zhe Wang, Srinivasan Ramesh, Utkarsh Ayachit, Shane Snyder, Rob Ross, and Manish Parashar. "Towards elastic in situ analysis for high-performance computing simulations." Journal of Parallel and Distributed Computing 177 (2023): 106-116.
+
+Zhe Wang, Matthieu Dorier, Pradeep Subedi, Philip E. Davis, and Manish Parashar. "Adaptive elasticity policies for staging-based in situ visualization." Future Generation Computer Systems 142 (2023): 75-89.
+
+A more recent repo for executing experiments from scratch can be found here:
+
+https://github.com/mochi-hpc-experiments/colza-experiments
+
+and 
+
+https://github.com/mochi-hpc-experiments/mona-vtk
+
 # MoNA-VTK examples
 
 This repo shows how to implement the MonaController and use it for Paraview Catalyst to do the in-situ data analytics. The `src` folder contains the implementation details of the MonaController based on the MonaCommunicator which is implemented based on [mochi-mona](https://github.com/mochi-hpc/mochi-mona).
